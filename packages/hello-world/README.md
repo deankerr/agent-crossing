@@ -20,7 +20,7 @@ docker swarm init --advertise-addr 127.0.0.1 --listen-addr 127.0.0.1:2377   # on
 pnpm --filter @agent-crossing/hello-world run deploy
 ```
 
-A deploy that changes a room builds a `linux/amd64` image of the node program with the local `docker` and uploads it, and Rivet then prepares the build. The first deploy here spent 12 minutes in that step. A sign-in session's token lasts 15 minutes and Alchemy reads it once before waiting, so a slow preparation fails with `HTTP 401`. Run the deploy again: it finds the uploaded build and carries on. The API is published on port 3000, on every interface of the host.
+A deploy that changes a room builds a `linux/amd64` image of the node program with the local `docker` and uploads it, and Rivet then prepares the build. The first deploy here spent 12 minutes in that step. A sign-in session's token lasts 15 minutes and Alchemy reads it once before waiting, so a slow preparation fails with `HTTP 401`. Run the deploy again: it finds the uploaded build and carries on ([alchemy-run/alchemy#3680](https://github.com/alchemy-run/alchemy/issues/3680)). The API is published on port 3000, on every interface of the host.
 
 ```sh
 curl -X POST localhost:3000/lobby/join
