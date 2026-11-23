@@ -1,0 +1,296 @@
+:root {
+  --ink: #3d3a4b;
+  --ink-soft: #7b7891;
+  --paper: #fffdf6;
+  --paper-deep: #f6f1e3;
+  --line: #e9e1cc;
+  --leaf: #6cc98a;
+  --sun: #ffc85c;
+  --sky: #cdeef8;
+  --berry: #b48cf0;
+  --panel-width: 360px;
+  color: var(--ink);
+  font-family:
+    ui-rounded, "SF Pro Rounded", "Nunito", "Varela Round", system-ui,
+    sans-serif;
+  font-size: 14px;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  background: var(--sky);
+  overflow: hidden;
+}
+
+.app {
+  display: flex;
+  height: 100%;
+}
+
+.stage {
+  flex: 1;
+  min-width: 0;
+  position: relative;
+}
+
+.overlay {
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+  position: absolute;
+}
+
+.hint {
+  background: rgb(255 253 246 / 80%);
+  border-radius: 999px;
+  bottom: 12px;
+  color: var(--ink-soft);
+  font-size: 12px;
+  left: 50%;
+  margin: 0;
+  padding: 6px 14px;
+  pointer-events: none;
+  position: absolute;
+  transform: translateX(-50%);
+}
+
+.side-panel {
+  background: var(--paper);
+  border-left: 3px solid var(--line);
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  width: var(--panel-width);
+}
+
+.panel-header {
+  align-items: center;
+  background: var(--paper-deep);
+  border-bottom: 2px solid var(--line);
+  display: flex;
+  justify-content: space-between;
+  padding: 14px 16px;
+}
+
+h1 {
+  font-size: 18px;
+  margin: 0;
+}
+
+h2 {
+  color: var(--ink-soft);
+  font-size: 12px;
+  letter-spacing: 0.06em;
+  margin: 0 0 6px;
+  text-transform: uppercase;
+}
+
+.badge {
+  align-items: center;
+  background: white;
+  border: 2px solid var(--line);
+  border-radius: 999px;
+  display: inline-flex;
+  font-size: 12px;
+  font-weight: 600;
+  gap: 6px;
+  padding: 3px 10px;
+}
+
+.badge-dot {
+  background: var(--ink-soft);
+  border-radius: 50%;
+  height: 8px;
+  width: 8px;
+}
+
+.badge-live .badge-dot {
+  background: var(--leaf);
+}
+
+.badge-demo .badge-dot {
+  background: var(--berry);
+}
+
+.badge-connecting .badge-dot,
+.badge-reconnecting .badge-dot {
+  animation: blink 1s ease-in-out infinite;
+  background: var(--sun);
+}
+
+@keyframes blink {
+  50% {
+    opacity: 0.3;
+  }
+}
+
+.panel-section {
+  border-bottom: 2px dashed var(--line);
+  padding: 12px 16px;
+}
+
+.quiet {
+  color: var(--ink-soft);
+}
+
+.waiting {
+  padding: 12px 16px;
+}
+
+ul,
+ol {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+li button {
+  align-items: baseline;
+  background: none;
+  border: 0;
+  border-radius: 8px;
+  color: inherit;
+  cursor: pointer;
+  display: flex;
+  font: inherit;
+  gap: 8px;
+  padding: 4px 6px;
+  text-align: left;
+  width: 100%;
+}
+
+li button:hover {
+  background: var(--paper-deep);
+}
+
+.roster {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px 8px;
+}
+
+.roster li {
+  flex: 1 1 140px;
+}
+
+.roster button {
+  align-items: center;
+}
+
+.swatch {
+  border: 2px solid white;
+  border-radius: 50%;
+  box-shadow: 0 0 0 1px var(--line);
+  flex: none;
+  height: 14px;
+  width: 14px;
+}
+
+.roster-name {
+  font-weight: 600;
+}
+
+.signs {
+  max-height: 128px;
+  overflow-y: auto;
+}
+
+.sign-text {
+  flex: 1;
+}
+
+.log-section {
+  border-bottom: 0;
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.log-scroller {
+  display: flex;
+  flex: 1;
+  flex-direction: column-reverse;
+  overflow-y: auto;
+}
+
+.log time {
+  color: var(--ink-soft);
+  flex: none;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+.log-Said span {
+  font-style: italic;
+}
+
+.log-Appeared span,
+.log-Vanished span,
+.log-Renamed span {
+  color: #5f7a9c;
+}
+
+.name-tag {
+  background: rgb(255 253 246 / 92%);
+  border: 2px solid;
+  border-radius: 999px;
+  color: var(--ink);
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  padding: 1px 9px;
+  pointer-events: none;
+  user-select: none;
+  white-space: nowrap;
+}
+
+.speech {
+  background: white;
+  border-radius: 14px;
+  box-shadow: 0 2px 6px rgb(61 58 75 / 18%);
+  color: var(--ink);
+  font-size: 13px;
+  line-height: 1.3;
+  max-width: 220px;
+  padding: 6px 11px;
+  pointer-events: none;
+  position: relative;
+  transform: translate(-50%, -100%);
+  user-select: none;
+  width: max-content;
+}
+
+.speech::after {
+  border: 7px solid transparent;
+  border-top-color: white;
+  bottom: -13px;
+  content: "";
+  left: 50%;
+  position: absolute;
+  transform: translateX(-50%);
+}
+
+.sign-card {
+  background: #f4dcae;
+  border: 3px solid #a0754c;
+  border-radius: 8px;
+  color: #4e3a24;
+  font-size: 13px;
+  font-weight: 600;
+  max-width: 240px;
+  padding: 6px 10px;
+  pointer-events: none;
+  text-align: center;
+  width: max-content;
+}
