@@ -5,6 +5,7 @@ import type { OxlintConfig } from "oxlint";
 import antiSlop from "ultracite/oxlint/anti-slop";
 import core from "ultracite/oxlint/core";
 import landmines from "ultracite/oxlint/landmines";
+import react from "ultracite/oxlint/react";
 import vitest from "ultracite/oxlint/vitest";
 
 type Rules = NonNullable<OxlintConfig["rules"]>;
@@ -46,6 +47,13 @@ export default defineConfig({
     typeAware: true,
     typeCheck: true,
   },
+  overrides: [
+    {
+      files: ["packages/viewer/**"],
+      plugins: react.plugins,
+      rules: react.rules,
+    },
+  ],
   rules: {
     ...effectGenerators,
     ...effectDualApisNamedLikeArrayMethods,
