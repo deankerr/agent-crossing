@@ -4,7 +4,7 @@ import { Timestamp } from "@agent-crossing/world/values";
 import { World } from "@agent-crossing/world/world";
 import * as Schema from "effect/Schema";
 
-import { Numbered, Seq } from "./journal.ts";
+import { Numbered, Seq, Told } from "./journal.ts";
 
 export const Verdict = Schema.TaggedUnion({
   Accepted: { events: Schema.Array(WorldEvent) },
@@ -26,7 +26,7 @@ export const Report = Schema.Struct({ verdict: Verdict, ...CatchUp.fields });
 export type Report = typeof Report.Type;
 
 export const StreamItem = Schema.TaggedUnion({
-  Happened: { seq: Seq, event: WorldEvent },
+  Happened: Told.fields,
   Heartbeat: {},
 });
 
@@ -37,4 +37,13 @@ export const heartbeat: StreamItem = StreamItem.cases.Heartbeat.make({});
 export const StoredRow = Schema.Struct({
   seq: Seq,
   event: Schema.fromJsonString(WorldEvent),
+  text: Schema.NullOr(Schema.String),
 });
+
+export type StoredRow = typeof StoredRow.Type;
+
+export const toldOf = ({ event, seq, text }: StoredRow) => {
+  const told: Told = text === null ? { event, seq } : { event, seq, text };
+
+  return told;
+};

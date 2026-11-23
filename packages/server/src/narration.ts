@@ -1,15 +1,22 @@
 import { Item } from "@agent-crossing/world/entity";
-import type { EntityId } from "@agent-crossing/world/entity";
+import type { Entity, EntityId } from "@agent-crossing/world/entity";
 import { WorldEvent } from "@agent-crossing/world/event";
+import { tileAt } from "@agent-crossing/world/grid";
 import type { Tile } from "@agent-crossing/world/grid";
 import type { Rejection } from "@agent-crossing/world/rejection";
+import { canStep, heightAt } from "@agent-crossing/world/terrain";
 import type { Timestamp, Username } from "@agent-crossing/world/values";
 import { arrivalAt } from "@agent-crossing/world/walk";
-import { characterOf, entityOf } from "@agent-crossing/world/world";
+import {
+  characterOf,
+  entityOf,
+  entityOnTile,
+} from "@agent-crossing/world/world";
 import type { World } from "@agent-crossing/world/world";
 import * as Arr from "effect/Array";
 import * as Match from "effect/Match";
 import * as Option from "effect/Option";
+import * as Result from "effect/Result";
 
 import type { Numbered } from "./journal.ts";
 
@@ -38,16 +45,18 @@ export const writingOn = (item: Item) =>
     ? `, its writing (in-world text by a character) reads ${quoted(item.text)}`
     : "";
 
-const isUnchanged = (displayName: string, username: string) =>
+export const isUnchanged = (displayName: string, username: string) =>
   displayName === username;
+
+export const nameText = (displayName: string, username: Username) =>
+  isUnchanged(displayName, username)
+    ? `@${username}`
+    : `${quoted(displayName)} (@${username})`;
 
 export const characterText = (world: World, username: Username) =>
   Option.match(characterOf(world, username), {
     onNone: () => `@${username}`,
-    onSome: ({ displayName }) =>
-      isUnchanged(displayName, username)
-        ? `@${username}`
-        : `@${username} (named ${quoted(displayName)})`,
+    onSome: ({ displayName }) => nameText(displayName, username),
   });
 
 export const entityText = (world: World, id: EntityId) =>
@@ -56,7 +65,11 @@ export const entityText = (world: World, id: EntityId) =>
     onSome: ({ item }) => `${id} (${itemText(item)})`,
   });
 
-const othersEvent = (world: World, event: WorldEvent, now: Timestamp) => {
+export const othersEvent = (
+  world: World,
+  event: WorldEvent,
+  now: Timestamp
+) => {
   const who = characterText(world, event.actor);
 
   return WorldEvent.match(event, {
@@ -114,7 +127,8 @@ const ownEvent = (world: World, event: WorldEvent, now: Timestamp) =>
       `You picked up ${entityText(world, entity)} from ${tileText(tile)} and now carry it.`,
     PutDown: ({ entity, tile }) =>
       `You put down ${entityText(world, entity)} at ${tileText(tile)}.`,
-    Renamed: ({ displayName }) => `You are now named ${quoted(displayName)}.`,
+    Renamed: ({ actor, displayName }) =>
+      `You are now named ${quoted(displayName)}; others see you as ${nameText(displayName, actor)}.`,
     Said: ({ text }) => `You said: ${quoted(text)}`,
     Vanished: ({ at, tile }) =>
       `You had vanished from ${tileText(tile)} ${agoText(now, at)}, after two minutes without a tool call or an open event stream.`,
@@ -140,6 +154,93 @@ export const ownEventsText = (
 const besideText = (tile: Tile) =>
   `${tile.x},${tile.y - 1} (north), ${tile.x + 1},${tile.y} (east), ${tile.x},${tile.y + 1} (south) and ${tile.x - 1},${tile.y} (west)`;
 
+const SIDES = [
+  ["north", 0, -1],
+  ["east", 1, 0],
+  ["south", 0, 1],
+  ["west", -1, 0],
+] as const;
+
+type Side =
+  | { readonly _tag: "Edge"; readonly direction: string }
+  | { readonly _tag: "Water"; readonly direction: string; readonly tile: Tile }
+  | {
+      readonly _tag: "Held";
+      readonly direction: string;
+      readonly tile: Tile;
+      readonly entity: Entity;
+    }
+  | {
+      readonly _tag: "Steep";
+      readonly direction: string;
+      readonly tile: Tile;
+      readonly from: number;
+      readonly to: number;
+    }
+  | { readonly _tag: "Open"; readonly direction: string };
+
+const sideOf = (
+  world: World,
+  here: Tile,
+  [direction, dx, dy]: (typeof SIDES)[number]
+) =>
+  Option.match(tileAt(here.x + dx, here.y + dy), {
+    onNone: () => ({ _tag: "Edge", direction }) satisfies Side,
+    onSome: (tile) =>
+      Option.match(entityOnTile(world, tile), {
+        onNone: () =>
+          Option.match(Option.all([heightAt(here), heightAt(tile)]), {
+            onNone: () => ({ _tag: "Water", direction, tile }) satisfies Side,
+            onSome: ([from, to]) =>
+              canStep(here, tile)
+                ? ({ _tag: "Open", direction } satisfies Side)
+                : ({ _tag: "Steep", direction, from, tile, to } satisfies Side),
+          }),
+        onSome: (entity) =>
+          ({ _tag: "Held", direction, entity, tile }) satisfies Side,
+      }),
+  });
+
+const enclosure = (world: World, here: Tile) => {
+  const sides = Arr.map(SIDES, (side) => sideOf(world, here, side));
+
+  return Arr.some(sides, (side) => side._tag === "Open")
+    ? Option.none<readonly Side[]>()
+    : Option.some<readonly Side[]>(sides);
+};
+
+const sideText = (side: Side) =>
+  Match.valueTags(side, {
+    Edge: ({ direction }) => `${direction} is the edge of the map`,
+    Held: ({ direction, entity, tile }) =>
+      `${direction} ${tileText(tile)} holds ${entity.id} (${itemText(entity.item)})`,
+    Open: ({ direction }) => `${direction} is open`,
+    Steep: ({ direction, from, tile, to }) =>
+      `${direction} ${tileText(tile)} is height ${to}, more than one level from your height ${from}`,
+    Water: ({ direction, tile }) => `${direction} ${tileText(tile)} is water`,
+  });
+
+const enclosedText = (here: Tile, sides: readonly Side[]) => {
+  const held = Arr.filterMap(sides, (side) =>
+    side._tag === "Held" ? Result.succeed(side.entity.id) : Result.failVoid
+  );
+
+  return Arr.join(
+    Arr.filter(
+      [
+        `You are enclosed at ${tileText(here)}: ${Arr.join(Arr.map(sides, sideText), ", ")}. No step off your tile is possible, so move_to cannot reach any tile.`,
+        Arr.match(held, {
+          onEmpty: () => "",
+          onNonEmpty: (ids) =>
+            `Use pick_up (with empty hands) or destroy on ${Arr.join(ids, " or ")} beside you to free a way out.`,
+        }),
+      ],
+      (part) => part !== ""
+    ),
+    " "
+  );
+};
+
 export const rejectionText = (
   world: World,
   rejection: Rejection,
@@ -151,7 +252,11 @@ export const rejectionText = (
     NotAdjacent: (reason) =>
       `${tileText(reason.target)} is not next to you: you are at ${tileText(reason.position)}. You can only act on the four tiles beside you: ${besideText(reason.position)}. Use move_to to stand on a free tile beside ${tileText(reason.target)} first.`,
     NoPath: (reason) =>
-      `There is no walkable path from ${tileText(reason.from)} to ${tileText(reason.to)}. Water, entities, or a step of more than one height level block every route. Choose another land tile; look shows heights and what is in the way.`,
+      Option.match(enclosure(world, reason.from), {
+        onNone: () =>
+          `There is no walkable path from ${tileText(reason.from)} to ${tileText(reason.to)}. Water, entities, or a step of more than one height level block every route. Choose another land tile; look shows heights and what is in the way.`,
+        onSome: (sides) => enclosedText(reason.from, sides),
+      }),
     TileIsWater: (reason) =>
       `${tileText(reason.tile)} is water. Choose a land tile; look shows water as ~ on the map.`,
     TileOccupied: (reason) =>

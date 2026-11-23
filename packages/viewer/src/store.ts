@@ -1,8 +1,10 @@
+import * as Effect from "effect/Effect";
 import * as Result from "effect/Result";
+import type * as Schema from "effect/Schema";
 
 import type { LocalClock } from "./clock.ts";
 import { decodeFrame } from "./feed.ts";
-import type { WorldFeed } from "./feed.ts";
+import type { Frame, UnknownFrame, WorldFeed } from "./feed.ts";
 import { initialState, receive, withConnection } from "./viewer-state.ts";
 import type { ViewerState } from "./viewer-state.ts";
 
@@ -13,7 +15,26 @@ export interface ViewerStore {
   readonly stop: () => void;
 }
 
-export const startViewer = (feed: WorldFeed, clock: LocalClock) => {
+export type UndecodableFrame = (
+  frame: Frame,
+  error: Schema.SchemaError | UnknownFrame
+) => void;
+
+export const logUndecodableFrame: UndecodableFrame = (frame, error) => {
+  Effect.runSync(
+    Effect.logError(
+      `Dropped a "${frame.event}" message from the world feed that did not decode`,
+      error.message,
+      { data: frame.data, event: frame.event }
+    ).pipe(Effect.annotateLogs({ source: "agent-crossing-viewer" }))
+  );
+};
+
+export const startViewer = (
+  feed: WorldFeed,
+  clock: LocalClock,
+  onUndecodable: UndecodableFrame = logUndecodableFrame
+) => {
   let state = initialState("connecting");
   const listeners = new Set<() => void>();
 
@@ -32,9 +53,14 @@ export const startViewer = (feed: WorldFeed, clock: LocalClock) => {
     onFrame: (frame) => {
       const decoded = decodeFrame(frame);
 
-      if (Result.isSuccess(decoded)) {
-        publish(receive(state, decoded.success, clock()));
-      }
+      Result.match(decoded, {
+        onFailure: (error) => {
+          onUndecodable(frame, error);
+        },
+        onSuccess: (message) => {
+          publish(receive(state, message, clock()));
+        },
+      });
     },
   });
 

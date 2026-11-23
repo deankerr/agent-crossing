@@ -10,6 +10,7 @@ import {
   heardIn,
   isFor,
   spectator,
+  toldTo,
 } from "../src/journal.ts";
 
 const alice = Username.make("alice");
@@ -54,11 +55,31 @@ describe("journal", () => {
       audience: [alice, bob],
       event: said(alice, tile(1, 1)),
       seq: 1,
+      text: "@alice at 1,1 said",
     };
 
     expect(isFor(spectator, entry)).toBeTruthy();
     expect(isFor(characterAudience(bob), entry)).toBeTruthy();
     expect(isFor(characterAudience(alice), entry)).toBeFalsy();
     expect(isFor(characterAudience(carol), entry)).toBeFalsy();
+  });
+
+  it("gives a character the told text and a spectator only the event", () => {
+    const entry = {
+      audience: [bob],
+      event: said(alice, tile(1, 1)),
+      seq: 2,
+      text: "told",
+    };
+
+    expect(toldTo(characterAudience(bob), entry)).toStrictEqual({
+      event: entry.event,
+      seq: 2,
+      text: "told",
+    });
+    expect(toldTo(spectator, entry)).toStrictEqual({
+      event: entry.event,
+      seq: 2,
+    });
   });
 });

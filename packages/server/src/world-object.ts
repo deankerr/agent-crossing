@@ -24,7 +24,7 @@ import * as Semaphore from "effect/Semaphore";
 import * as Stream from "effect/Stream";
 
 import { Default } from "./cluster.ts";
-import { Audience, heardIn, isFor, numbered, Seq } from "./journal.ts";
+import { Audience, heardIn, isFor, Seq, toldTo } from "./journal.ts";
 import type { Entry, Heard } from "./journal.ts";
 import {
   CatchUp,
@@ -32,6 +32,7 @@ import {
   Report,
   StoredRow,
   StreamItem,
+  toldOf,
   Verdict,
 } from "./wire.ts";
 
@@ -65,7 +66,7 @@ const encodeStreamItem = (item: StreamItem) =>
   Effect.orDie(Schema.encodeEffect(StreamItem)(item));
 
 const SCHEMA = [
-  "CREATE TABLE IF NOT EXISTS events (seq INTEGER PRIMARY KEY AUTOINCREMENT, actor TEXT NOT NULL, event TEXT NOT NULL)",
+  "CREATE TABLE IF NOT EXISTS events (seq INTEGER PRIMARY KEY AUTOINCREMENT, actor TEXT NOT NULL, event TEXT NOT NULL, text TEXT)",
   "CREATE TABLE IF NOT EXISTS audiences (username TEXT NOT NULL, seq INTEGER NOT NULL, PRIMARY KEY (username, seq)) WITHOUT ROWID",
   "CREATE TABLE IF NOT EXISTS cursors (username TEXT PRIMARY KEY, seq INTEGER NOT NULL) WITHOUT ROWID",
 ] as const;
@@ -99,6 +100,14 @@ const instance = Effect.gen(function* () {
     discard: true,
   });
 
+  const hasText = yield* run<{ count: number }>(
+    "SELECT COUNT(*) AS count FROM pragma_table_info('events') WHERE name = 'text'"
+  );
+
+  if ((hasText[0]?.count ?? 0) === 0) {
+    yield* run("ALTER TABLE events ADD COLUMN text TEXT");
+  }
+
   const serialised = Semaphore.withPermits(yield* Semaphore.make(1), 1);
   const live = yield* PubSub.unbounded<Entry>();
 
@@ -113,12 +122,13 @@ const instance = Effect.gen(function* () {
     (rows) => rows[0]?.head ?? 0
   );
 
-  const appendOne = ({ audience, event }: Heard) =>
+  const appendOne = ({ audience, event, text }: Heard) =>
     Effect.gen(function* () {
       const rows = yield* run<{ seq: number }>(
-        "INSERT INTO events (actor, event) VALUES (?, ?) RETURNING seq",
+        "INSERT INTO events (actor, event, text) VALUES (?, ?, ?) RETURNING seq",
         event.actor,
-        yield* encodeEventJson(event)
+        yield* encodeEventJson(event),
+        text
       );
 
       const seq = yield* Effect.orDie(
@@ -136,7 +146,7 @@ const instance = Effect.gen(function* () {
         { discard: true }
       );
 
-      const entry: Entry = { audience, event, seq };
+      const entry: Entry = { audience, event, seq, text };
 
       return entry;
     });
@@ -182,7 +192,7 @@ const instance = Effect.gen(function* () {
       Audience.match(audience, {
         Character: ({ username }) =>
           run(
-            "SELECT e.seq AS seq, e.event AS event FROM audiences a JOIN events e ON e.seq = a.seq WHERE a.username = ? AND e.actor <> ? AND a.seq > ? AND a.seq <= ? ORDER BY a.seq",
+            "SELECT e.seq AS seq, e.event AS event, e.text AS text FROM audiences a JOIN events e ON e.seq = a.seq WHERE a.username = ? AND e.actor <> ? AND a.seq > ? AND a.seq <= ? ORDER BY a.seq",
             username,
             username,
             after,
@@ -190,12 +200,12 @@ const instance = Effect.gen(function* () {
           ),
         Spectator: () =>
           run(
-            "SELECT seq, event FROM events WHERE seq > ? AND seq <= ? ORDER BY seq",
+            "SELECT seq, event, NULL AS text FROM events WHERE seq > ? AND seq <= ? ORDER BY seq",
             after,
             upTo
           ),
       }),
-      (rows) => Effect.orDie(decodeRows(rows))
+      (rows) => Effect.map(Effect.orDie(decodeRows(rows)), Arr.map(toldOf))
     );
 
   const catchUpOf = (username: Username, server: Server, now: Timestamp) =>
@@ -329,12 +339,11 @@ const instance = Effect.gen(function* () {
 
           const fresh = Stream.fromSubscription(opened.subscription).pipe(
             Stream.filter((entry) => isFor(audience, entry)),
-            Stream.map(numbered)
+            Stream.map((entry) => toldTo(audience, entry))
           );
 
-          const happenings = Stream.map(
-            Stream.concat(replay, fresh),
-            ({ event, seq }) => StreamItem.cases.Happened.make({ event, seq })
+          const happenings = Stream.map(Stream.concat(replay, fresh), (told) =>
+            StreamItem.cases.Happened.make(told)
           );
 
           const beats = Stream.map(

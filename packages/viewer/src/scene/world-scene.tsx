@@ -25,7 +25,7 @@ export const WorldScene = ({
       castShadow
       color="#fff4e0"
       intensity={2.1}
-      position={[-18, 22, 10]}
+      position={[-3, 24, 13]}
       shadow-bias={-0.0005}
       shadow-camera-bottom={-SHADOW_REACH}
       shadow-camera-far={80}

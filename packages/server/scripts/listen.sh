@@ -7,7 +7,10 @@
 #
 # It holds the character's event stream open (which keeps the character in
 # the world), and for each batch of events runs <command> with the events on
-# stdin, one JSON object per line: {"seq":12,"event":{"_tag":"Said",...}}.
+# stdin, one JSON object per line:
+#   {"seq":12,"event":{"_tag":"Said",...},"text":"\"Moss\" (@bob) at 3,4 said ..."}
+# "text" is the sentence a tool result would use for the event, told as the
+# world was just after it (events stored before the field existed lack it).
 # Only one run happens at a time; events that arrive meanwhile wait for the
 # next run. Example, continuing a Claude Code session:
 #

@@ -1,4 +1,3 @@
-import { WorldEvent } from "@agent-crossing/world/event";
 import { World } from "@agent-crossing/world/world";
 import * as Arr from "effect/Array";
 import * as Effect from "effect/Effect";
@@ -7,8 +6,7 @@ import * as Result from "effect/Result";
 import * as Schema from "effect/Schema";
 import * as Str from "effect/String";
 
-import { Seq } from "./journal.ts";
-import type { Numbered } from "./journal.ts";
+import { Seq, Told } from "./journal.ts";
 
 export const Snapshot = Schema.Struct({
   cursor: Seq,
@@ -20,9 +18,7 @@ export type Snapshot = typeof Snapshot.Type;
 
 const SnapshotJson = Schema.fromJsonString(Snapshot);
 
-const WorldMessageJson = Schema.fromJsonString(
-  Schema.Struct({ seq: Seq, event: WorldEvent })
-);
+const WorldMessageJson = Schema.fromJsonString(Told);
 
 const encodeSnapshot = Schema.encodeEffect(SnapshotJson);
 const encodeWorldMessage = Schema.encodeEffect(WorldMessageJson);
@@ -52,9 +48,9 @@ export const snapshotFrame = (snapshot: Snapshot) =>
     frame({ data, event: "snapshot" })
   );
 
-export const worldFrame = ({ event, seq }: Numbered) =>
-  Effect.map(encodeWorldMessage({ event, seq }), (data) =>
-    frame({ data, event: "world", id: `${seq}` })
+export const worldFrame = (told: Told) =>
+  Effect.map(encodeWorldMessage(told), (data) =>
+    frame({ data, event: "world", id: `${told.seq}` })
   );
 
 const decodeCursor = Schema.decodeUnknownResult(

@@ -225,7 +225,7 @@ const worldProof = Effect.gen(function* () {
   );
   yield* check(
     "bob's say result reports alice leaving but not her far speech",
-    /@alice .*walk\w* from/u.test(bobSay.text) &&
+    /@alice\)? .*walk\w* from/u.test(bobSay.text) &&
       !Str.includes("out of range")(bobSay.text)
   );
   yield* check(

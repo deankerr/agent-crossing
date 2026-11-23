@@ -7,6 +7,8 @@ import type { World } from "@agent-crossing/world/world";
 import * as Arr from "effect/Array";
 import * as Schema from "effect/Schema";
 
+import { othersEvent } from "./narration.ts";
+
 export const Seq = Schema.Natural;
 
 export type Seq = typeof Seq.Type;
@@ -14,6 +16,7 @@ export type Seq = typeof Seq.Type;
 export const Heard = Schema.Struct({
   event: WorldEvent,
   audience: Schema.Array(Username),
+  text: Schema.String,
 });
 
 export type Heard = typeof Heard.Type;
@@ -25,6 +28,13 @@ export type Entry = typeof Entry.Type;
 export const Numbered = Schema.Struct({ seq: Seq, event: WorldEvent });
 
 export type Numbered = typeof Numbered.Type;
+
+export const Told = Schema.Struct({
+  ...Numbered.fields,
+  text: Schema.optionalKey(Schema.String),
+});
+
+export type Told = typeof Told.Type;
 
 export const Audience = Schema.TaggedUnion({
   Character: { username: Username },
@@ -51,7 +61,11 @@ export const heardIn = (world: World, events: readonly WorldEvent[]) =>
     events,
     Arr.drop(Arr.scan(events, world, evolve), 1),
     (event, after) =>
-      ({ audience: audienceOf(after, event), event }) satisfies Heard
+      ({
+        audience: audienceOf(after, event),
+        event,
+        text: othersEvent(after, event, event.at),
+      }) satisfies Heard
   );
 
 export const isFor = (audience: Audience, entry: Entry) =>
@@ -63,3 +77,9 @@ export const isFor = (audience: Audience, entry: Entry) =>
 
 export const numbered = ({ event, seq }: Entry) =>
   ({ event, seq }) satisfies Numbered;
+
+export const toldTo = (audience: Audience, entry: Entry) =>
+  Audience.match(audience, {
+    Character: () => ({ ...numbered(entry), text: entry.text }) satisfies Told,
+    Spectator: () => numbered(entry) satisfies Told,
+  });

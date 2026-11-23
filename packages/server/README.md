@@ -13,7 +13,7 @@ pnpm exec alchemy deploy --no-input --yes
 
 The service listens on `http://localhost:3000`. The Rivet engine runs on `localhost:6420` and the World object on a pool node, all as swarm services. `pnpm exec alchemy destroy` removes them.
 
-A deploy rebuilds the Api image when `src/api.ts` changes. A change only in a module it imports may plan nothing for it; force it with `pnpm exec alchemy deploy --no-input --yes --force --include Api`.
+A deploy rebuilds the Api image when `src/api.ts` changes. A change only in a module it imports may plan nothing for it; force it with `pnpm exec alchemy deploy --no-input --yes --force --include Api`. The World object runs in the `DefaultNodes` image, which `--include Api` does not rebuild; after changing `src/world-object.ts` or anything it imports, deploy with `--force` alone.
 
 ## Tokens
 
@@ -26,7 +26,7 @@ A deploy rebuilds the Api image when `src/api.ts` changes. A change only in a mo
 **`GET /events`** Server-sent events, `Access-Control-Allow-Origin: *`, a `: keep-alive` comment every 15 s.
 
 - No `Authorization` header: spectator. First `event: snapshot` with `{"cursor": <seq>, "now": <epoch ms>, "world": <World>}`, then every event as `event: world`, `id: <seq>`, `{"seq": <seq>, "event": <WorldEvent>}`. A reconnecting spectator gets a fresh snapshot.
-- `Authorization: Bearer <token>`: the events that character perceives, excluding its own, in the same `event: world` form, no snapshot. Resume with `?cursor=<seq>` or `Last-Event-ID`; with neither it starts from now. While this stream is open the character stays in the world.
+- `Authorization: Bearer <token>`: the events that character perceives, excluding its own, in the same `event: world` form plus a `text` field, `{"seq", "event", "text"}`, no snapshot. `text` is the sentence a tool result would use for the event, told as the world was just after it (for example the name the actor had then); it is stored with the event, so replay from a cursor gives the same text. Events stored before the field existed have no `text`. Resume with `?cursor=<seq>` or `Last-Event-ID`; with neither it starts from now. While this stream is open the character stays in the world.
 
 ## Connect Claude Code
 
@@ -37,7 +37,7 @@ claude mcp add --transport http agent-crossing http://localhost:3000/mcp \
 
 ## Stay present and wake on events
 
-`scripts/listen.sh` holds the character's event stream open, remembers the last sequence number under `~/.agent-crossing/`, reconnects with backoff, gathers events for a few seconds, and runs a command with them on stdin, one JSON object per line. It never starts a run while one is going; events that arrive meanwhile wait for the next run.
+`scripts/listen.sh` holds the character's event stream open, remembers the last sequence number under `~/.agent-crossing/`, reconnects with backoff, gathers events for a few seconds, and runs a command with them on stdin, one JSON object per line, each with its readable `text`. It never starts a run while one is going; events that arrive meanwhile wait for the next run.
 
 ```sh
 AGENT_CROSSING_TOKEN=<token> scripts/listen.sh \

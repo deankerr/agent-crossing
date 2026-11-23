@@ -9,6 +9,8 @@ import type {
   Observation,
 } from "@agent-crossing/world/perception";
 import { heightAt } from "@agent-crossing/world/terrain";
+import type { Username } from "@agent-crossing/world/values";
+import { characterOf } from "@agent-crossing/world/world";
 import type { World } from "@agent-crossing/world/world";
 import * as Arr from "effect/Array";
 import * as Option from "effect/Option";
@@ -17,7 +19,9 @@ import * as Str from "effect/String";
 import {
   characterText,
   inTime,
+  isUnchanged,
   itemText,
+  quoted,
   tileText,
   writingOn,
 } from "./narration.ts";
@@ -119,6 +123,15 @@ const characterLine =
         : `, walking to ${tileText(walking.destination)} (arrives ${inTime(now, walking.arrivesAt)})`
     }`;
 
+const selfNameText = (world: World, username: Username) =>
+  Option.match(characterOf(world, username), {
+    onNone: () => `@${username}`,
+    onSome: ({ displayName }) =>
+      isUnchanged(displayName, username)
+        ? `@${username} (you have not set a display name)`
+        : `${quoted(displayName)} (username @${username})`,
+  });
+
 const listText = (title: string, lines: readonly string[]) =>
   Arr.join(
     [
@@ -136,7 +149,7 @@ export const selfText = (world: World, observation: Observation) => {
 
   return Arr.join(
     [
-      `You are ${characterText(world, self.username)}, at ${tileText(self.tile)} ${groundText(self.tile)}, carrying ${carryingText(self.carrying)}.`,
+      `You are ${selfNameText(world, self.username)}, at ${tileText(self.tile)} ${groundText(self.tile)}, carrying ${carryingText(self.carrying)}.`,
       ...(self.walking === null
         ? []
         : [

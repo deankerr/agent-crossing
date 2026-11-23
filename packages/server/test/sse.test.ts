@@ -56,6 +56,26 @@ describe("server-sent events", () => {
     )
   );
 
+  it.effect("adds the told text for a character's stream", () =>
+    Effect.map(
+      worldFrame({
+        event: WorldEvent.cases.Appeared.make({
+          actor: alice,
+          at: 5,
+          tile: centre,
+        }),
+        seq: 4,
+        text: "@alice appeared at 16,16.",
+      }),
+      (framed) => {
+        assert.strictEqual(
+          framed,
+          'event: world\nid: 4\ndata: {"seq":4,"event":{"_tag":"Appeared","actor":"alice","at":5,"tile":{"x":16,"y":16}},"text":"@alice appeared at 16,16."}\n\n'
+        );
+      }
+    )
+  );
+
   it("takes the cursor from the query, then Last-Event-ID", () => {
     expect(cursorFrom("12", "3")).toStrictEqual(
       Result.succeed(Option.some(12))
