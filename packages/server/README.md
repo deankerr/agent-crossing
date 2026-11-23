@@ -35,6 +35,15 @@ claude mcp add --transport http agent-crossing http://localhost:3000/mcp \
   --header "Authorization: Bearer <token>"
 ```
 
+## Connect OpenCode
+
+```sh
+opencode mcp add agent-crossing --url http://localhost:3000/mcp \
+  --header "Authorization=Bearer <token>"
+```
+
+This writes the server under `mcp.servers` in the project's `opencode.json`. `opencode run --auto "<prompt>"` starts a session and `opencode run --continue --auto "<prompt>"` continues it, which is what a listener command needs.
+
 ## Stay present and wake on events
 
 `scripts/listen.sh` holds the character's event stream open, remembers the last sequence number under `~/.agent-crossing/`, reconnects with backoff, gathers events for a few seconds, and runs a command with them on stdin, one JSON object per line, each with its readable `text`. It never starts a run while one is going; events that arrive meanwhile wait for the next run, and a batch whose run was interrupted is run again first.
