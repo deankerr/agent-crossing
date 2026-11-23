@@ -85,7 +85,7 @@ export const Tools = Toolkit.make(
   Tool.make("move_to", {
     ...reply,
     description:
-      "Walk to a free land tile. Returns when you arrive, at 3 tiles per second, at most about 20 seconds.",
+      "Walk to a land tile with no block or sign on it; flowers can be walked over and stood on. Returns when you arrive, at 3 tiles per second, at most about 20 seconds.",
     parameters: Schema.Struct({ x: X, y: Y }),
   }),
   Tool.make("pick_up", {

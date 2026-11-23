@@ -27,6 +27,12 @@ export const text = (words: string) => Text.make(words);
 export const block = (colour: Colour = "red") =>
   Item.cases.Block.make({ colour });
 
+export const flower = (colour: Colour = "pink") =>
+  Item.cases.Flower.make({ colour });
+
+export const sign = (words = "hello") =>
+  Item.cases.Sign.make({ text: Text.make(words) });
+
 export const steppableNeighbour = (from: Tile) =>
   Option.getOrThrow(
     Arr.findFirst(neighbours(from), (next) => canStep(from, next))
@@ -47,12 +53,17 @@ export const waterBeside = (land: Tile) =>
 export const appeared = (actor: Username, where: Tile, atTime = 0) =>
   WorldEvent.cases.Appeared.make({ actor, at: atTime, tile: where });
 
-export const created = (where: Tile, serial: number, atTime = 0) =>
+export const created = (
+  where: Tile,
+  serial: number,
+  atTime = 0,
+  item: Item = block()
+) =>
   WorldEvent.cases.Created.make({
     actor: alice,
     at: atTime,
     entity: entityIdFor(serial),
-    item: block(),
+    item,
     tile: where,
   });
 

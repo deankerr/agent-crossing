@@ -5,7 +5,7 @@ import * as Result from "effect/Result";
 
 import { Command } from "./command.ts";
 import { ENTITY_LIMIT, entityIdFor } from "./entity.ts";
-import type { EntityId, Item } from "./entity.ts";
+import type { Entity, EntityId, Item } from "./entity.ts";
 import { WorldEvent } from "./event.ts";
 import { appearedCharacter, evolve } from "./evolve.ts";
 import {
@@ -44,8 +44,10 @@ import {
   entityCount,
   entityOf,
   entityOnTile,
-  occupiedTiles,
+  isWalkable,
   presentCharacters,
+  solidEntityOnTile,
+  solidTiles,
 } from "./world.ts";
 import type { Character, World } from "./world.ts";
 
@@ -58,9 +60,6 @@ interface Scene {
   readonly now: Timestamp;
 }
 
-const isFreeLand = (world: World, tile: Tile) =>
-  isLand(tile) && Option.isNone(entityOnTile(world, tile));
-
 const byDistanceFrom = (origin: Tile) =>
   Order.combine(
     Order.mapInput(Order.Number, (tile: Tile) =>
@@ -69,9 +68,9 @@ const byDistanceFrom = (origin: Tile) =>
     Order.mapInput(Order.Number, tileIndex)
   );
 
-export const nearestFreeLand = (world: World, origin: Tile) =>
+export const nearestWalkableLand = (world: World, origin: Tile) =>
   Arr.match(
-    Arr.filter(allTiles, (tile) => isFreeLand(world, tile)),
+    Arr.filter(allTiles, (tile) => isWalkable(world, tile)),
     {
       onEmpty: () => origin,
       onNonEmpty: (free) => Arr.min(free, byDistanceFrom(origin)),
@@ -92,7 +91,7 @@ const arrive = (world: World, actor: Username, now: Timestamp) => {
     return { appeared: Arr.empty<WorldEvent>(), scene };
   }
 
-  const tile = nearestFreeLand(
+  const tile = nearestWalkableLand(
     world,
     Option.match(existing, {
       onNone: () => centre,
@@ -144,9 +143,13 @@ const ensureAdjacent = (scene: Scene, target: Tile) =>
     ? Result.void
     : Result.fail(new NotAdjacent({ position: scene.position, target }));
 
-const ensureEnterable = (world: World, tile: Tile) =>
+const ensureLandWithout = (
+  world: World,
+  tile: Tile,
+  holding: (world: World, tile: Tile) => Option.Option<Entity>
+) =>
   isLand(tile)
-    ? Option.match(entityOnTile(world, tile), {
+    ? Option.match(holding(world, tile), {
         onNone: () => Result.void,
         onSome: (entity) => Result.fail(new TileOccupied({ entity, tile })),
       })
@@ -186,7 +189,7 @@ const ensureNoWalkerHeadsThrough = (scene: Scene, tile: Tile) =>
 
 const ensurePlaceable = (scene: Scene, tile: Tile) =>
   Result.gen(function* () {
-    yield* ensureEnterable(scene.world, tile);
+    yield* ensureLandWithout(scene.world, tile, entityOnTile);
     yield* ensureNobodyStandsOn(scene, tile);
     yield* ensureNoWalkerHeadsThrough(scene, tile);
   });
@@ -217,11 +220,11 @@ const groundedEntity = (world: World, id: EntityId) =>
 const move = (scene: Scene, to: Tile) =>
   Result.gen(function* () {
     yield* ensureStanding(scene);
-    yield* ensureEnterable(scene.world, to);
-    const occupied = occupiedTiles(scene.world);
+    yield* ensureLandWithout(scene.world, to, solidEntityOnTile);
+    const solid = solidTiles(scene.world);
 
     const path = yield* Option.match(
-      findPath(scene.position, to, (tile) => occupied.has(tileIndex(tile))),
+      findPath(scene.position, to, (tile) => solid.has(tileIndex(tile))),
       {
         onNone: () => Result.fail(new NoPath({ from: scene.position, to })),
         onSome: Result.succeed,

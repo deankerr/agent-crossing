@@ -1,3 +1,4 @@
+import { entitySerial, isSolid } from "@agent-crossing/world/entity";
 import type { Entity, EntityId } from "@agent-crossing/world/entity";
 import { allEntities } from "@agent-crossing/world/world";
 import { useCursor } from "@react-three/drei";
@@ -11,6 +12,19 @@ import { ItemModel } from "./item-model.tsx";
 import { Overlay } from "./overlay.tsx";
 
 const SIGN_CARD_HEIGHT = 1.05;
+const ASIDE = 0.3;
+
+const CORNERS = [
+  [ASIDE, ASIDE],
+  [-ASIDE, ASIDE],
+  [-ASIDE, -ASIDE],
+  [ASIDE, -ASIDE],
+] as const;
+
+const offsetOf = (entity: Entity) =>
+  isSolid(entity.item)
+    ? ([0, 0] as const)
+    : (CORNERS[entitySerial(entity.id) % CORNERS.length] ?? CORNERS[0]);
 
 const SignCard = ({ text }: { readonly text: string }) => (
   <Overlay center position={[0, SIGN_CARD_HEIGHT, 0]} zIndexRange={[60, 50]}>
@@ -38,6 +52,7 @@ const GroundEntity = ({
   const { tile } = entity.location;
   const { item } = entity;
   const isSign = item._tag === "Sign";
+  const [dx, dz] = offsetOf(entity);
 
   return (
     <group
@@ -58,7 +73,7 @@ const GroundEntity = ({
           onHover(Option.some(entity.id));
         }
       }}
-      position={[sceneX(tile.x), surfaceAt(tile), sceneZ(tile.y)]}
+      position={[sceneX(tile.x) + dx, surfaceAt(tile), sceneZ(tile.y) + dz]}
     >
       <ItemModel item={item} />
       {item._tag === "Sign" && (hovered || selected) ? (

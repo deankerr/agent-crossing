@@ -224,6 +224,43 @@ describe("text for agents", () => {
     );
   });
 
+  it("counts a flower beside you as open, not as enclosing", () => {
+    const ringed = play([
+      [Command.cases.Look.make({ actor: alice }), 0],
+      ...Arr.map(
+        [tile(16, 15), tile(17, 16), tile(16, 17), tile(15, 16)],
+        (where, index) =>
+          [
+            Command.cases.Create.make({
+              actor: alice,
+              item: Item.cases.Flower.make({ colour: "pink" }),
+              tile: where,
+            }),
+            1000 * (index + 1),
+          ] as const
+      ),
+    ]);
+
+    expect(
+      rejectionText(
+        ringed.server.world,
+        new NoPath({ from: tile(16, 16), to: tile(20, 20) }),
+        6000
+      )
+    ).toBe(
+      "There is no walkable path from 16,16 to 20,20. Water, blocks, signs, or a step of more than one height level block every route; flowers never do. Choose another land tile; look shows heights and what is in the way."
+    );
+    expect(
+      Result.isSuccess(
+        execute(
+          ringed.server,
+          Command.cases.Move.make({ actor: alice, to: tile(20, 20) }),
+          6000
+        )
+      )
+    ).toBeTruthy();
+  });
+
   it("keeps the general no-path explanation when a step is open", () => {
     expect(
       rejectionText(
@@ -232,7 +269,7 @@ describe("text for agents", () => {
         NOW
       )
     ).toBe(
-      "There is no walkable path from 16,16 to 20,20. Water, entities, or a step of more than one height level block every route. Choose another land tile; look shows heights and what is in the way."
+      "There is no walkable path from 16,16 to 20,20. Water, blocks, signs, or a step of more than one height level block every route; flowers never do. Choose another land tile; look shows heights and what is in the way."
     );
   });
 

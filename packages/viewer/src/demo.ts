@@ -14,6 +14,7 @@ import {
   emptyServer,
   entityCount,
   entityOnTile,
+  isWalkable,
 } from "@agent-crossing/world/world";
 import type { Server, World } from "@agent-crossing/world/world";
 import * as Arr from "effect/Array";
@@ -148,7 +149,7 @@ const wanderTarget = (world: World, actor: CastMember, random: Random) =>
         )
       )
     ),
-    (tile) => isFreeLand(world, tile)
+    (tile) => isWalkable(world, tile)
   );
 
 const createWeight = (count: number) => {

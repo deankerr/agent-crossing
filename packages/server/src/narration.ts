@@ -10,7 +10,7 @@ import { arrivalAt } from "@agent-crossing/world/walk";
 import {
   characterOf,
   entityOf,
-  entityOnTile,
+  solidEntityOnTile,
 } from "@agent-crossing/world/world";
 import type { World } from "@agent-crossing/world/world";
 import * as Arr from "effect/Array";
@@ -187,7 +187,7 @@ const sideOf = (
   Option.match(tileAt(here.x + dx, here.y + dy), {
     onNone: () => ({ _tag: "Edge", direction }) satisfies Side,
     onSome: (tile) =>
-      Option.match(entityOnTile(world, tile), {
+      Option.match(solidEntityOnTile(world, tile), {
         onNone: () =>
           Option.match(Option.all([heightAt(here), heightAt(tile)]), {
             onNone: () => ({ _tag: "Water", direction, tile }) satisfies Side,
@@ -254,13 +254,13 @@ export const rejectionText = (
     NoPath: (reason) =>
       Option.match(enclosure(world, reason.from), {
         onNone: () =>
-          `There is no walkable path from ${tileText(reason.from)} to ${tileText(reason.to)}. Water, entities, or a step of more than one height level block every route. Choose another land tile; look shows heights and what is in the way.`,
+          `There is no walkable path from ${tileText(reason.from)} to ${tileText(reason.to)}. Water, blocks, signs, or a step of more than one height level block every route; flowers never do. Choose another land tile; look shows heights and what is in the way.`,
         onSome: (sides) => enclosedText(reason.from, sides),
       }),
     TileIsWater: (reason) =>
       `${tileText(reason.tile)} is water. Choose a land tile; look shows water as ~ on the map.`,
     TileOccupied: (reason) =>
-      `${tileText(reason.tile)} already holds ${reason.entity.id} (${itemText(reason.entity.item)}). A tile holds one entity. Choose a free tile, or pick up or destroy ${reason.entity.id} first.`,
+      `${tileText(reason.tile)} already holds ${reason.entity.id} (${itemText(reason.entity.item)}). A tile holds one entity, and nobody can walk onto a block or sign. Choose a free tile, or pick up or destroy ${reason.entity.id} first.`,
     CharacterInTheWay: (reason) =>
       `${characterText(world, reason.character)} is standing on ${tileText(reason.tile)}. Choose another tile, or wait until they move.`,
     OnWalkersPath: (reason) =>

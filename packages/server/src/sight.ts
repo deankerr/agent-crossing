@@ -29,7 +29,7 @@ import {
 const MAP_RADIUS = PERCEPTION_RADIUS;
 
 export const LEGEND =
-  "Legend: 0-3 land at that height (a step between neighbouring tiles may change height by at most 1), ~ water, @ you, C another character, # block, * flower, ! sign, blank outside the world.";
+  "Legend: 0-3 land at that height (a step between neighbouring tiles may change height by at most 1), ~ water, @ you, C another character, # block, * flower, ! sign, blank outside the world. Blocks and signs are solid; flowers are not, so a character may stand on a flower and is then shown instead of it.";
 
 export const AXES = `Coordinates are x,y. x grows eastwards (left to right on the map) and y grows southwards (top to bottom); both run 0..${MAP_SIZE - 1}.`;
 

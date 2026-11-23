@@ -3,10 +3,11 @@ import * as Option from "effect/Option";
 import * as Record from "effect/Record";
 import * as Schema from "effect/Schema";
 
-import { Entity } from "./entity.ts";
+import { Entity, isSolid } from "./entity.ts";
 import type { EntityId } from "./entity.ts";
 import { sameTile, tileIndex } from "./grid.ts";
 import type { Tile } from "./grid.ts";
+import { isLand } from "./terrain.ts";
 import { DisplayName, Timestamp, Username } from "./values.ts";
 import { Motion } from "./walk.ts";
 
@@ -65,10 +66,24 @@ export const carriedBy = (world: World, username: Username) =>
       entity.location._tag === "Carried" && entity.location.by === username
   );
 
-export const occupiedTiles = (world: World) =>
+export const solidEntityOnTile = (world: World, tile: Tile) =>
+  Option.filter(entityOnTile(world, tile), (entity) => isSolid(entity.item));
+
+export const solidTiles = (world: World) =>
   new Set(
-    Arr.map(Arr.getSomes(Arr.map(allEntities(world), groundTileOf)), tileIndex)
+    Arr.map(
+      Arr.getSomes(
+        Arr.map(
+          Arr.filter(allEntities(world), (entity) => isSolid(entity.item)),
+          groundTileOf
+        )
+      ),
+      tileIndex
+    )
   );
+
+export const isWalkable = (world: World, tile: Tile) =>
+  isLand(tile) && Option.isNone(solidEntityOnTile(world, tile));
 
 export const Session = Schema.Struct({
   openStreams: Schema.Natural,

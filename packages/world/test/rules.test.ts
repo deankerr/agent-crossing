@@ -39,10 +39,12 @@ import {
   bob,
   createAt,
   created,
+  flower,
   look,
   moveTo,
   play,
   shoreline,
+  sign,
   text,
   tile,
   waterBeside,
@@ -124,6 +126,15 @@ describe("arriving", () => {
 
     expect(events).toStrictEqual([appeared(bob, tile(16, 15), 0)]);
   });
+
+  it("lets a newcomer appear on a flower", () => {
+    const { events } = play([[look(bob), 0]], {
+      sessions: {},
+      world: worldOf([created(centre, 1, 0, flower())]),
+    });
+
+    expect(events).toStrictEqual([appeared(bob, centre, 0)]);
+  });
 });
 
 describe("walking", () => {
@@ -191,6 +202,114 @@ describe("walking", () => {
     expect(decide(walledIn, moveTo(alice, tile(20, 20)), 0)).toStrictEqual(
       Result.fail(new NoPath({ from: centre, to: tile(20, 20) }))
     );
+  });
+});
+
+describe("solid entities", () => {
+  const withFlowerEast = worldOf(
+    [created(east, 1, 0, flower())],
+    aliceAtCentre
+  );
+
+  it("walks through a flower", () => {
+    expect(
+      decide(withFlowerEast, moveTo(alice, tile(18, 16)), 0)
+    ).toStrictEqual(
+      Result.succeed([
+        WorldEvent.cases.WalkStarted.make({
+          actor: alice,
+          at: 0,
+          path: [centre, east, tile(18, 16)],
+        }),
+      ])
+    );
+  });
+
+  it("stops on a flower", () => {
+    expect(decide(withFlowerEast, moveTo(alice, east), 0)).toStrictEqual(
+      Result.succeed([
+        WorldEvent.cases.WalkStarted.make({
+          actor: alice,
+          at: 0,
+          path: [centre, east],
+        }),
+      ])
+    );
+  });
+
+  it.each([
+    ["block", block()],
+    ["sign", sign()],
+  ] as const)("walks around a %s", (_, item) => {
+    const blocked = worldOf([created(east, 1, 0, item)], aliceAtCentre);
+
+    expect(decide(blocked, moveTo(alice, tile(18, 16)), 0)).toStrictEqual(
+      Result.succeed([
+        WorldEvent.cases.WalkStarted.make({
+          actor: alice,
+          at: 0,
+          path: [
+            centre,
+            tile(16, 15),
+            tile(17, 15),
+            tile(18, 15),
+            tile(18, 16),
+          ],
+        }),
+      ])
+    );
+    expect(decide(blocked, moveTo(alice, east), 0)).toStrictEqual(
+      Result.fail(
+        new TileOccupied({
+          entity: Option.getOrThrow(entityOf(blocked, e1)),
+          tile: east,
+        })
+      )
+    );
+  });
+
+  it("leaves a character ringed by flowers free to walk", () => {
+    const ringed = worldOf(
+      Arr.map(neighbours(centre), (around, index) =>
+        created(around, index + 1, 0, flower())
+      ),
+      aliceAtCentre
+    );
+
+    expect(
+      Result.isSuccess(decide(ringed, moveTo(alice, tile(20, 20)), 0))
+    ).toBeTruthy();
+  });
+
+  it("will not create or put down on a flower", () => {
+    const flowerAndBlock = worldOf(
+      [created(tile(15, 16), 2, 0, block())],
+      withFlowerEast
+    );
+
+    const holdingBlock = worldOf(
+      [
+        WorldEvent.cases.PickedUp.make({
+          actor: alice,
+          at: 0,
+          entity: e2,
+          tile: tile(15, 16),
+        }),
+      ],
+      flowerAndBlock
+    );
+
+    const occupied = Result.fail(
+      new TileOccupied({
+        entity: Option.getOrThrow(entityOf(withFlowerEast, e1)),
+        tile: east,
+      })
+    );
+
+    expect(decide(withFlowerEast, createAt(alice, east), 0)).toStrictEqual(
+      occupied
+    );
+    expect(decide(holdingBlock, putDown(east), 0)).toStrictEqual(occupied);
   });
 });
 

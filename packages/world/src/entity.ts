@@ -24,6 +24,13 @@ export const Item = Schema.TaggedUnion({
 
 export type Item = typeof Item.Type;
 
+export const isSolid = (item: Item) =>
+  Item.match(item, {
+    Block: () => true,
+    Flower: () => false,
+    Sign: () => true,
+  });
+
 export const Location = Schema.TaggedUnion({
   Carried: { by: Username },
   Ground: { tile: Tile },

@@ -11,7 +11,7 @@ import {
   neighbours,
   Tile,
 } from "@agent-crossing/world/grid";
-import { nearestFreeLand } from "@agent-crossing/world/rules";
+import { nearestWalkableLand } from "@agent-crossing/world/rules";
 import { isLand } from "@agent-crossing/world/terrain";
 import { Username } from "@agent-crossing/world/values";
 import { characterOf, entityOnTile, World } from "@agent-crossing/world/world";
@@ -116,7 +116,7 @@ const worldProof = Effect.gen(function* () {
     )
   );
 
-  const farAt = nearestFreeLand(start.world, tile(5, 16));
+  const farAt = nearestWalkableLand(start.world, tile(5, 16));
 
   yield* show("bob", "look", yield* bob.call("look"));
   yield* show("bob", "move_to", yield* bob.call("move_to", bobAt));
@@ -401,7 +401,7 @@ const keepAliveProof = (minutes: number) =>
     const spokenAt = yield* Clock.currentTimeMillis;
     yield* alice.call(
       "move_to",
-      nearestFreeLand((yield* snapshotNow).world, tile(17, 16))
+      nearestWalkableLand((yield* snapshotNow).world, tile(17, 16))
     );
     yield* alice.call("say", { text: `still there after ${minutes} minutes?` });
 
