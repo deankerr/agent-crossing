@@ -56,6 +56,13 @@ bun --env-file=.env scripts/prove.ts presence    # vanishing after 120 s, takes 
 bun --env-file=.env scripts/prove.ts keepalive 10   # holds a stream for 10 minutes
 ```
 
+## Notes on the stack
+
+- `@alchemy.run/docker@2.0.0-beta.87` is patched in `patches/`. Unpatched, it records an empty driver for a new swarm network and then tries to replace the in-use network on every later deploy ([alchemy-run/alchemy#3679](https://github.com/alchemy-run/alchemy/issues/3679)). Drop the patch once a release fixes it.
+- The service and the pool node run in `oven/bun` containers. `@effect/platform-bun` is a dependency so that it is bundled; without it Bun downloads it from npm each time a container starts.
+- After a node restart or a deploy that changes the World object, the first call can hang for about 45 seconds before Rivet reschedules the object. Open streams close and reconnect.
+- The Rivet Cloud version of `src/cluster.ts` and its caveats are in git history: `git show 5bee08e:packages/hello-world/README.md`.
+
 ## Layout
 
 - `src/world-object.ts` the Durable Object: state, event log, cursors, alarm, event streams.
