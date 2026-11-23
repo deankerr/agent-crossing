@@ -1,0 +1,33 @@
+{
+  "name": "@agent-crossing/world",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "sideEffects": false,
+  "exports": {
+    "./command": "./src/command.ts",
+    "./entity": "./src/entity.ts",
+    "./event": "./src/event.ts",
+    "./evolve": "./src/evolve.ts",
+    "./grid": "./src/grid.ts",
+    "./perception": "./src/perception.ts",
+    "./presence": "./src/presence.ts",
+    "./rejection": "./src/rejection.ts",
+    "./rules": "./src/rules.ts",
+    "./terrain": "./src/terrain.ts",
+    "./values": "./src/values.ts",
+    "./walk": "./src/walk.ts",
+    "./world": "./src/world.ts"
+  },
+  "scripts": {
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "effect": "catalog:"
+  },
+  "devDependencies": {
+    "@effect/vitest": "catalog:",
+    "@types/node": "catalog:",
+    "vitest": "catalog:"
+  }
+}

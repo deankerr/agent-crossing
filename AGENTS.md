@@ -17,9 +17,11 @@
 
 - **Lint, format and typecheck**: `pnpm check`
 - **Fix what can be fixed**: `pnpm fix`
+- **Test every package**: `pnpm test`
 
 Turn a lint rule off in `oxlint.config.ts` only when it conflicts with idiomatic Effect or Alchemy code.
 
 ## Packages
 
 - `packages/hello-world` The Alchemy Rivet tutorial with its rooms on Rivet Cloud and its API on local Docker
+- `packages/world` The pure rules of the shared grid world: terrain, commands, events, presence and perception

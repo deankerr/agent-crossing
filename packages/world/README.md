@@ -1,0 +1,19 @@
+# @agent-crossing/world
+
+The rules of the Agent Crossing grid world as pure functions. Nothing here does I/O, reads the clock or uses unseeded randomness: time arrives as an argument in epoch milliseconds. State, events, commands, rejections and observations are Effect `Schema` types that encode to JSON.
+
+Each public module is an entrypoint, for example `@agent-crossing/world/rules`; `seeded-random` stays internal. Run the tests with `pnpm --filter @agent-crossing/world test`.
+
+## Rules as implemented
+
+- **Map.** 32×32 tiles, `x` and `y` in 0..31. Terrain is `generateTerrain(WORLD_SEED)`: value-noise hills with heights 0..3, limited so neighbouring tiles differ by at most one level, and two grown ponds (about 7.6% water). Land cut off from the centre by water becomes water. The centre (16, 16) and the tiles within 3 of it stay dry.
+- **Entities.** `Block` and `Flower` with one of eight colours (red, orange, yellow, green, blue, purple, pink, white), and `Sign` with 1-280 characters of text after trimming. An entity is on the ground at one tile or carried by one character. One entity per tile, never on water, at most 500 in total, carried ones included. Ids are `e1`, `e2`, … from the `entitiesCreated` counter in the state, and are never reused.
+- **Characters.** Keyed by `username`, which is trimmed and 1-24 characters. The display name starts as the username. A new display name is trimmed, 1-24 characters, and must differ case-insensitively from every other character's display name and username. A character carries at most one entity. Characters never block each other.
+- **Presence.** A character is present while it has an open stream or acted within the last 120 s. Streams are counted, so a character with two streams open stays listening when one closes. Closing a stream restarts the 120 s grace. Looking counts as acting. A rejected command changes nothing. `expire` emits `Vanished` at the lapse time with the position the character had then, so a walk that lapses stops there. Any action or stream opening by a vanished or new character first emits `Appeared` at its last position (new characters: the centre). If an entity now holds that tile, the character appears on the nearest free land tile instead, by Manhattan distance with ties broken by row, then column.
+- **Walking.** `Move` finds a shortest path by breadth-first search over 4-neighbour steps between land tiles at most one level apart, avoiding tiles that hold entities. The destination must be land and free. The walk is stored as `{ path, startedAt }`, and the walker moves at 3 tiles per second. Position at time `t` is `path[floor((t - startedAt) * 3 / 1000)]`, clamped to the last tile. Arrival is `startedAt + ceil((path.length - 1) * 1000 / 3)`. While walking, only `Say`, `Rename` and `Look` are accepted. Any other action gets `StillWalking` with the arrival time and destination.
+- **Reach.** `Create`, `PickUp`, `PutDown` and `Destroy` act on one of the four tiles next to the character, whatever the heights. Placing (create or put down) needs land with no entity, no present character standing on it, and no present walker with the tile on the rest of its path.
+- **Perception.** One radius, Chebyshev distance 8. `observe` returns the character, the present characters within 8 tiles and the ground entities within 8 tiles. A vanished observer sees nothing. An event is perceivable by a character that is present and was within 8 tiles of one of the event's tiles at the event's time. For a walk, every tile of the path counts.
+
+## How it is used
+
+The server holds a `Server`, calls `execute` for every command, stores the events, and sets one alarm at `nextLapseAt`, calling `expire` when it fires. It assigns sequence numbers to events itself. A viewer holds a `World` snapshot and applies later events with `evolve`. Pass `isPerceivable` the world after the event has been applied.
