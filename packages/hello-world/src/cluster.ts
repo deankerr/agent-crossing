@@ -1,8 +1,6 @@
-import * as RivetDocker from "@alchemy.run/rivet/Docker";
+import * as RivetCloud from "@alchemy.run/rivet/Cloud";
 import * as Layer from "effect/Layer";
 
-export const Cluster = RivetDocker.SwarmControlPlane("Rivet");
+export const Cluster = RivetCloud.ControlPlane("Rivet");
 
-export const Default = RivetDocker.SwarmPool("Default").pipe(
-  Layer.provide(Cluster)
-);
+export const Default = RivetCloud.Pool("Default").pipe(Layer.provide(Cluster));
