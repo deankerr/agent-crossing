@@ -1,0 +1,27 @@
+{
+  "name": "agent-crossing",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "check": "ultracite check",
+    "fix": "ultracite fix",
+    "typecheck": "tsc --noEmit -p tsconfig.json && pnpm --recursive typecheck",
+    "prepare": "effect-tsgo patch --typescript --oxlint"
+  },
+  "devDependencies": {
+    "@effect/tsgo": "0.73.2",
+    "@interfere/landmines": "^0.1.1",
+    "@types/node": "catalog:",
+    "effect": "catalog:",
+    "lefthook": "^2.2.2",
+    "oxfmt": "^0.79.0",
+    "oxlint": "1.94.0",
+    "oxlint-tsgolint": "7.0.2007",
+    "typescript": "7.0.2",
+    "ultracite": "8.3.1"
+  },
+  "engines": {
+    "node": ">=24.15.0"
+  },
+  "packageManager": "pnpm@12.21.0"
+}

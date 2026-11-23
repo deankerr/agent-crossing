@@ -1,0 +1,43 @@
+{
+  "format_on_save": "on",
+  "formatter": { "language_server": { "name": "oxfmt" } },
+  "code_actions_on_format": { "source.fixAll.oxc": true },
+  "languages": {
+    "JavaScript": {
+      "language_servers": [
+        "!typescript-language-server",
+        "vtsls",
+        "!eslint",
+        "..."
+      ]
+    },
+    "TSX": {
+      "language_servers": [
+        "!typescript-language-server",
+        "vtsls",
+        "!eslint",
+        "..."
+      ]
+    },
+    "TypeScript": {
+      "language_servers": [
+        "!typescript-language-server",
+        "vtsls",
+        "!eslint",
+        "..."
+      ]
+    }
+  },
+  "lsp": {
+    "vtsls": {
+      "settings": {
+        "javascript": {
+          "preferences": { "includePackageJsonAutoImports": "on" }
+        },
+        "typescript": {
+          "preferences": { "includePackageJsonAutoImports": "on" }
+        }
+      }
+    }
+  }
+}

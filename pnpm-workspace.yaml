@@ -1,0 +1,13 @@
+packages:
+  - "packages/*"
+
+catalog:
+  "@types/node": 24.19.2
+  effect: 4.1.5
+
+allowBuilds:
+  lefthook: true
+
+permissions:
+  ultracite:
+    skills: false
