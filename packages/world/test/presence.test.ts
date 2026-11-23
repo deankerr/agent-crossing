@@ -6,7 +6,13 @@ import { Command } from "../src/command.ts";
 import { entityIdFor } from "../src/entity.ts";
 import { WorldEvent } from "../src/event.ts";
 import { centre } from "../src/grid.ts";
-import { execute, expire, GRACE_MILLIS, nextLapseAt } from "../src/presence.ts";
+import {
+  execute,
+  expire,
+  GRACE_MILLIS,
+  nextLapseAt,
+  streamsLost,
+} from "../src/presence.ts";
 import { decide } from "../src/rules.ts";
 import { carriedBy, characterOf } from "../src/world.ts";
 import type { Server } from "../src/world.ts";
@@ -168,5 +174,26 @@ describe("presence", () => {
     );
 
     expect(outcome.events).toStrictEqual([]);
+  });
+
+  it("gives listeners whose streams were lost the grace from now and leaves the others alone", () => {
+    const { server } = play([
+      [opened(alice), 0],
+      [opened(alice), 1],
+      [look(bob), 2],
+    ]);
+
+    const reconciled = streamsLost(server, 1_000_000);
+    expect(reconciled.sessions).toStrictEqual({
+      alice: { activeAt: 1_000_000, openStreams: 0 },
+      bob: { activeAt: 2, openStreams: 0 },
+    });
+    expect(nextLapseAt(reconciled)).toStrictEqual(
+      Option.some(2 + GRACE_MILLIS)
+    );
+    expect(expire(reconciled, 1_000_000 + GRACE_MILLIS).events).toStrictEqual([
+      vanished(bob, 2 + GRACE_MILLIS),
+      vanished(alice, 1_000_000 + GRACE_MILLIS),
+    ]);
   });
 });

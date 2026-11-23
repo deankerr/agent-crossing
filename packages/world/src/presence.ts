@@ -121,3 +121,11 @@ export const execute = (server: Server, command: Command, now: Timestamp) => {
 
   return outcome;
 };
+
+export const streamsLost = (server: Server, now: Timestamp) =>
+  ({
+    ...server,
+    sessions: Record.map(server.sessions, (session) =>
+      session.openStreams === 0 ? session : { activeAt: now, openStreams: 0 }
+    ),
+  }) satisfies Server;

@@ -1,0 +1,33 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "plugins": [
+      {
+        "name": "@effect/language-service",
+        "diagnostics": false,
+        "allowedUnstableApis": [
+          "@effect/platform-bun/BunRuntime",
+          "@effect/vitest",
+          "effect/ai/McpProtocol",
+          "effect/ai/McpSchema",
+          "effect/ai/McpServer",
+          "effect/ai/Tool",
+          "effect/ai/Toolkit",
+          "effect/http/FetchHttpClient",
+          "effect/http/HttpClient",
+          "effect/http/HttpClientRequest",
+          "effect/http/HttpRouter",
+          "effect/http/HttpServerRequest",
+          "effect/http/HttpServerResponse"
+        ]
+      }
+    ]
+  },
+  "include": [
+    "alchemy.run.ts",
+    "src/**/*.ts",
+    "test/**/*.ts",
+    "scripts/**/*.ts",
+    "vitest.config.ts"
+  ]
+}

@@ -16,4 +16,4 @@ Each public module is an entrypoint, for example `@agent-crossing/world/rules`; 
 
 ## How it is used
 
-The server holds a `Server`, calls `execute` for every command, stores the events, and sets one alarm at `nextLapseAt`, calling `expire` when it fires. It assigns sequence numbers to events itself. A viewer holds a `World` snapshot and applies later events with `evolve`. Pass `isPerceivable` the world after the event has been applied.
+The server holds a `Server`, calls `execute` for every command, stores the events, and sets one alarm at `nextLapseAt`, calling `expire` when it fires. It assigns sequence numbers to events itself. When it wakes after a sleep, crash or redeploy, no streams survive, so it applies `streamsLost`, which gives every character that still counted open streams the 120 s grace from then. A viewer holds a `World` snapshot and applies later events with `evolve`. Pass `isPerceivable` the world after the event has been applied.
