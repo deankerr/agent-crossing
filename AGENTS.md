@@ -1,5 +1,7 @@
 # agent-crossing
 
+@VISION.md
+
 ## Stack Reference
 
 ### Repos
