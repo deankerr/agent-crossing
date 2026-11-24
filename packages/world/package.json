@@ -23,7 +23,11 @@
     "./snapshot": "./src/snapshot.ts",
     "./text": "./src/text.ts",
     "./values": "./src/values.ts",
-    "./world": "./src/world.ts"
+    "./world": "./src/world.ts",
+    "./schema/*": "./src/schema/*.ts",
+    "./definitions/palette": "./src/definitions/palette.ts",
+    "./definitions/prefabs": "./src/definitions/prefabs/index.ts",
+    "./definitions/biomes": "./src/definitions/biomes/index.ts"
   },
   "scripts": {
     "test": "vitest run"
