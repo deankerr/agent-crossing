@@ -1,44 +1,106 @@
-import { MAP_SIZE } from "@agent-crossing/world/grid";
-import type { Tile } from "@agent-crossing/world/grid";
+import type { Span } from "@agent-crossing/world/region";
 import { MapControls } from "@react-three/drei";
 import { useFrame, useThree } from "@react-three/fiber";
 import * as Option from "effect/Option";
-import { useEffect, useRef } from "react";
+import { useEffect, useLayoutEffect, useRef } from "react";
 import type { ComponentRef } from "react";
-import { MOUSE, TOUCH, Vector3 } from "three";
+import { MOUSE, OrthographicCamera, TOUCH, Vector3 } from "three";
 
-import { sceneX, sceneZ, surfaceAt } from "../layout.ts";
+import { centreOf, diagonalOf, landSurface } from "../layout.ts";
 
-export const CAMERA_OFFSET = new Vector3(0, 21, 28);
-export const MIN_ZOOM = 12;
-export const MAX_ZOOM = 140;
+/** The default view: from the south, looking down at about 53 degrees. */
+export const VIEW_DIRECTION = new Vector3(0, 21, 28).normalize();
 
-const EDGE = MAP_SIZE / 2;
+const MIN_DISTANCE = 40;
+const DISTANCE_PER_DIAGONAL = 1.2;
+const MAX_ZOOM = 160;
+const ZOOM_OUT_SHARE = 0.4;
+const MIN_POLAR = 0.25;
+const MAX_POLAR = 1.2;
 const GLIDE_RATE = 5;
 const SETTLED = 0.01;
-
-const lowestCorner = new Vector3(-EDGE, 0, -EDGE);
-const highestCorner = new Vector3(EDGE, 2, EDGE);
+const MARGIN = 2;
+const DEPTH_SHARE = 0.62;
+const TALLEST = landSurface(7);
 
 export interface FocusRequest {
-  readonly tile: Tile;
+  readonly point: readonly [number, number, number];
   readonly serial: number;
 }
 
-const focusPoint = (tile: Tile) =>
-  new Vector3(sceneX(tile.x), surfaceAt(tile), sceneZ(tile.y));
+interface Size {
+  readonly width: number;
+  readonly height: number;
+}
 
+/** Pixels per unit that fit the whole span in view from the default angle. */
+export const fittingZoom = (span: Span, size: Size) => {
+  const wide = span.maxX - span.minX + 1 + MARGIN * 2;
+
+  const deep = (span.maxY - span.minY + 1) * DEPTH_SHARE + TALLEST + MARGIN * 2;
+
+  return Math.max(0.5, Math.min(size.width / wide, size.height / deep));
+};
+
+/** How far the camera stands back, so that no part of the world is behind it. */
+export const cameraDistance = (span: Span) =>
+  Math.max(MIN_DISTANCE, diagonalOf(span) * DISTANCE_PER_DIAGONAL);
+
+/**
+ * Pan, zoom and orbit within limits derived from the world's bounds. It fits
+ * the world when mounted; remount it (with a new key) to fit again.
+ */
 export const CameraRig = ({
   focus,
+  span,
 }: {
+  readonly span: Span;
   readonly focus: Option.Option<FocusRequest>;
 }) => {
   const controls = useRef<ComponentRef<typeof MapControls>>(null);
   const goal = useRef(Option.none<Vector3>());
-  const camera = useThree((state) => state.camera);
+  const size = useThree((state) => state.size);
+  const fit = fittingZoom(span, size);
+  const distance = cameraDistance(span);
+  const start = useRef({ distance, span, zoom: fit });
+
+  useLayoutEffect(() => {
+    const rig = controls.current;
+
+    if (rig === null) {
+      return;
+    }
+
+    const { object: camera, target } = rig;
+    const { x, z } = centreOf(start.current.span);
+    target.set(x, landSurface(1), z);
+    camera.position
+      .copy(target)
+      .addScaledVector(VIEW_DIRECTION, start.current.distance);
+
+    if (camera instanceof OrthographicCamera) {
+      camera.zoom = start.current.zoom;
+      camera.updateProjectionMatrix();
+    }
+
+    rig.update();
+  }, []);
 
   useEffect(() => {
-    goal.current = Option.map(focus, (request) => focusPoint(request.tile));
+    const rig = controls.current;
+
+    if (rig !== null && rig.object instanceof OrthographicCamera) {
+      rig.object.near = 0.1;
+      rig.object.far = distance * 2 + diagonalOf(span);
+      rig.object.updateProjectionMatrix();
+    }
+  }, [distance, span]);
+
+  useEffect(() => {
+    goal.current = Option.map(
+      focus,
+      (request) => new Vector3(...request.point)
+    );
   }, [focus]);
 
   const shiftBy = (shift: Vector3) => {
@@ -46,17 +108,18 @@ export const CameraRig = ({
 
     if (rig !== null) {
       rig.target.add(shift);
-      camera.position.add(shift);
+      rig.object.position.add(shift);
     }
   };
 
-  const keepOnMap = () => {
+  const keepOverWorld = () => {
     const rig = controls.current;
 
     if (rig !== null) {
-      shiftBy(
-        rig.target.clone().clamp(lowestCorner, highestCorner).sub(rig.target)
-      );
+      const lowest = new Vector3(span.minX - 0.5, 0, span.minY - 0.5);
+      const highest = new Vector3(span.maxX + 0.5, TALLEST, span.maxY + 0.5);
+
+      shiftBy(rig.target.clone().clamp(lowest, highest).sub(rig.target));
     }
   };
 
@@ -85,16 +148,20 @@ export const CameraRig = ({
     <MapControls
       dampingFactor={0.15}
       enableDamping
-      enableRotate={false}
       makeDefault
+      maxPolarAngle={MAX_POLAR}
       maxZoom={MAX_ZOOM}
-      minZoom={MIN_ZOOM}
-      mouseButtons={{ LEFT: MOUSE.PAN, MIDDLE: MOUSE.DOLLY, RIGHT: MOUSE.PAN }}
-      onChange={keepOnMap}
+      minPolarAngle={MIN_POLAR}
+      minZoom={Math.min(fit * ZOOM_OUT_SHARE, MAX_ZOOM)}
+      mouseButtons={{
+        LEFT: MOUSE.PAN,
+        MIDDLE: MOUSE.DOLLY,
+        RIGHT: MOUSE.ROTATE,
+      }}
+      onChange={keepOverWorld}
       ref={controls}
       screenSpacePanning={false}
-      target={[0, 0.5, 0]}
-      touches={{ ONE: TOUCH.PAN, TWO: TOUCH.DOLLY_PAN }}
+      touches={{ ONE: TOUCH.PAN, TWO: TOUCH.DOLLY_ROTATE }}
       zoomToCursor
     />
   );

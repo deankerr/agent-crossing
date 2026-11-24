@@ -1,115 +1,117 @@
-import { entitySerial, isSolid } from "@agent-crossing/world/entity";
-import type { Entity, EntityId } from "@agent-crossing/world/entity";
-import { allEntities } from "@agent-crossing/world/world";
-import { useCursor } from "@react-three/drei";
+import type { World } from "@agent-crossing/world/world";
 import * as Arr from "effect/Array";
 import * as Option from "effect/Option";
-import { useState } from "react";
+import { useMemo } from "react";
+import {
+  MeshBasicMaterial,
+  MeshLambertMaterial,
+  Quaternion,
+  Vector3,
+} from "three";
 
-import { sceneX, sceneZ, surfaceAt } from "../layout.ts";
-import { useViewerState } from "../viewer-context.ts";
-import { ItemModel } from "./item-model.tsx";
-import { Overlay } from "./overlay.tsx";
+import { entityInstances } from "../entity-instances.ts";
+import type { EntityInstance } from "../entity-instances.ts";
+import { palette } from "../palette.ts";
+import { Instances } from "./instanced.tsx";
+import type { Paint, Place } from "./instanced.tsx";
+import { modelGeometry } from "./model-geometry.ts";
 
-const SIGN_CARD_HEIGHT = 1.05;
-const ASIDE = 0.3;
+const lit = new MeshLambertMaterial({ flatShading: true, vertexColors: true });
 
-const CORNERS = [
-  [ASIDE, ASIDE],
-  [-ASIDE, ASIDE],
-  [-ASIDE, -ASIDE],
-  [ASIDE, -ASIDE],
-] as const;
+const glowing = new MeshBasicMaterial({
+  toneMapped: false,
+  vertexColors: true,
+});
 
-const offsetOf = (entity: Entity) =>
-  isSolid(entity.item)
-    ? ([0, 0] as const)
-    : (CORNERS[entitySerial(entity.id) % CORNERS.length] ?? CORNERS[0]);
+const UP = new Vector3(0, 1, 0);
+const position = new Vector3();
+const turn = new Quaternion();
+const size = new Vector3();
 
-const SignCard = ({ text }: { readonly text: string }) => (
-  <Overlay center position={[0, SIGN_CARD_HEIGHT, 0]} zIndexRange={[60, 50]}>
-    <div className="sign-card">{text}</div>
-  </Overlay>
-);
-
-const GroundEntity = ({
-  entity,
-  hovered,
-  onHover,
-  onSelect,
-  selected,
-}: {
-  readonly entity: Entity;
-  readonly hovered: boolean;
-  readonly selected: boolean;
-  readonly onHover: (id: Option.Option<EntityId>) => void;
-  readonly onSelect: (id: EntityId) => void;
-}) => {
-  if (entity.location._tag !== "Ground") {
-    return null;
-  }
-
-  const { tile } = entity.location;
-  const { item } = entity;
-  const isSign = item._tag === "Sign";
-  const [dx, dz] = offsetOf(entity);
-
-  return (
-    <group
-      onClick={(event) => {
-        if (isSign) {
-          event.stopPropagation();
-          onSelect(entity.id);
-        }
-      }}
-      onPointerOut={() => {
-        if (isSign) {
-          onHover(Option.none());
-        }
-      }}
-      onPointerOver={(event) => {
-        if (isSign) {
-          event.stopPropagation();
-          onHover(Option.some(entity.id));
-        }
-      }}
-      position={[sceneX(tile.x) + dx, surfaceAt(tile), sceneZ(tile.y) + dz]}
-    >
-      <ItemModel item={item} />
-      {item._tag === "Sign" && (hovered || selected) ? (
-        <SignCard text={item.text} />
-      ) : null}
-    </group>
+const placeEntity: Place<EntityInstance> = (instance, matrix) => {
+  matrix.compose(
+    position.set(instance.x, instance.y, instance.z),
+    turn.setFromAxisAngle(UP, instance.heading),
+    size.setScalar(instance.scale)
   );
 };
 
-export const Entities = ({
-  onSelectSign,
-  selectedSign,
+const shadeEntity: Paint<EntityInstance> = (instance, colour) => {
+  colour.setScalar(instance.shade);
+};
+
+const tintEntity: Paint<EntityInstance> = (instance, colour) => {
+  colour.set(palette[instance.tint]).multiplyScalar(instance.shade);
+};
+
+const unshaded: Paint<EntityInstance> = (_instance, colour) => {
+  colour.setScalar(1);
+};
+
+const ModelInstances = ({
+  instances,
+  model,
 }: {
-  readonly selectedSign: Option.Option<EntityId>;
-  readonly onSelectSign: (id: EntityId) => void;
+  readonly model: string;
+  readonly instances: readonly EntityInstance[];
 }) => {
-  const { synced } = useViewerState();
-  const [hovered, setHovered] = useState(Option.none<EntityId>());
+  const geometry = modelGeometry(model);
 
-  useCursor(Option.isSome(hovered));
+  return (
+    <>
+      {Option.isSome(geometry.fixed) ? (
+        <Instances
+          castShadow
+          geometry={geometry.fixed.value}
+          items={instances}
+          material={lit}
+          paint={shadeEntity}
+          place={placeEntity}
+          receiveShadow
+        />
+      ) : null}
+      {Option.isSome(geometry.tinted) ? (
+        <Instances
+          castShadow
+          geometry={geometry.tinted.value}
+          items={instances}
+          material={lit}
+          paint={tintEntity}
+          place={placeEntity}
+          receiveShadow
+        />
+      ) : null}
+      {Option.isSome(geometry.glowing) ? (
+        <Instances
+          geometry={geometry.glowing.value}
+          items={instances}
+          material={glowing}
+          paint={unshaded}
+          place={placeEntity}
+        />
+      ) : null}
+    </>
+  );
+};
 
-  return Option.match(synced, {
-    onNone: () => null,
-    onSome: ({ world }) => (
-      <group>
-        {Arr.map(allEntities(world), (entity) => (
-          <GroundEntity
-            entity={entity}
-            hovered={Option.contains(hovered, entity.id)}
-            key={entity.id}
-            onHover={setHovered}
-            onSelect={onSelectSign}
-            selected={Option.contains(selectedSign, entity.id)}
-          />
-        ))}
-      </group>
-    ),
-  });
+/**
+ * Every entity, drawn with one instanced mesh per model and way of colouring
+ * rather than one component per entity. Rebuilt only when entities or
+ * ground change.
+ */
+export const Entities = ({ world }: { readonly world: World }) => {
+  const { entities, ground } = world;
+
+  const groups = useMemo(
+    () => entityInstances({ entities, ground }),
+    [entities, ground]
+  );
+
+  return (
+    <group>
+      {Arr.map([...groups], ([model, instances]) => (
+        <ModelInstances instances={instances} key={model} model={model} />
+      ))}
+    </group>
+  );
 };

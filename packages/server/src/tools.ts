@@ -1,74 +1,79 @@
-import { Command } from "@agent-crossing/world/command";
-import { EntityId, Item } from "@agent-crossing/world/entity";
-import { Coordinate, Tile } from "@agent-crossing/world/grid";
-import {
-  Colour,
-  DisplayName,
-  NAME_MAX_LENGTH,
-  Text,
-  TEXT_MAX_LENGTH,
-} from "@agent-crossing/world/values";
-import type { Username } from "@agent-crossing/world/values";
-import { arrivalAt } from "@agent-crossing/world/walk";
+import { cellAt, COORDINATE_LIMIT } from "@agent-crossing/world/cell";
+import type { Cell } from "@agent-crossing/world/cell";
+import type { Command } from "@agent-crossing/world/command";
+import { KindName } from "@agent-crossing/world/kind";
+import type { Region } from "@agent-crossing/world/region";
+import { VIEW_MAX_RADIUS } from "@agent-crossing/world/text";
+import type { Editor } from "@agent-crossing/world/values";
 import * as Tool from "effect/ai/Tool";
 import * as Toolkit from "effect/ai/Toolkit";
-import * as Arr from "effect/Array";
 import * as Context from "effect/Context";
-import * as Duration from "effect/Duration";
 import * as Effect from "effect/Effect";
-import * as Match from "effect/Match";
 import * as Option from "effect/Option";
+import * as Random from "effect/Random";
+import * as Result from "effect/Result";
 import * as Schema from "effect/Schema";
 
-import { nearbyText, reservedNameText } from "./narration.ts";
-import { actedText, arrivedText, lookedText, refusalOf } from "./replies.ts";
-import { reservedBy } from "./tokens.ts";
-import type { Characters } from "./tokens.ts";
-import type { CatchUp, Report } from "./wire.ts";
+import { Area } from "./affected.ts";
+import {
+  ChangeInput,
+  changeCommand,
+  EraseInput,
+  eraseCommand,
+  GenerateInput,
+  generateCommand,
+  MoveInput,
+  moveCommand,
+  PaintInput,
+  paintCommand,
+  parsedRegion,
+  RegionInput,
+  RemoveInput,
+  removeCommand,
+  ScatterInput,
+  scatterCommand,
+  SpawnInput,
+  spawnCommand,
+  X,
+  Y,
+} from "./inputs.ts";
+import {
+  FIND_DEFAULT_LIMIT,
+  FIND_MAX_LIMIT,
+  HISTORY_DEFAULT_LIMIT,
+  HISTORY_MAX_LIMIT,
+  kindsText,
+} from "./queries.ts";
+import { rejectionText } from "./refusal.ts";
+import { editText, framedOf } from "./replies.ts";
+import type { Verdict } from "./wire.ts";
 
+/** Who is calling: the editor named by the bearer token. */
 export class Caller extends Context.Service<
   Caller,
-  { readonly username: Username }
+  { readonly editor: Editor }
 >()("agent-crossing/Caller") {}
 
+/** A tool call that did nothing, with the reason and what would work. */
 export class Refused extends Schema.TaggedError<
   Refused,
   { readonly brand: unique symbol }
->()("Refused", {
-  message: Schema.String,
-}) {}
+>()("Refused", { message: Schema.String }) {}
 
-const X = Coordinate.annotate({
-  description: "Column, 0 (west edge) to 31 (east edge).",
-});
-
-const Y = Coordinate.annotate({
-  description: "Row, 0 (north edge) to 31 (south edge).",
-});
-
-const Thing = EntityId.annotate({
-  description: "The id of an entity, like e12, as shown by look.",
-});
-
-const Placed = Schema.Union([
-  Schema.Struct({
-    kind: Schema.Literal("block"),
-    colour: Colour,
-  }),
-  Schema.Struct({
-    kind: Schema.Literal("flower"),
-    colour: Colour,
-  }),
-  Schema.Struct({
-    kind: Schema.Literal("sign"),
-    text: Text.annotate({
-      description: `What the sign says, 1-${TEXT_MAX_LENGTH} characters.`,
-    }),
-  }),
-]).annotate({
-  description:
-    "What to create: a block or flower in a colour, or a sign with text.",
-});
+/** The World object, as the tools see it: decoded values in and out. */
+export interface WorldClient {
+  readonly act: (command: Command, by: Editor) => Effect.Effect<Verdict>;
+  readonly summary: Effect.Effect<string>;
+  readonly map: (area: Option.Option<Area>) => Effect.Effect<string>;
+  readonly agentView: (cell: Cell, radius: number) => Effect.Effect<string>;
+  readonly inspect: (cell: Cell) => Effect.Effect<string>;
+  readonly find: (
+    region: Option.Option<Region>,
+    kind: Option.Option<KindName>,
+    limit: number
+  ) => Effect.Effect<string>;
+  readonly history: (limit: number) => Effect.Effect<string>;
+}
 
 const reply = {
   dependencies: [Caller],
@@ -76,165 +81,223 @@ const reply = {
   success: Schema.String,
 };
 
+const AFTER_EDIT =
+  "The result says what happened and shows a map of the affected area.";
+
 export const Tools = Toolkit.make(
-  Tool.make("look", {
+  Tool.make("world_summary", {
     ...reply,
     description:
-      "See your position, a map of the 17x17 tiles around you, and the entities and characters within 8 tiles.",
+      "The world's extent (its bounding box), how many cells of each ground kind and how many entities of each kind it holds, and how many events its history has. Start here.",
   }),
-  Tool.make("move_to", {
+  Tool.make("view_map", {
     ...reply,
     description:
-      "Walk to a land tile with no block or sign on it; flowers can be walked over and stood on. Returns when you arrive, at 3 tiles per second, at most about 20 seconds.",
-    parameters: Schema.Struct({ x: X, y: Y }),
-  }),
-  Tool.make("pick_up", {
-    ...reply,
-    description:
-      "Pick up an entity on one of the four tiles beside you. You carry at most one.",
-    parameters: Schema.Struct({ entity: Thing }),
-  }),
-  Tool.make("put_down", {
-    ...reply,
-    description:
-      "Put what you carry on a free land tile beside you (north, east, south or west).",
-    parameters: Schema.Struct({ x: X, y: Y }),
-  }),
-  Tool.make("create", {
-    ...reply,
-    description:
-      "Create a block, a flower or a sign on a free land tile beside you (north, east, south or west).",
-    parameters: Schema.Struct({ x: X, y: Y, item: Placed }),
-  }),
-  Tool.make("destroy", {
-    ...reply,
-    description: "Destroy an entity on one of the four tiles beside you.",
-    parameters: Schema.Struct({ entity: Thing }),
-  }),
-  Tool.make("say", {
-    ...reply,
-    description: "Say something to every character within 8 tiles.",
+      "A character map of a rectangle of the world, a height map of the same cells and a legend. Give all four of x1, y1, x2, y2, or none for the whole world. Maps are at most 128 x 128 cells; a larger request is cut down from its north-west corner and the text says so.",
     parameters: Schema.Struct({
-      text: Text.annotate({
-        description: `What to say, 1-${TEXT_MAX_LENGTH} characters.`,
-      }),
+      x1: Schema.optionalKey(X),
+      y1: Schema.optionalKey(Y),
+      x2: Schema.optionalKey(X),
+      y2: Schema.optionalKey(Y),
     }),
   }),
-  Tool.make("set_name", {
+  Tool.make("view_as_agent", {
     ...reply,
     description:
-      "Choose the name others see for your character. It must differ, ignoring case, from every other character's name and username.",
+      "What an agent standing on a cell would be told: the ground under it, a map of the square around it with @ at its cell, what stands nearby and any writing. Use it to check how a place reads to an agent.",
     parameters: Schema.Struct({
-      name: DisplayName.annotate({
-        description: `Your new name, 1-${NAME_MAX_LENGTH} characters.`,
-      }),
+      x: X,
+      y: Y,
+      radius: Schema.optionalKey(
+        Schema.Int.annotate({
+          description: `How many cells it sees in each direction, 0 to ${VIEW_MAX_RADIUS}; default 8.`,
+        })
+      ),
     }),
+  }),
+  Tool.make("inspect_cell", {
+    ...reply,
+    description:
+      "One cell in detail: its ground kind and height, whether it is walkable, and every entity on it with its id and effective components.",
+    parameters: Schema.Struct({ x: X, y: Y }),
+  }),
+  Tool.make("find_entities", {
+    ...reply,
+    description: `Lists entities with their ids, kinds and cells, oldest first: in a region or the whole world, optionally only one kind. Shows at most \`limit\` (default ${FIND_DEFAULT_LIMIT}, at most ${FIND_MAX_LIMIT}) and says how many there are in all.`,
+    parameters: Schema.Struct({
+      region: Schema.optionalKey(RegionInput),
+      kind: Schema.optionalKey(KindName),
+      limit: Schema.optionalKey(Schema.Int),
+    }),
+  }),
+  Tool.make("list_kinds", {
+    ...reply,
+    description:
+      "Every ground kind with its glyph and traits (walkable, wet), and every entity kind with its glyph and default components (layer, obstacle, aquatic, colour, model).",
+  }),
+  Tool.make("history", {
+    ...reply,
+    description: `The latest edits to the world, one line each with its sequence number, time and editor. Default ${HISTORY_DEFAULT_LIMIT}, at most ${HISTORY_MAX_LIMIT}.`,
+    parameters: Schema.Struct({ limit: Schema.optionalKey(Schema.Int) }),
+  }),
+  Tool.make("paint_ground", {
+    ...reply,
+    description: `Sets the ground kind, the height or both across a region. Cells without ground join the world only when a kind is given. Painting water removes things that cannot stand on water, and painting dry ground removes aquatic things. ${AFTER_EDIT}`,
+    parameters: PaintInput,
+  }),
+  Tool.make("erase_ground", {
+    ...reply,
+    description: `Removes the ground of a region, and everything standing on it: those cells leave the world. ${AFTER_EDIT}`,
+    parameters: EraseInput,
+  }),
+  Tool.make("spawn", {
+    ...reply,
+    description: `Puts one entity of a kind on a cell, optionally with its own components, such as the text of a sign. Refused when the cell has no ground, the ground does not suit it (aquatic things need water, others dry ground) or its layer is taken. ${AFTER_EDIT}`,
+    parameters: SpawnInput,
+  }),
+  Tool.make("scatter", {
+    ...reply,
+    description: `Spawns entities of the given kinds on a random share (density) of a region's cells, skipping cells where they may not stand. Good for forests, meadows and reed beds. ${AFTER_EDIT}`,
+    parameters: ScatterInput,
+  }),
+  Tool.make("move_entity", {
+    ...reply,
+    description: `Moves an entity to another cell, if it may stand there. ${AFTER_EDIT}`,
+    parameters: MoveInput,
+  }),
+  Tool.make("change_entity", {
+    ...reply,
+    description: `Replaces an entity's own components, for example a sign's text or a block's colour; its kind's defaults still apply beneath. ${AFTER_EDIT}`,
+    parameters: ChangeInput,
+  }),
+  Tool.make("remove_entities", {
+    ...reply,
+    description: `Removes entities, either listed by id or everything in a region (optionally only one kind). The ground stays. ${AFTER_EDIT}`,
+    parameters: RemoveInput,
+  }),
+  Tool.make("generate_world", {
+    ...reply,
+    description: `Generates a landscape of ground, water, hills and plants over a width x height rectangle whose north-west corner is (x, y), default (0, 0), replacing the ground and entities already there. ${AFTER_EDIT}`,
+    parameters: GenerateInput,
   })
 );
 
-export interface WorldClient {
-  readonly act: (command: Command) => Effect.Effect<Report>;
-  readonly catchUp: (username: Username) => Effect.Effect<CatchUp>;
-}
+const refused = (message: string) => Effect.fail(new Refused({ message }));
 
-const answered = (report: Report, text: (report: Report) => string) =>
-  Option.match(refusalOf(report), {
-    onNone: () => Effect.succeed(text(report)),
-    onSome: (message) => Effect.fail(new Refused({ message })),
+const parsed = <A>(result: Result.Result<A, string>) =>
+  Result.match(result, { onFailure: refused, onSuccess: Effect.succeed });
+
+const cellFor = (x: number, y: number) =>
+  Option.match(cellAt(x, y), {
+    onNone: () =>
+      refused(
+        `The cell ${x},${y} is outside the coordinate range: x and y must be between -${COORDINATE_LIMIT} and ${COORDINATE_LIMIT}.`
+      ),
+    onSome: (cell) => Effect.succeed(cell),
   });
 
-const tileOf = ({ x, y }: { readonly x: Coordinate; readonly y: Coordinate }) =>
-  Tile.make({ x, y });
+const decodeArea = Schema.decodeUnknownResult(Area);
 
-const itemOf = (placed: typeof Placed.Type) =>
-  Match.value(placed).pipe(
-    Match.discriminatorsExhaustive("kind")({
-      block: ({ colour }) => Item.cases.Block.make({ colour }),
-      flower: ({ colour }) => Item.cases.Flower.make({ colour }),
-      sign: ({ text }) => Item.cases.Sign.make({ text }),
-    })
+const areaFor = (input: {
+  readonly x1?: number;
+  readonly y1?: number;
+  readonly x2?: number;
+  readonly y2?: number;
+}) => {
+  const { x1, x2, y1, y2 } = input;
+
+  if (
+    x1 === undefined &&
+    y1 === undefined &&
+    x2 === undefined &&
+    y2 === undefined
+  ) {
+    return Effect.succeedNone;
+  }
+
+  if (
+    x1 === undefined ||
+    y1 === undefined ||
+    x2 === undefined ||
+    y2 === undefined
+  ) {
+    return refused(
+      "Give all four of x1, y1, x2 and y2 for a rectangle, or none of them for the whole world."
+    );
+  }
+
+  return parsed(
+    Result.mapBoth(
+      decodeArea({ from: { x: x1, y: y1 }, to: { x: x2, y: y2 } }),
+      {
+        onFailure: (issue) => `The rectangle is not valid: ${issue.message}`,
+        onSuccess: Option.some,
+      }
+    )
   );
+};
 
-const arrivalOf = (report: Report, self: Username) =>
-  report.verdict._tag === "Accepted"
-    ? Arr.findFirst(report.verdict.events, (event) =>
-        event._tag === "WalkStarted" && event.actor === self
-          ? Option.some(arrivalAt(event.path, event.at))
-          : Option.none()
-      )
-    : Option.none<number>();
+const randomSeed = Random.nextIntBetween(0, 2_147_483_647);
 
-export const toolHandlers = (world: WorldClient, characters: Characters) => {
-  const acting = (
-    command: (actor: Username) => Command,
-    text: (report: Report, self: Username) => string = actedText
-  ) =>
+export const toolHandlers = (world: WorldClient) => {
+  const answered = (verdict: Verdict) =>
+    verdict._tag === "Rejected"
+      ? refused(`Refused: ${rejectionText(verdict.rejection)}`)
+      : Effect.map(
+          Option.match(framedOf(verdict), {
+            onNone: () => Effect.succeedNone,
+            onSome: (framed) =>
+              Effect.map(world.map(Option.some(framed.area)), (map) =>
+                Option.some({ framed, map })
+              ),
+          }),
+          (shown) => editText(verdict, shown)
+        );
+
+  const editing = (command: Result.Result<Command, string>) =>
     Effect.gen(function* () {
-      const { username } = yield* Caller;
-      const report = yield* world.act(command(username));
+      const { editor } = yield* Caller;
+      const parsedCommand = yield* parsed(command);
 
-      return yield* answered(report, (accepted) => text(accepted, username));
+      return yield* Effect.flatMap(world.act(parsedCommand, editor), answered);
     });
 
   return Tools.toLayer({
-    create: ({ item, x, y }) =>
-      acting((actor) =>
-        Command.cases.Create.make({
-          actor,
-          item: itemOf(item),
-          tile: tileOf({ x, y }),
-        })
-      ),
-    destroy: ({ entity }) =>
-      acting((actor) => Command.cases.Destroy.make({ actor, entity })),
-    look: () =>
-      acting((actor) => Command.cases.Look.make({ actor }), lookedText),
-    move_to: (to) =>
+    change_entity: (input) => editing(changeCommand(input)),
+    erase_ground: (input) => editing(eraseCommand(input)),
+    find_entities: ({ kind, limit, region }) =>
       Effect.gen(function* () {
-        const { username } = yield* Caller;
+        const within = yield* Option.match(Option.fromNullishOr(region), {
+          onNone: () => Effect.succeedNone,
+          onSome: (input) => Effect.asSome(parsed(parsedRegion(input))),
+        });
 
-        const departure = yield* world.act(
-          Command.cases.Move.make({ actor: username, to: tileOf(to) })
+        return yield* world.find(
+          within,
+          Option.fromNullishOr(kind),
+          limit ?? FIND_DEFAULT_LIMIT
         );
-
-        yield* answered(departure, () => "");
-
-        yield* Option.match(arrivalOf(departure, username), {
-          onNone: () => Effect.void,
-          onSome: (arrival) =>
-            Effect.sleep(Duration.millis(Math.max(0, arrival - departure.now))),
-        });
-
-        const arrival = yield* world.catchUp(username);
-
-        return arrivedText(departure, arrival, username);
       }),
-    pick_up: ({ entity }) =>
-      acting((actor) => Command.cases.PickUp.make({ actor, entity })),
-    put_down: (at) =>
-      acting((actor) =>
-        Command.cases.PutDown.make({ actor, tile: tileOf(at) })
+    generate_world: (input) =>
+      Effect.flatMap(randomSeed, (seed) =>
+        editing(generateCommand(input, seed))
       ),
-    say: ({ text }) =>
-      acting((actor) => Command.cases.Say.make({ actor, text })),
-    set_name: ({ name }) =>
-      Effect.gen(function* () {
-        const { username } = yield* Caller;
-
-        return yield* Option.match(reservedBy(characters, name, username), {
-          onNone: () =>
-            acting((actor) => Command.cases.Rename.make({ actor, name })),
-          onSome: (owner) =>
-            Effect.flatMap(
-              world.act(Command.cases.Look.make({ actor: username })),
-              (report) =>
-                Effect.fail(
-                  new Refused({
-                    message: `Refused: ${reservedNameText(name, owner)}\n\n${nearbyText(report.world, report.nearby, report.now, "since your last call")}`,
-                  })
-                )
-            ),
-        });
-      }),
+    history: ({ limit }) => world.history(limit ?? HISTORY_DEFAULT_LIMIT),
+    inspect_cell: ({ x, y }) => Effect.flatMap(cellFor(x, y), world.inspect),
+    list_kinds: () => Effect.succeed(kindsText()),
+    move_entity: (input) => editing(moveCommand(input)),
+    paint_ground: (input) => editing(paintCommand(input)),
+    remove_entities: (input) => editing(removeCommand(input)),
+    scatter: (input) =>
+      Effect.flatMap(randomSeed, (seed) =>
+        editing(scatterCommand(input, seed))
+      ),
+    spawn: (input) => editing(spawnCommand(input)),
+    view_as_agent: ({ radius, x, y }) =>
+      Effect.flatMap(cellFor(x, y), (cell) =>
+        world.agentView(cell, radius ?? 8)
+      ),
+    view_map: (input) => Effect.flatMap(areaFor(input), world.map),
+    world_summary: () => world.summary,
   });
 };

@@ -1,15 +1,21 @@
+import { Cell } from "@agent-crossing/world/cell";
 import { Command } from "@agent-crossing/world/command";
-import { WorldEvent } from "@agent-crossing/world/event";
+import { changesOf, WorldEvent } from "@agent-crossing/world/event";
+import { FeedFrame, Seq } from "@agent-crossing/world/feed";
+import { KindName } from "@agent-crossing/world/kind";
+import { Region } from "@agent-crossing/world/region";
+import type { Span } from "@agent-crossing/world/region";
+import { decide } from "@agent-crossing/world/rules";
+import { fromSnapshot } from "@agent-crossing/world/snapshot";
 import {
-  execute,
-  expire,
-  nextLapseAt,
-  streamsLost,
-} from "@agent-crossing/world/presence";
-import type { Outcome } from "@agent-crossing/world/presence";
-import { Username } from "@agent-crossing/world/values";
-import type { Timestamp } from "@agent-crossing/world/values";
-import { emptyServer, Server, World } from "@agent-crossing/world/world";
+  agentViewText,
+  eventText,
+  inspectText,
+  summaryText,
+} from "@agent-crossing/world/text";
+import { Editor } from "@agent-crossing/world/values";
+import { applyAll } from "@agent-crossing/world/world";
+import type { World } from "@agent-crossing/world/world";
 import * as Rivet from "@alchemy.run/rivet";
 import * as Arr from "effect/Array";
 import * as Clock from "effect/Clock";
@@ -17,80 +23,71 @@ import * as Duration from "effect/Duration";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as PubSub from "effect/PubSub";
-import * as Record from "effect/Record";
+import * as Ref from "effect/Ref";
 import * as Result from "effect/Result";
 import * as Schema from "effect/Schema";
 import * as Semaphore from "effect/Semaphore";
 import * as Stream from "effect/Stream";
 
+import { Area, areaOfSpan, spanOfCells, touchedBy, widen } from "./affected.ts";
 import { Default } from "./cluster.ts";
-import { Audience, heardIn, isFor, Seq, toldTo } from "./journal.ts";
-import type { Entry, Heard } from "./journal.ts";
 import {
-  CatchUp,
-  heartbeat,
-  Report,
-  StoredRow,
-  StreamItem,
-  toldOf,
-  Verdict,
-} from "./wire.ts";
+  EventRow,
+  findText,
+  HISTORY_MAX_LIMIT,
+  historyText,
+  mapOf,
+} from "./queries.ts";
+import { SCHEMA, snapshotOfRows, statementsOf } from "./rows.ts";
+import { FeedItem, openingFrames, tallyOf, Verdict } from "./wire.ts";
 
-export const WORLD_NAME = "main";
+/** The one world every caller shares. */
+export const WORLD_NAME = "world";
 
 export const HEARTBEAT_INTERVAL = Duration.seconds(15);
 
-const decodeServer = Schema.decodeUnknownEffect(Server);
+/** How long one command's transaction may take: generating a large landscape writes tens of thousands of rows. */
+export const COMMIT_TIMEOUT = Duration.minutes(5);
 
-const encodeServer = (server: Server) =>
-  Effect.orDie(Schema.encodeEffect(Server)(server));
-
-const encodeWorld = (world: World) =>
-  Effect.orDie(Schema.encodeEffect(World)(world));
-
-const decodeUsername = Schema.decodeUnknownEffect(Username);
-const decodeCommand = Schema.decodeUnknownEffect(Command);
-const decodeAudience = Schema.decodeUnknownEffect(Audience);
-const decodeRows = Schema.decodeUnknownEffect(Schema.Array(StoredRow));
-
-const encodeEventJson = (event: WorldEvent) =>
-  Effect.orDie(Schema.encodeEffect(Schema.fromJsonString(WorldEvent))(event));
-
-const encodeReport = (report: Report) =>
-  Effect.orDie(Schema.encodeEffect(Report)(report));
-
-const encodeCatchUp = (caught: CatchUp) =>
-  Effect.orDie(Schema.encodeEffect(CatchUp)(caught));
-
-const encodeStreamItem = (item: StreamItem) =>
-  Effect.orDie(Schema.encodeEffect(StreamItem)(item));
-
-const SCHEMA = [
-  "CREATE TABLE IF NOT EXISTS events (seq INTEGER PRIMARY KEY AUTOINCREMENT, actor TEXT NOT NULL, event TEXT NOT NULL, text TEXT)",
-  "CREATE TABLE IF NOT EXISTS audiences (username TEXT NOT NULL, seq INTEGER NOT NULL, PRIMARY KEY (username, seq)) WITHOUT ROWID",
-  "CREATE TABLE IF NOT EXISTS cursors (username TEXT PRIMARY KEY, seq INTEGER NOT NULL) WITHOUT ROWID",
-] as const;
-
-interface Step<A> {
-  readonly outcome: Outcome;
-  readonly finish: (server: Server) => Effect.Effect<A>;
+interface Happened {
+  readonly seq: Seq;
+  readonly event: WorldEvent;
 }
 
-const unchanged = (server: Server) =>
-  ({ events: [], server }) satisfies Outcome;
+interface Recorded {
+  readonly world: World;
+  readonly happened: readonly Happened[];
+  readonly changeCount: number;
+  readonly edited: Option.Option<Span>;
+}
 
-const lookAfterRejection = (server: Server, actor: Username, now: Timestamp) =>
-  Result.getOrElse(
-    execute(server, Command.cases.Look.make({ actor }), now),
-    () => unchanged(server)
-  );
+const decodeCommand = Schema.decodeUnknownEffect(Command);
+const decodeEditor = Schema.decodeUnknownEffect(Editor);
+const decodeCell = Schema.decodeUnknownEffect(Cell);
+const decodeArea = Schema.decodeUnknownEffect(Schema.NullOr(Area));
+const decodeRegion = Schema.decodeUnknownEffect(Schema.NullOr(Region));
+const decodeKind = Schema.decodeUnknownEffect(Schema.NullOr(KindName));
+const decodeSeq = Schema.decodeUnknownEffect(Seq);
+const decodeCount = Schema.decodeUnknownEffect(Schema.Int);
+const decodeEventRows = Schema.decodeUnknownEffect(Schema.Array(EventRow));
+
+const encodeEventJson = Schema.encodeEffect(Schema.fromJsonString(WorldEvent));
+const encodeVerdict = Schema.encodeEffect(Verdict);
+const encodeFeedItem = Schema.encodeEffect(FeedItem);
+
+const heartbeat = FeedItem.cases.Heartbeat.make({});
+
+const framed = (frame: FeedFrame) => FeedItem.cases.Frame.make({ frame });
+
+const clampedLimit = (limit: number, maximum: number) =>
+  Math.max(1, Math.min(maximum, Math.trunc(limit)));
 
 const instance = Effect.gen(function* () {
   const { storage } = yield* Rivet.DurableObjectState;
 
   const run = <Row extends Record<string, unknown>>(
     query: string,
-    ...bindings: unknown[]
+    ...bindings: readonly unknown[]
   ) =>
     Effect.flatMap(storage.sql.exec<Row>(query, ...bindings), (cursor) =>
       cursor.toArray()
@@ -100,250 +97,146 @@ const instance = Effect.gen(function* () {
     discard: true,
   });
 
-  const hasText = yield* run<{ count: number }>(
-    "SELECT COUNT(*) AS count FROM pragma_table_info('events') WHERE name = 'text'"
+  const loaded = yield* Effect.orDie(
+    snapshotOfRows({
+      entities: yield* run("SELECT id, kind, x, y, components FROM entities"),
+      ground: yield* run("SELECT x, y, kind, height FROM ground"),
+      meta: yield* run("SELECT spawned FROM meta WHERE id = 1"),
+    })
   );
 
-  if ((hasText[0]?.count ?? 0) === 0) {
-    yield* run("ALTER TABLE events ADD COLUMN text TEXT");
-  }
-
-  const serialised = Semaphore.withPermits(yield* Semaphore.make(1), 1);
-  const live = yield* PubSub.unbounded<Entry>();
-
-  const readServer = Effect.flatMap(storage.get<unknown>("server"), (stored) =>
-    stored === undefined
-      ? Effect.succeed(emptyServer)
-      : Effect.orDie(decodeServer(stored))
-  );
-
-  const head = Effect.map(
+  const lastSeq = Effect.flatMap(
     run<{ head: number }>("SELECT COALESCE(MAX(seq), 0) AS head FROM events"),
-    (rows) => rows[0]?.head ?? 0
+    (rows) => Effect.orDie(decodeSeq(rows[0]?.head ?? 0))
   );
 
-  const appendOne = ({ audience, event, text }: Heard) =>
+  const world = yield* Ref.make<World>(fromSnapshot(loaded));
+  const head = yield* Ref.make<Seq>(yield* lastSeq);
+  const live = yield* PubSub.unbounded<Happened>();
+  const serialised = Semaphore.withPermits(yield* Semaphore.make(1), 1);
+
+  yield* Effect.logInfo(
+    `World awake: ${loaded.ground.length} cells, ${loaded.entities.length} entities, ${yield* Ref.get(head)} events.`
+  );
+
+  const step = (sofar: Recorded, event: WorldEvent) =>
     Effect.gen(function* () {
       const rows = yield* run<{ seq: number }>(
-        "INSERT INTO events (actor, event, text) VALUES (?, ?, ?) RETURNING seq",
-        event.actor,
-        yield* encodeEventJson(event),
-        text
+        "INSERT INTO events (at, by, event) VALUES (?, ?, ?) RETURNING seq",
+        event.at,
+        event.by,
+        yield* encodeEventJson(event)
       );
 
-      const seq = yield* Effect.orDie(
-        Schema.decodeUnknownEffect(Seq)(rows[0]?.seq)
-      );
+      const seq = yield* decodeSeq(rows[0]?.seq);
+      const changes = changesOf(sofar.world, event);
 
       yield* Effect.forEach(
-        audience,
-        (username) =>
-          run(
-            "INSERT INTO audiences (username, seq) VALUES (?, ?)",
-            username,
-            seq
-          ),
+        yield* statementsOf(changes),
+        ({ bindings, sql }) => run(sql, ...bindings),
         { discard: true }
       );
 
-      const entry: Entry = { audience, event, seq, text };
+      const recorded: Recorded = {
+        changeCount: sofar.changeCount + changes.length,
+        edited: widen(
+          sofar.edited,
+          spanOfCells(
+            Arr.flatMap(changes, (change) => touchedBy(sofar.world, change))
+          )
+        ),
+        happened: [...sofar.happened, { event, seq }],
+        world: applyAll(sofar.world, changes),
+      };
 
-      return entry;
+      return recorded;
     });
 
-  const settle = (server: Server) =>
-    Effect.andThen(
-      Effect.flatMap(encodeServer(server), (encoded) =>
-        storage.put("server", encoded)
+  const record = (before: World, events: readonly WorldEvent[]) =>
+    storage.transaction(
+      Effect.reduce(
+        events,
+        () =>
+          ({
+            changeCount: 0,
+            edited: Option.none<Span>(),
+            happened: [],
+            world: before,
+          }) satisfies Recorded,
+        step
       ),
-      Option.match(nextLapseAt(server), {
-        onNone: () => storage.deleteAlarm(),
-        onSome: (at) => storage.setAlarm(at),
+      { timeout: COMMIT_TIMEOUT }
+    );
+
+  const commit = (command: Command, by: Editor) =>
+    serialised(
+      Effect.gen(function* () {
+        const now = yield* Clock.currentTimeMillis;
+        const before = yield* Ref.get(world);
+        const decision = decide(before, command, now, by);
+
+        if (Result.isFailure(decision)) {
+          return Verdict.cases.Rejected.make({ rejection: decision.failure });
+        }
+
+        const outcome = yield* record(before, decision.success);
+
+        yield* Ref.set(world, outcome.world);
+        yield* Option.match(Arr.last(outcome.happened), {
+          onNone: () => Effect.void,
+          onSome: ({ seq }) => Ref.set(head, seq),
+        });
+        yield* PubSub.publishAll(live, outcome.happened);
+
+        return Verdict.cases.Accepted.make({
+          changes: outcome.changeCount,
+          sentences: Arr.map(outcome.happened, ({ event }) => eventText(event)),
+          tally: tallyOf(decision.success),
+          ...Option.match(outcome.edited, {
+            onNone: () => ({}),
+            onSome: (span) => ({ edited: areaOfSpan(span) }),
+          }),
+        });
       })
     );
 
-  const commit = <A>(step: (before: Server, now: Timestamp) => Step<A>) =>
-    serialised(
-      storage
-        .transaction(
-          Effect.gen(function* () {
-            const now = yield* Clock.currentTimeMillis;
-            const before = yield* readServer;
-            const { finish, outcome } = step(before, now);
-
-            const entries = yield* Effect.forEach(
-              heardIn(before.world, outcome.events),
-              appendOne
-            );
-
-            yield* settle(outcome.server);
-
-            return { entries, result: yield* finish(outcome.server) };
-          })
-        )
-        .pipe(
-          Effect.tap(({ entries }) => PubSub.publishAll(live, entries)),
-          Effect.map(({ result }) => result)
-        )
-    );
-
-  const rowsFor = (audience: Audience, after: number, upTo: number) =>
-    Effect.flatMap(
-      Audience.match(audience, {
-        Character: ({ username }) =>
-          run(
-            "SELECT e.seq AS seq, e.event AS event, e.text AS text FROM audiences a JOIN events e ON e.seq = a.seq WHERE a.username = ? AND e.actor <> ? AND a.seq > ? AND a.seq <= ? ORDER BY a.seq",
-            username,
-            username,
-            after,
-            upTo
-          ),
-        Spectator: () =>
-          run(
-            "SELECT seq, event, NULL AS text FROM events WHERE seq > ? AND seq <= ? ORDER BY seq",
-            after,
-            upTo
-          ),
-      }),
-      (rows) => Effect.map(Effect.orDie(decodeRows(rows)), Arr.map(toldOf))
-    );
-
-  const catchUpOf = (username: Username, server: Server, now: Timestamp) =>
-    Effect.gen(function* () {
-      const upTo = yield* head;
-
-      const since = yield* Effect.map(
-        run<{ seq: number }>(
-          "SELECT seq FROM cursors WHERE username = ?",
-          username
-        ),
-        (rows) => Option.fromNullishOr(rows[0]?.seq)
-      );
-
-      yield* run(
-        "INSERT INTO cursors (username, seq) VALUES (?, ?) ON CONFLICT (username) DO UPDATE SET seq = excluded.seq",
-        username,
-        upTo
-      );
-
-      const nearby = yield* Option.match(since, {
-        onNone: () => Effect.succeed([]),
-        onSome: (after) =>
-          rowsFor(Audience.cases.Character.make({ username }), after, upTo),
-      });
-
-      const caught: CatchUp = { nearby, now, world: server.world };
-
-      return caught;
-    });
-
-  const presence = (command: Command) =>
-    commit((before, now) => ({
-      finish: () => Effect.void,
-      outcome: Result.getOrElse(execute(before, command, now), () =>
-        unchanged(before)
-      ),
-    }));
-
-  yield* commit((before, now) => ({
-    finish: () =>
-      Effect.logInfo(
-        `World awake; streams lost by ${
-          Arr.join(
-            Arr.filter(
-              Record.keys(before.sessions),
-              (username) => (before.sessions[username]?.openStreams ?? 0) > 0
-            ),
-            ", "
-          ) || "nobody"
-        }`
-      ),
-    outcome: unchanged(streamsLost(before, now)),
-  }));
+  const reading = <A>(read: (current: World) => A) =>
+    Effect.map(Ref.get(world), read);
 
   return {
-    act: (encoded: typeof Command.Encoded) =>
+    act: (command: typeof Command.Encoded, by: string) =>
       Effect.gen(function* () {
-        const command = yield* Effect.orDie(decodeCommand(encoded));
+        const verdict = yield* commit(
+          yield* decodeCommand(command),
+          yield* decodeEditor(by)
+        );
 
-        const report = yield* commit((before, now) => {
-          const decided = Result.match(execute(before, command, now), {
-            onFailure: (rejection) => ({
-              outcome: lookAfterRejection(before, command.actor, now),
-              verdict: Verdict.cases.Rejected.make({ rejection }),
-            }),
-            onSuccess: (outcome) => ({
-              outcome,
-              verdict: Verdict.cases.Accepted.make({ events: outcome.events }),
-            }),
-          });
-
-          const verdict: Verdict = decided.verdict;
-
-          return {
-            finish: (server: Server) =>
-              Effect.map(
-                catchUpOf(command.actor, server, now),
-                (caught) => ({ ...caught, verdict }) satisfies Report
-              ),
-            outcome: decided.outcome,
-          };
-        });
-
-        return yield* encodeReport(report);
-      }),
-    alarm: () =>
-      commit((before, now) => ({
-        finish: () => Effect.void,
-        outcome: expire(before, now),
-      })).pipe(Effect.orDie),
-    catchUp: (encoded: string) =>
-      Effect.gen(function* () {
-        const username = yield* Effect.orDie(decodeUsername(encoded));
-
-        const caught = yield* commit((before, now) => ({
-          finish: (server: Server) => catchUpOf(username, server, now),
-          outcome: unchanged(before),
-        }));
-
-        return yield* encodeCatchUp(caught);
-      }),
-    events: (encoded: typeof Audience.Encoded, cursor: number | null) =>
+        return yield* encodeVerdict(verdict);
+      }).pipe(Effect.orDie),
+    agentView: (cell: typeof Cell.Encoded, radius: number) =>
+      Effect.flatMap(Effect.orDie(decodeCell(cell)), (at) =>
+        reading((current) => agentViewText(current, at, radius))
+      ),
+    feed: () =>
       Stream.unwrap(
         Effect.gen(function* () {
-          const audience = yield* Effect.orDie(decodeAudience(encoded));
-
-          const listener = Audience.match(audience, {
-            Character: ({ username }) => Option.some(username),
-            Spectator: () => Option.none<Username>(),
-          });
-
-          const opened = yield* Option.match(listener, {
-            onNone: () => Effect.void,
-            onSome: (actor) =>
-              presence(Command.cases.StreamOpened.make({ actor })),
-          }).pipe(
-            Effect.andThen(
-              serialised(
-                Effect.all({
-                  subscription: PubSub.subscribe(live),
-                  upTo: head,
-                })
-              )
-            )
+          // WARNING: subscribe and read the world in one serialised step, or events are lost or repeated.
+          const opened = yield* serialised(
+            Effect.all({
+              cursor: Ref.get(head),
+              subscription: PubSub.subscribe(live),
+              world: Ref.get(world),
+            })
           );
 
-          const replay = Stream.fromIterableEffect(
-            rowsFor(audience, cursor ?? opened.upTo, opened.upTo)
+          const opening = Stream.fromIterable(
+            Arr.map(openingFrames(opened.world, opened.cursor), framed)
           );
 
-          const fresh = Stream.fromSubscription(opened.subscription).pipe(
-            Stream.filter((entry) => isFor(audience, entry)),
-            Stream.map((entry) => toldTo(audience, entry))
-          );
-
-          const happenings = Stream.map(Stream.concat(replay, fresh), (told) =>
-            StreamItem.cases.Happened.make(told)
+          const happenings = Stream.map(
+            Stream.fromSubscription(opened.subscription),
+            ({ event, seq }) =>
+              framed(FeedFrame.cases.Happened.make({ event, seq }))
           );
 
           const beats = Stream.map(
@@ -351,32 +244,60 @@ const instance = Effect.gen(function* () {
             () => heartbeat
           );
 
-          return Stream.merge(beats, happenings).pipe(
-            Stream.mapEffect(encodeStreamItem),
-            Stream.ensuring(
-              Option.match(listener, {
-                onNone: () => Effect.void,
-                onSome: (actor) =>
-                  Effect.uninterruptible(
-                    presence(Command.cases.StreamClosed.make({ actor }))
-                  ),
-              })
-            )
+          return Stream.merge(beats, Stream.concat(opening, happenings)).pipe(
+            Stream.mapEffect((item) => Effect.orDie(encodeFeedItem(item)))
           );
         })
       ),
-    snapshot: () =>
-      serialised(
-        Effect.gen(function* () {
-          const server = yield* readServer;
+    find: (
+      region: typeof Region.Encoded | null,
+      kind: string | null,
+      limit: number
+    ) =>
+      Effect.gen(function* () {
+        const within = yield* decodeRegion(region);
+        const only = yield* decodeKind(kind);
 
-          return {
-            cursor: yield* head,
-            now: yield* Clock.currentTimeMillis,
-            world: yield* encodeWorld(server.world),
-          };
-        })
+        return yield* reading((current) =>
+          findText(
+            current,
+            Option.fromNullishOr(within),
+            Option.fromNullishOr(only),
+            limit
+          )
+        );
+      }).pipe(Effect.orDie),
+    history: (limit: number) =>
+      Effect.gen(function* () {
+        const rows = yield* run(
+          "SELECT seq, at, by, event FROM (SELECT seq, at, by, event FROM events ORDER BY seq DESC LIMIT ?) ORDER BY seq",
+          clampedLimit(limit, HISTORY_MAX_LIMIT)
+        );
+
+        const counted = yield* run<{ total: number }>(
+          "SELECT COUNT(*) AS total FROM events"
+        );
+
+        return historyText(
+          yield* decodeEventRows(rows),
+          yield* decodeCount(counted[0]?.total ?? 0)
+        );
+      }).pipe(Effect.orDie),
+    inspect: (cell: typeof Cell.Encoded) =>
+      Effect.flatMap(Effect.orDie(decodeCell(cell)), (at) =>
+        reading((current) => inspectText(current, at))
       ),
+    map: (area: typeof Area.Encoded | null) =>
+      Effect.flatMap(Effect.orDie(decodeArea(area)), (shown) =>
+        reading((current) => mapOf(current, Option.fromNullishOr(shown)))
+      ),
+    summary: () =>
+      Effect.gen(function* () {
+        const text = yield* reading(summaryText);
+        const events = yield* Ref.get(head);
+
+        return `${text}\nHistory: ${events} events.`;
+      }),
   };
 });
 

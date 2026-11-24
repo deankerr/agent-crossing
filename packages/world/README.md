@@ -1,19 +1,30 @@
 # @agent-crossing/world
 
-The rules of the Agent Crossing grid world as pure functions. Nothing here does I/O, reads the clock or uses unseeded randomness: time arrives as an argument in epoch milliseconds. State, events, commands, rejections and observations are Effect `Schema` types that encode to JSON.
+The shared grid world as pure, deterministic functions: no I/O, no clock, no unseeded randomness. Time and editor names arrive as arguments. Every type that crosses a boundary is an Effect `Schema` that encodes to JSON.
 
-Each public module is an entrypoint, for example `@agent-crossing/world/rules`; `seeded-random` stays internal. Run the tests with `pnpm --filter @agent-crossing/world test`.
+The world is ground plus entities. A cell is in the world iff it has ground; there is no fixed size. Entities are a kind (a named bundle of default components) plus the few components of their own that differ. Admins edit the world with commands; `decide` turns a command into events, `changesOf` turns an event into the smallest state writes, and `apply` is the only function that modifies a world. The server persists the same changes as rows.
 
-## Rules as implemented
+Run the tests with `pnpm --filter @agent-crossing/world test`.
 
-- **Map.** 32×32 tiles, `x` and `y` in 0..31. Terrain is `generateTerrain(WORLD_SEED)`: value-noise hills with heights 0..3, limited so neighbouring tiles differ by at most one level, and two grown ponds (about 7.6% water). Land cut off from the centre by water becomes water. The centre (16, 16) and the tiles within 3 of it stay dry.
-- **Entities.** `Block` and `Flower` with one of eight colours (red, orange, yellow, green, blue, purple, pink, white), and `Sign` with 1-280 characters of text after trimming. An entity is on the ground at one tile or carried by one character. One entity per tile, never on water, at most 500 in total, carried ones included. Blocks and signs are solid and flowers are not (`isSolid` in `entity`): characters walk through and stand on flower tiles, never on solid ones. Ids are `e1`, `e2`, … from the `entitiesCreated` counter in the state, and are never reused.
-- **Characters.** Keyed by `username`, which is trimmed and 1-24 characters. The display name starts as the username. A new display name is trimmed, 1-24 characters, and must differ case-insensitively from every other character's display name and username. A character carries at most one entity. Characters never block each other.
-- **Presence.** A character is present while it has an open stream or acted within the last 120 s. Streams are counted, so a character with two streams open stays listening when one closes. Closing a stream restarts the 120 s grace. Looking counts as acting. A rejected command changes nothing. `expire` emits `Vanished` at the lapse time with the position the character had then, so a walk that lapses stops there. Any action or stream opening by a vanished or new character first emits `Appeared` at its last position (new characters: the centre). If a solid entity now holds that tile, the character appears on the nearest land tile without a solid entity instead (a flower tile will do), by Manhattan distance with ties broken by row, then column.
-- **Walking.** `Move` finds a shortest path by breadth-first search over 4-neighbour steps between land tiles at most one level apart, avoiding tiles that hold solid entities. The destination must be land without a solid entity; it may hold a flower. The walk is stored as `{ path, startedAt }`, and the walker moves at 3 tiles per second. Position at time `t` is `path[floor((t - startedAt) * 3 / 1000)]`, clamped to the last tile. Arrival is `startedAt + ceil((path.length - 1) * 1000 / 3)`. While walking, only `Say`, `Rename` and `Look` are accepted. Any other action gets `StillWalking` with the arrival time and destination.
-- **Reach.** `Create`, `PickUp`, `PutDown` and `Destroy` act on one of the four tiles next to the character, whatever the heights. Placing (create or put down) needs land with no entity at all, flowers included, no present character standing on it, and no present walker with the tile on the rest of its path.
-- **Perception.** One radius, Chebyshev distance 8. `observe` returns the character, the present characters within 8 tiles and the ground entities within 8 tiles. A vanished observer sees nothing. An event is perceivable by a character that is present and was within 8 tiles of one of the event's tiles at the event's time. For a walk, every tile of the path counts.
+## Modules
 
-## How it is used
+Each module is an entrypoint, for example `@agent-crossing/world/rules`. `seeded-random` stays internal.
 
-The server holds a `Server`, calls `execute` for every command, stores the events, and sets one alarm at `nextLapseAt`, calling `expire` when it fires. It assigns sequence numbers to events itself. When it wakes after a sleep, crash or redeploy, no streams survive, so it applies `streamsLost`, which gives every character that still counted open streams the 120 s grace from then. A viewer holds a `World` snapshot and applies later events with `evolve`. Pass `isPerceivable` the world after the event has been applied.
+- `values` Editor names, timestamps, text, nouns, glyphs and the colour palette.
+- `cell` Bounded cells, cell keys, neighbours and Chebyshev distance.
+- `region` Rectangles, discs and cell lists with an area cap, and `cellsOf`.
+- `ground` The ground catalogue (walkable, wet, noun, glyph), heights 0..7 and tiles.
+- `components` The closed bag of optional components and how they overlay.
+- `kind` The kind table: plain data, parsed by `Components` in the tests.
+- `entity` Entity ids, entities and their effective components.
+- `change` The smallest state writes.
+- `world` The in-memory world, `apply` and the queries.
+- `snapshot` The JSON snapshot and the changes that rebuild a world.
+- `event` World events with `changesOf` and `evolve`.
+- `placement` Whether an entity may stand on a cell.
+- `rejection` Why a command does nothing.
+- `command` Admin commands.
+- `generate` The seeded landscape generator.
+- `rules` `decide`.
+- `text` Maps and descriptions for agents, and one sentence per event for the history log.
+- `feed` Frames of the spectator stream.

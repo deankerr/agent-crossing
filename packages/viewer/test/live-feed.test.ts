@@ -1,8 +1,12 @@
+import { FeedFrame } from "@agent-crossing/world/feed";
 import { assert, describe, expect, it } from "@effect/vitest";
+import * as Arr from "effect/Array";
 import * as Effect from "effect/Effect";
+import * as Result from "effect/Result";
+import * as Schema from "effect/Schema";
 
-import type { Connection, Frame } from "../src/feed.ts";
-import { eventsUrl, liveFeed } from "../src/live-feed.ts";
+import type { Connection } from "../src/feed-state.ts";
+import { eventsUrl, liveFeed, retryMillis } from "../src/live-feed.ts";
 import type { EventSourceLike } from "../src/live-feed.ts";
 
 const CONNECTING = 0;
@@ -51,22 +55,32 @@ const fakeSources = () => {
 };
 
 const recorder = () => {
-  const frames: Frame[] = [];
+  const frames: FeedFrame[] = [];
   const connections: Connection[] = [];
+  const dropped: string[] = [];
 
   return {
     connections,
+    dropped,
     frames,
     listener: {
       onConnection: (connection: Connection) => {
         connections.push(connection);
       },
-      onFrame: (frame: Frame) => {
+      onFrame: (frame: FeedFrame) => {
         frames.push(frame);
       },
     },
+    onUndecodable: (data: string) => {
+      dropped.push(data);
+    },
   };
 };
+
+const encodeFrame = (frame: FeedFrame) =>
+  Result.getOrThrow(
+    Schema.encodeResult(Schema.fromJsonString(FeedFrame))(frame)
+  );
 
 const message = (type: string, data: string) =>
   new MessageEvent(type, { data });
@@ -82,35 +96,51 @@ describe(eventsUrl, () => {
   });
 });
 
-describe(liveFeed, () => {
-  it("forwards named frames and reports live once a snapshot arrives", () => {
-    const sources = fakeSources();
-    const { connections, frames, listener } = recorder();
+describe(retryMillis, () => {
+  it("doubles from a second up to half a minute", () => {
+    expect(Arr.map([0, 1, 2, 3, 4, 5, 6, 20], retryMillis)).toStrictEqual([
+      1000, 2000, 4000, 8000, 16_000, 30_000, 30_000, 30_000,
+    ]);
+  });
+});
 
-    liveFeed({ openSource: sources.open, url: "http://world/events" })(
-      listener
-    );
+describe(liveFeed, () => {
+  it("parses frames, drops garbage and reports live once open", () => {
+    const sources = fakeSources();
+
+    const { connections, dropped, frames, listener, onUndecodable } =
+      recorder();
+
+    liveFeed({
+      onUndecodable,
+      openSource: sources.open,
+      url: "http://w/events",
+    })(listener);
 
     const [source] = sources.opened;
-    source?.target.dispatchEvent(message("snapshot", '{"cursor":1}'));
-    source?.target.dispatchEvent(message("world", '{"seq":2}'));
-    source?.target.dispatchEvent(message("message", "ignored"));
+    source?.target.dispatchEvent(new Event("open"));
+    source?.target.dispatchEvent(
+      message("message", encodeFrame(FeedFrame.cases.Reset.make({})))
+    );
+    source?.target.dispatchEvent(
+      message("Ready", encodeFrame(FeedFrame.cases.Ready.make({ cursor: 3 })))
+    );
+    source?.target.dispatchEvent(message("message", '{"_tag":"Nope"}'));
 
-    expect(source?.url).toBe("http://world/events");
+    expect(source?.url).toBe("http://w/events");
     expect(connections).toStrictEqual(["connecting", "live"]);
     expect(frames).toStrictEqual([
-      { data: '{"cursor":1}', event: "snapshot" },
-      { data: '{"seq":2}', event: "world" },
+      FeedFrame.cases.Reset.make({}),
+      FeedFrame.cases.Ready.make({ cursor: 3 }),
     ]);
+    expect(dropped).toStrictEqual(['{"_tag":"Nope"}']);
   });
 
   it("leaves a dropped connection to the browser while it retries", () => {
     const sources = fakeSources();
     const { connections, listener } = recorder();
 
-    liveFeed({ openSource: sources.open, url: "http://world/events" })(
-      listener
-    );
+    liveFeed({ openSource: sources.open, url: "http://w/events" })(listener);
     sources.opened[0]?.target.dispatchEvent(new Event("error"));
 
     expect(connections).toStrictEqual(["connecting", "reconnecting"]);
@@ -122,18 +152,15 @@ describe(liveFeed, () => {
       const sources = fakeSources();
       const { connections, listener } = recorder();
 
-      liveFeed({
-        openSource: sources.open,
-        reconnectAfter: "5 millis",
-        url: "http://world/events",
-      })(listener);
+      liveFeed({ openSource: sources.open, url: "http://w/events" })(listener);
 
       sources.opened[0]?.setState(CLOSED);
       sources.opened[0]?.target.dispatchEvent(new Event("error"));
-      yield* Effect.sleep("40 millis");
-      sources.opened[1]?.target.dispatchEvent(message("snapshot", "{}"));
+      yield* Effect.sleep("1100 millis");
+      sources.opened[1]?.target.dispatchEvent(new Event("open"));
 
       assert.lengthOf(sources.opened, 2);
+      assert.isTrue(sources.opened[0]?.closed());
       assert.deepStrictEqual(connections, [
         "connecting",
         "reconnecting",
@@ -149,17 +176,15 @@ describe(liveFeed, () => {
 
       const close = liveFeed({
         openSource: sources.open,
-        reconnectAfter: "5 millis",
-        url: "http://world/events",
+        url: "http://w/events",
       })(listener);
 
       sources.opened[0]?.setState(CLOSED);
       sources.opened[0]?.target.dispatchEvent(new Event("error"));
       close();
-      yield* Effect.sleep("40 millis");
+      yield* Effect.sleep("1100 millis");
 
       assert.lengthOf(sources.opened, 1);
-      assert.isTrue(sources.opened[0]?.closed());
     })
   );
 });

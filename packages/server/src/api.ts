@@ -1,5 +1,7 @@
+import { Cell } from "@agent-crossing/world/cell";
 import { Command } from "@agent-crossing/world/command";
-import type { Username } from "@agent-crossing/world/values";
+import { KindName } from "@agent-crossing/world/kind";
+import { Region } from "@agent-crossing/world/region";
 import * as Docker from "@alchemy.run/docker";
 import * as Rivet from "@alchemy.run/rivet";
 import * as McpProtocol from "effect/ai/McpProtocol";
@@ -13,39 +15,29 @@ import * as HttpServerResponse from "effect/http/HttpServerResponse";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import * as Redacted from "effect/Redacted";
-import * as Result from "effect/Result";
 import * as Schema from "effect/Schema";
 import * as Stream from "effect/Stream";
 
+import { Area } from "./affected.ts";
 import { Cluster } from "./cluster.ts";
 import { INSTRUCTIONS } from "./instructions.ts";
-import { Audience, characterAudience, spectator } from "./journal.ts";
-import type { Seq } from "./journal.ts";
-import { quoted } from "./narration.ts";
-import {
-  comment,
-  cursorFrom,
-  Snapshot,
-  snapshotFrame,
-  worldFrame,
-} from "./sse.ts";
-import { characterFor, parseCharacters } from "./tokens.ts";
-import type { Characters } from "./tokens.ts";
-import { Caller, toolHandlers, Tools } from "./tools.ts";
+import { sseComment, sseFrame } from "./sse.ts";
+import { editorFor, parseEditors, TOKENS_VARIABLE } from "./tokens.ts";
+import type { Editors } from "./tokens.ts";
+import { Caller, Tools, toolHandlers } from "./tools.ts";
 import type { WorldClient } from "./tools.ts";
-import { CatchUp, Report, StreamItem } from "./wire.ts";
+import { FeedItem, Verdict } from "./wire.ts";
 import WorldObject, { WORLD_NAME } from "./world-object.ts";
 
-const decodeReport = Schema.decodeUnknownEffect(Report);
-const decodeCatchUp = Schema.decodeUnknownEffect(CatchUp);
-const decodeSnapshot = Schema.decodeUnknownEffect(Snapshot);
-const decodeStreamItem = Schema.decodeUnknownEffect(StreamItem);
+const decodeVerdict = Schema.decodeUnknownEffect(Verdict);
+const decodeFeedItem = Schema.decodeUnknownEffect(FeedItem);
+const decodeText = Schema.decodeUnknownEffect(Schema.String);
 
-const encodeCommand = (command: Command) =>
-  Effect.orDie(Schema.encodeEffect(Command)(command));
-
-const encodeAudience = (audience: Audience) =>
-  Effect.orDie(Schema.encodeEffect(Audience)(audience));
+const encodeCommand = Schema.encodeEffect(Command);
+const encodeCell = Schema.encodeEffect(Cell);
+const encodeArea = Schema.encodeEffect(Schema.NullOr(Area));
+const encodeRegion = Schema.encodeEffect(Schema.NullOr(Region));
+const encodeKind = Schema.encodeEffect(Schema.NullOr(KindName));
 
 const TEXT_CONTENT = (text: string) => [{ text, type: "text" as const }];
 
@@ -57,24 +49,18 @@ const SSE_HEADERS = {
 };
 
 const unauthorized = HttpServerResponse.text(
-  "A valid Authorization: Bearer <token> header is required.",
+  "A valid Authorization: Bearer <token> header is required. Tokens are configured in AGENT_CROSSING_ADMIN_TOKENS.",
   { headers: { "www-authenticate": "Bearer" }, status: 401 }
 );
 
-const sse = (body: Stream.Stream<string>) =>
-  HttpServerResponse.stream(Stream.encodeText(body), {
-    contentType: "text/event-stream",
-    headers: SSE_HEADERS,
-  });
-
-const authenticated = (characters: Characters) =>
+const authenticated = (editors: Editors) =>
   McpServer.middleware<{ provides: Caller }>()((effect, { headers }) =>
-    Option.match(characterFor(characters, headers.authorization), {
+    Option.match(editorFor(editors, headers.authorization), {
       onNone: () =>
         Effect.fail(
           new McpSchema.InvalidRequest({ message: "Unknown or missing token" })
         ),
-      onSome: (username) => Effect.provideService(effect, Caller, { username }),
+      onSome: (editor) => Effect.provideService(effect, Caller, { editor }),
     })
   );
 
@@ -94,9 +80,9 @@ export default class Api extends Docker.Service<Api>()(
     };
   }).pipe(Effect.provide(Cluster)),
   Effect.gen(function* () {
-    const characters = yield* Config.Redacted("AGENT_CROSSING_TOKENS").pipe(
+    const editors = yield* Config.Redacted(TOKENS_VARIABLE).pipe(
       Effect.flatMap((tokens) =>
-        Effect.fromResult(parseCharacters(Redacted.value(tokens)))
+        Effect.fromResult(parseEditors(Redacted.value(tokens)))
       ),
       Effect.orDie
     );
@@ -105,43 +91,72 @@ export default class Api extends Docker.Service<Api>()(
     const world = worlds.getByName(WORLD_NAME);
     const runtime = yield* Effect.context();
 
+    const text = <E, R>(answer: Effect.Effect<unknown, E, R>) =>
+      answer.pipe(
+        Effect.flatMap(decodeText),
+        Effect.provideContext(runtime),
+        Effect.orDie
+      );
+
     const client: WorldClient = {
-      act: (command) =>
+      act: (command, by) =>
         encodeCommand(command).pipe(
-          Effect.flatMap((encoded) => world.act(encoded)),
-          Effect.flatMap(decodeReport),
+          Effect.flatMap((encoded) => world.act(encoded, by)),
+          Effect.flatMap(decodeVerdict),
           Effect.provideContext(runtime),
           Effect.orDie
         ),
-      catchUp: (username) =>
-        world
-          .catchUp(username)
-          .pipe(
-            Effect.flatMap(decodeCatchUp),
-            Effect.provideContext(runtime),
-            Effect.orDie
-          ),
+      agentView: (cell, radius) =>
+        text(
+          Effect.flatMap(encodeCell(cell), (at) => world.agentView(at, radius))
+        ),
+      find: (region, kind, limit) =>
+        text(
+          Effect.gen(function* () {
+            const within = yield* encodeRegion(Option.getOrNull(region));
+            const only = yield* encodeKind(Option.getOrNull(kind));
+
+            return yield* world.find(within, only, limit);
+          })
+        ),
+      history: (limit) => text(world.history(limit)),
+      inspect: (cell) =>
+        text(Effect.flatMap(encodeCell(cell), (at) => world.inspect(at))),
+      map: (area) =>
+        text(
+          Effect.flatMap(encodeArea(Option.getOrNull(area)), (shown) =>
+            world.map(shown)
+          )
+        ),
+      summary: text(Effect.suspend(() => world.summary())),
     };
 
     const mcp = yield* HttpRouter.toHttpEffect(
       McpServer.toolkit(Tools, {
         content: {
-          create: TEXT_CONTENT,
-          destroy: TEXT_CONTENT,
-          look: TEXT_CONTENT,
-          move_to: TEXT_CONTENT,
-          pick_up: TEXT_CONTENT,
-          put_down: TEXT_CONTENT,
-          say: TEXT_CONTENT,
-          set_name: TEXT_CONTENT,
+          change_entity: TEXT_CONTENT,
+          erase_ground: TEXT_CONTENT,
+          find_entities: TEXT_CONTENT,
+          generate_world: TEXT_CONTENT,
+          history: TEXT_CONTENT,
+          inspect_cell: TEXT_CONTENT,
+          list_kinds: TEXT_CONTENT,
+          move_entity: TEXT_CONTENT,
+          paint_ground: TEXT_CONTENT,
+          remove_entities: TEXT_CONTENT,
+          scatter: TEXT_CONTENT,
+          spawn: TEXT_CONTENT,
+          view_as_agent: TEXT_CONTENT,
+          view_map: TEXT_CONTENT,
+          world_summary: TEXT_CONTENT,
         },
       }).pipe(
-        Layer.provide(authenticated(characters).layer),
-        Layer.provide(toolHandlers(client, characters)),
+        Layer.provide(authenticated(editors).layer),
+        Layer.provide(toolHandlers(client)),
         Layer.provide(
           McpServer.layerHttp({
             instructions: INSTRUCTIONS,
-            name: "agent-crossing",
+            name: "agent-crossing-admin",
             path: "/mcp",
             protocols: [
               McpProtocol.v2026_07_28,
@@ -150,87 +165,36 @@ export default class Api extends Docker.Service<Api>()(
               McpProtocol.v2025_03_26,
               McpProtocol.v2024_11_05,
             ],
-            version: "0.1.0",
+            version: "0.2.0",
           })
         )
       )
     ).pipe(Effect.orDie);
 
-    const frames = (audience: Audience, cursor: Option.Option<Seq>) =>
-      Stream.unwrap(
-        Effect.map(encodeAudience(audience), (encoded) =>
-          world.events(encoded, Option.getOrNull(cursor))
-        )
-      ).pipe(
-        Stream.mapEffect((item) => decodeStreamItem(item)),
-        Stream.mapEffect((item) =>
-          StreamItem.match(item, {
-            Happened: worldFrame,
-            Heartbeat: () => Effect.succeed(comment("keep-alive")),
-          })
-        ),
-        Stream.catchCause((cause) =>
-          Stream.fromEffect(
-            Effect.as(
-              Effect.logWarning("World event stream ended", cause),
-              comment("stream ended; reconnect with your cursor")
-            )
-          )
-        )
-      );
-
-    const spectate = Effect.gen(function* () {
-      const snapshot = yield* world
-        .snapshot()
-        .pipe(Effect.flatMap(decodeSnapshot), Effect.orDie);
-
-      return sse(
-        Stream.concat(
-          Stream.fromEffect(Effect.orDie(snapshotFrame(snapshot))),
-          frames(spectator, Option.some(snapshot.cursor))
-        ).pipe(Stream.provideContext(runtime))
-      );
-    });
-
-    const listen = (
-      username: Username,
-      request: HttpServerRequest.HttpServerRequest
-    ) =>
-      Result.match(
-        cursorFrom(
-          new URL(request.url, "http://api").searchParams.get("cursor") ??
-            undefined,
-          request.headers["last-event-id"]
-        ),
-        {
-          onFailure: (given) =>
-            HttpServerResponse.text(
-              `The cursor ${quoted(given)} is not a sequence number.`,
-              { status: 400 }
+    const spectate = () =>
+      HttpServerResponse.stream(
+        Stream.encodeText(
+          world.feed().pipe(
+            Stream.mapEffect((item) => decodeFeedItem(item)),
+            Stream.mapEffect((item) =>
+              FeedItem.match(item, {
+                Frame: ({ frame }) => sseFrame(frame),
+                Heartbeat: () => Effect.succeed(sseComment("keep-alive")),
+              })
             ),
-          onSuccess: (cursor) =>
-            sse(
-              frames(characterAudience(username), cursor).pipe(
-                Stream.provideContext(runtime)
+            Stream.catchCause((cause) =>
+              Stream.fromEffect(
+                Effect.as(
+                  Effect.logWarning("World feed ended", cause),
+                  sseComment("stream ended; reconnect for a fresh snapshot")
+                )
               )
             ),
-        }
+            Stream.provideContext(runtime)
+          )
+        ),
+        { contentType: "text/event-stream", headers: SSE_HEADERS }
       );
-
-    const events = (request: HttpServerRequest.HttpServerRequest) => {
-      const { authorization } = request.headers;
-
-      if (authorization === undefined) {
-        return spectate;
-      }
-
-      return Effect.succeed(
-        Option.match(characterFor(characters, authorization), {
-          onNone: () => unauthorized,
-          onSome: (username) => listen(username, request),
-        })
-      );
-    };
 
     return {
       fetch: Effect.gen(function* () {
@@ -240,7 +204,7 @@ export default class Api extends Docker.Service<Api>()(
         if (pathname === "/events" && request.method === "OPTIONS") {
           return HttpServerResponse.empty({
             headers: {
-              "access-control-allow-headers": "authorization, last-event-id",
+              "access-control-allow-headers": "last-event-id",
               "access-control-allow-methods": "GET, OPTIONS",
               "access-control-allow-origin": "*",
             },
@@ -249,12 +213,12 @@ export default class Api extends Docker.Service<Api>()(
         }
 
         if (pathname === "/events" && request.method === "GET") {
-          return yield* events(request);
+          return spectate();
         }
 
         if (pathname === "/mcp") {
           return Option.isSome(
-            characterFor(characters, request.headers.authorization)
+            editorFor(editors, request.headers.authorization)
           )
             ? yield* mcp
             : unauthorized;

@@ -1,373 +1,290 @@
 import * as Arr from "effect/Array";
 import * as Option from "effect/Option";
-import * as Order from "effect/Order";
 import * as Result from "effect/Result";
 
+import type { Cell } from "./cell.ts";
+import { Change } from "./change.ts";
 import { Command } from "./command.ts";
-import { ENTITY_LIMIT, entityIdFor } from "./entity.ts";
-import type { Entity, EntityId, Item } from "./entity.ts";
-import { WorldEvent } from "./event.ts";
-import { appearedCharacter, evolve } from "./evolve.ts";
-import {
-  allTiles,
-  centre,
-  isAdjacent,
-  manhattanDistance,
-  sameTile,
-  tileIndex,
-} from "./grid.ts";
-import type { Tile } from "./grid.ts";
-import {
-  AlreadyCarrying,
-  CarryingNothing,
-  CharacterInTheWay,
-  EntityCarried,
-  EntityLimitReached,
-  NameTaken,
-  NoPath,
-  NotAdjacent,
-  OnWalkersPath,
-  StillWalking,
-  TileIsWater,
-  TileOccupied,
-  UnknownEntity,
-} from "./rejection.ts";
+import { overlay } from "./components.ts";
+import type { Components } from "./components.ts";
+import { componentsOf, entityIdFor } from "./entity.ts";
+import type { Entity, EntityId } from "./entity.ts";
+import { EVENT_MAX_ITEMS, WorldEvent } from "./event.ts";
+import { generateLandscape } from "./generate.ts";
+import type { Thing } from "./generate.ts";
+import { sameGround } from "./ground.ts";
+import type { Ground, GroundKind, Height, Tile } from "./ground.ts";
+import { kindDefaults } from "./kind.ts";
+import type { KindName } from "./kind.ts";
+import { ensurePlaceable, suits } from "./placement.ts";
+import { cellsOf, cellsOfSpan } from "./region.ts";
+import type { Region } from "./region.ts";
+import { UnknownEntity } from "./rejection.ts";
 import type { Rejection } from "./rejection.ts";
-import { isLand } from "./terrain.ts";
-import { sameName } from "./values.ts";
-import type { DisplayName, Text, Timestamp, Username } from "./values.ts";
-import { findPath, positionAt, walkInProgressAt } from "./walk.ts";
-import {
-  allCharacters,
-  carriedBy,
-  characterOf,
-  entityCount,
-  entityOf,
-  entityOnTile,
-  isWalkable,
-  presentCharacters,
-  solidEntityOnTile,
-  solidTiles,
-} from "./world.ts";
-import type { Character, World } from "./world.ts";
+import { seededRandom } from "./seeded-random.ts";
+import type { Editor, Timestamp } from "./values.ts";
+import { apply, entitiesAt, entityOf, groundAt } from "./world.ts";
+import type { World } from "./world.ts";
 
 export type Decision = Result.Result<readonly WorldEvent[], Rejection>;
 
-interface Scene {
-  readonly world: World;
-  readonly character: Character;
-  readonly position: Tile;
-  readonly now: Timestamp;
+interface Edit {
+  readonly at: Timestamp;
+  readonly by: Editor;
 }
 
-const byDistanceFrom = (origin: Tile) =>
-  Order.combine(
-    Order.mapInput(Order.Number, (tile: Tile) =>
-      manhattanDistance(tile, origin)
-    ),
-    Order.mapInput(Order.Number, tileIndex)
+const removed = (edit: Edit, ids: readonly EntityId[]) =>
+  Arr.map(Arr.chunksOf(ids, EVENT_MAX_ITEMS), (entities) =>
+    WorldEvent.cases.Removed.make({ ...edit, entities })
   );
 
-export const nearestWalkableLand = (world: World, origin: Tile) =>
-  Arr.match(
-    Arr.filter(allTiles, (tile) => isWalkable(world, tile)),
-    {
-      onEmpty: () => origin,
-      onNonEmpty: (free) => Arr.min(free, byDistanceFrom(origin)),
-    }
+const painted = (edit: Edit, tiles: readonly Tile[]) =>
+  Arr.map(Arr.chunksOf(tiles, EVENT_MAX_ITEMS), (chunk) =>
+    WorldEvent.cases.GroundPainted.make({ ...edit, tiles: chunk })
   );
 
-const arrive = (world: World, actor: Username, now: Timestamp) => {
-  const existing = characterOf(world, actor);
+const erased = (edit: Edit, cells: readonly Cell[]) =>
+  Arr.map(Arr.chunksOf(cells, EVENT_MAX_ITEMS), (chunk) =>
+    WorldEvent.cases.GroundErased.make({ ...edit, cells: chunk })
+  );
 
-  if (Option.isSome(existing) && existing.value.present) {
-    const scene: Scene = {
-      character: existing.value,
-      now,
-      position: positionAt(existing.value.motion, now),
-      world,
-    };
+const spawned = (edit: Edit, entities: readonly Entity[]) =>
+  Arr.map(Arr.chunksOf(entities, EVENT_MAX_ITEMS), (chunk) =>
+    WorldEvent.cases.Spawned.make({ ...edit, entities: chunk })
+  );
 
-    return { appeared: Arr.empty<WorldEvent>(), scene };
-  }
+const idsOf = (entities: readonly Entity[]) =>
+  Arr.map(entities, (entity) => entity.id);
 
-  const tile = nearestWalkableLand(
-    world,
-    Option.match(existing, {
-      onNone: () => centre,
-      onSome: (character) => positionAt(character.motion, now),
+const entitiesIn = (world: World, cells: readonly Cell[]) =>
+  Arr.flatMap(cells, (cell) => entitiesAt(world, cell));
+
+const repainted = (
+  current: Option.Option<Ground>,
+  kind: GroundKind | undefined,
+  height: Height | undefined
+) =>
+  Option.match(current, {
+    onNone: () =>
+      kind === undefined
+        ? Option.none<Ground>()
+        : Option.some<Ground>({ height: height ?? 0, kind }),
+    onSome: (ground) =>
+      Option.some<Ground>({
+        height: height ?? ground.height,
+        kind: kind ?? ground.kind,
+      }),
+  });
+
+const paint = (
+  world: World,
+  edit: Edit,
+  region: Region,
+  kind: GroundKind | undefined,
+  height: Height | undefined
+) => {
+  const tiles = Arr.getSomes(
+    Arr.map(cellsOf(region), (cell) => {
+      const current = groundAt(world, cell);
+
+      return Option.map(
+        Option.filter(
+          repainted(current, kind, height),
+          (ground) =>
+            !Option.exists(current, (before) => sameGround(before, ground))
+        ),
+        (ground) => ({ cell, ground }) satisfies Tile
+      );
     })
   );
 
-  const appeared = WorldEvent.cases.Appeared.make({ actor, at: now, tile });
-
-  const scene: Scene = {
-    character: appearedCharacter(existing, actor, tile),
-    now,
-    position: tile,
-    world: evolve(world, appeared),
-  };
-
-  return { appeared: Arr.of<WorldEvent>(appeared), scene };
-};
-
-const acting = (
-  world: World,
-  actor: Username,
-  now: Timestamp,
-  act: (scene: Scene) => Decision
-) => {
-  const { appeared, scene } = arrive(world, actor, now);
-
-  const decision: Decision = Result.map(act(scene), (events) =>
-    Arr.appendAll(appeared, events)
+  const unsuited = Arr.flatMap(tiles, ({ cell, ground }) =>
+    Arr.filter(
+      entitiesAt(world, cell),
+      (entity) => !suits(ground, componentsOf(entity))
+    )
   );
 
-  return decision;
+  return [...removed(edit, idsOf(unsuited)), ...painted(edit, tiles)];
 };
 
-const ensureStanding = (scene: Scene) =>
-  Option.match(walkInProgressAt(scene.character.motion, scene.now), {
-    onNone: () => Result.void,
-    onSome: (walk) =>
-      Result.fail(
-        new StillWalking({
-          arrivesAt: walk.arrivesAt,
-          destination: walk.destination,
-        })
-      ),
-  });
+const erase = (world: World, edit: Edit, region: Region) => {
+  const cells = Arr.filter(cellsOf(region), (cell) =>
+    Option.isSome(groundAt(world, cell))
+  );
 
-const ensureAdjacent = (scene: Scene, target: Tile) =>
-  isAdjacent(scene.position, target)
-    ? Result.void
-    : Result.fail(new NotAdjacent({ position: scene.position, target }));
+  return [
+    ...removed(edit, idsOf(entitiesIn(world, cells))),
+    ...erased(edit, cells),
+  ];
+};
 
-const ensureLandWithout = (
+const nextEntity = (world: World, thing: Thing) =>
+  ({ ...thing, id: entityIdFor(world.spawned + 1) }) satisfies Entity;
+
+const counted = (world: World, entity: Entity) =>
+  apply(
+    apply(world, Change.cases.EntityPut.make({ entity })),
+    Change.cases.SpawnCounted.make({ spawned: world.spawned + 1 })
+  );
+
+const spawn = (
   world: World,
-  tile: Tile,
-  holding: (world: World, tile: Tile) => Option.Option<Entity>
+  edit: Edit,
+  kind: KindName,
+  cell: Cell,
+  components: Components
 ) =>
-  isLand(tile)
-    ? Option.match(holding(world, tile), {
-        onNone: () => Result.void,
-        onSome: (entity) => Result.fail(new TileOccupied({ entity, tile })),
-      })
-    : Result.fail(new TileIsWater({ tile }));
-
-const ensureNobodyStandsOn = (scene: Scene, tile: Tile) =>
-  Option.match(
-    Arr.findFirst(presentCharacters(scene.world), (character) =>
-      sameTile(positionAt(character.motion, scene.now), tile)
-    ),
-    {
-      onNone: () => Result.void,
-      onSome: (standing) =>
-        Result.fail(
-          new CharacterInTheWay({ character: standing.username, tile })
-        ),
-    }
-  );
-
-const ensureNoWalkerHeadsThrough = (scene: Scene, tile: Tile) =>
-  Option.match(
-    Arr.findFirst(presentCharacters(scene.world), (character) =>
-      Option.flatMap(walkInProgressAt(character.motion, scene.now), (walk) =>
-        Arr.some(walk.remaining, (step) => sameTile(step, tile))
-          ? Option.some(
-              new OnWalkersPath({
-                arrivesAt: walk.arrivesAt,
-                tile,
-                walker: character.username,
-              })
-            )
-          : Option.none()
-      )
-    ),
-    { onNone: () => Result.void, onSome: Result.fail }
-  );
-
-const ensurePlaceable = (scene: Scene, tile: Tile) =>
   Result.gen(function* () {
-    yield* ensureLandWithout(scene.world, tile, entityOnTile);
-    yield* ensureNobodyStandsOn(scene, tile);
-    yield* ensureNoWalkerHeadsThrough(scene, tile);
+    const entity = nextEntity(world, { cell, components, kind });
+    yield* ensurePlaceable(world, cell, componentsOf(entity));
+
+    return spawned(edit, [entity]);
   });
 
-const ensureCarryingNothing = (scene: Scene) =>
-  Option.match(carriedBy(scene.world, scene.character.username), {
-    onNone: () => Result.void,
-    onSome: (carrying) => Result.fail(new AlreadyCarrying({ carrying })),
-  });
+const scatter = (
+  world: World,
+  edit: Edit,
+  command: typeof Command.cases.Scatter.Type
+) => {
+  const random = seededRandom(command.seed);
+  const components = command.components ?? {};
+  let working = world;
+  const placed: Entity[] = [];
 
-const carriedEntity = (scene: Scene) =>
-  Option.match(carriedBy(scene.world, scene.character.username), {
-    onNone: () => Result.fail(new CarryingNothing()),
+  for (const cell of cellsOf(command.region)) {
+    if (random.chance(command.density)) {
+      const kind =
+        command.kinds[random.integer(command.kinds.length)] ?? command.kinds[0];
+
+      const entity = nextEntity(working, { cell, components, kind });
+
+      if (
+        Result.isSuccess(ensurePlaceable(working, cell, componentsOf(entity)))
+      ) {
+        working = counted(working, entity);
+        placed.push(entity);
+      }
+    }
+  }
+
+  return spawned(edit, placed);
+};
+
+const existing = (world: World, id: EntityId) =>
+  Option.match(entityOf(world, id), {
+    onNone: () => Result.fail(new UnknownEntity({ entity: id })),
     onSome: Result.succeed,
   });
 
-const groundedEntity = (world: World, id: EntityId) =>
-  Option.match(entityOf(world, id), {
-    onNone: () => Result.fail(new UnknownEntity({ entity: id })),
-    onSome: ({ location }) =>
-      location._tag === "Ground"
-        ? Result.succeed(location.tile)
-        : Result.fail(
-            new EntityCarried({ carriedBy: location.by, entity: id })
-          ),
+const move = (world: World, edit: Edit, id: EntityId, to: Cell) =>
+  Result.gen(function* () {
+    const entity = yield* existing(world, id);
+    yield* ensurePlaceable(world, to, componentsOf(entity), Option.some(id));
+
+    return [WorldEvent.cases.Moved.make({ ...edit, entity: id, to })];
   });
 
-const move = (scene: Scene, to: Tile) =>
+const change = (
+  world: World,
+  edit: Edit,
+  id: EntityId,
+  components: Components
+) =>
   Result.gen(function* () {
-    yield* ensureStanding(scene);
-    yield* ensureLandWithout(scene.world, to, solidEntityOnTile);
-    const solid = solidTiles(scene.world);
-
-    const path = yield* Option.match(
-      findPath(scene.position, to, (tile) => solid.has(tileIndex(tile))),
-      {
-        onNone: () => Result.fail(new NoPath({ from: scene.position, to })),
-        onSome: Result.succeed,
-      }
+    const entity = yield* existing(world, id);
+    yield* ensurePlaceable(
+      world,
+      entity.cell,
+      overlay(kindDefaults(entity.kind), components),
+      Option.some(id)
     );
 
-    return [
-      WorldEvent.cases.WalkStarted.make({
-        actor: scene.character.username,
-        at: scene.now,
-        path,
-      }),
-    ];
+    return [WorldEvent.cases.Changed.make({ ...edit, components, entity: id })];
   });
 
-const pickUp = (scene: Scene, entity: EntityId) =>
+const remove = (world: World, edit: Edit, ids: readonly EntityId[]) =>
   Result.gen(function* () {
-    yield* ensureStanding(scene);
-    yield* ensureCarryingNothing(scene);
-    const tile = yield* groundedEntity(scene.world, entity);
-    yield* ensureAdjacent(scene, tile);
+    const distinct = Arr.dedupe(ids);
 
-    return [
-      WorldEvent.cases.PickedUp.make({
-        actor: scene.character.username,
-        at: scene.now,
-        entity,
-        tile,
-      }),
-    ];
-  });
-
-const putDown = (scene: Scene, tile: Tile) =>
-  Result.gen(function* () {
-    yield* ensureStanding(scene);
-    const carrying = yield* carriedEntity(scene);
-    yield* ensureAdjacent(scene, tile);
-    yield* ensurePlaceable(scene, tile);
-
-    return [
-      WorldEvent.cases.PutDown.make({
-        actor: scene.character.username,
-        at: scene.now,
-        entity: carrying.id,
-        tile,
-      }),
-    ];
-  });
-
-const ensureBelowEntityLimit = (world: World) =>
-  entityCount(world) < ENTITY_LIMIT
-    ? Result.void
-    : Result.fail(new EntityLimitReached({ limit: ENTITY_LIMIT }));
-
-const create = (scene: Scene, tile: Tile, item: Item) =>
-  Result.gen(function* () {
-    yield* ensureStanding(scene);
-    yield* ensureBelowEntityLimit(scene.world);
-    yield* ensureAdjacent(scene, tile);
-    yield* ensurePlaceable(scene, tile);
-
-    return [
-      WorldEvent.cases.Created.make({
-        actor: scene.character.username,
-        at: scene.now,
-        entity: entityIdFor(scene.world.entitiesCreated + 1),
-        item,
-        tile,
-      }),
-    ];
-  });
-
-const destroy = (scene: Scene, entity: EntityId) =>
-  Result.gen(function* () {
-    yield* ensureStanding(scene);
-    const tile = yield* groundedEntity(scene.world, entity);
-    yield* ensureAdjacent(scene, tile);
-
-    return [
-      WorldEvent.cases.Destroyed.make({
-        actor: scene.character.username,
-        at: scene.now,
-        entity,
-        tile,
-      }),
-    ];
-  });
-
-const rename = (scene: Scene, displayName: DisplayName) =>
-  Option.match(
-    Arr.findFirst(
-      allCharacters(scene.world),
-      (other) =>
-        other.username !== scene.character.username &&
-        (sameName(other.displayName, displayName) ||
-          sameName(other.username, displayName))
-    ),
-    {
-      onNone: () =>
-        Result.succeed([
-          WorldEvent.cases.Renamed.make({
-            actor: scene.character.username,
-            at: scene.now,
-            displayName,
-            tile: scene.position,
-          }),
-        ]),
-      onSome: (holder) =>
-        Result.fail(new NameTaken({ displayName, takenBy: holder.username })),
+    for (const id of distinct) {
+      yield* existing(world, id);
     }
+
+    return removed(edit, distinct);
+  });
+
+const removeIn = (
+  world: World,
+  edit: Edit,
+  region: Region,
+  kind: KindName | undefined
+) =>
+  removed(
+    edit,
+    idsOf(
+      Arr.filter(
+        entitiesIn(world, cellsOf(region)),
+        (entity) => kind === undefined || entity.kind === kind
+      )
+    )
   );
 
-const say = (scene: Scene, text: Text) =>
-  Result.succeed([
-    WorldEvent.cases.Said.make({
-      actor: scene.character.username,
-      at: scene.now,
-      text,
-      tile: scene.position,
-    }),
-  ]);
+const generate = (
+  world: World,
+  edit: Edit,
+  command: typeof Command.cases.Generate.Type
+) => {
+  const landscape = generateLandscape(command);
 
-const nothingMore = () => Result.succeed(Arr.empty<WorldEvent>());
+  const cells = cellsOfSpan({
+    maxX: command.origin.x + command.width - 1,
+    maxY: command.origin.y + command.height - 1,
+    minX: command.origin.x,
+    minY: command.origin.y,
+  });
 
-export const decide = (world: World, command: Command, now: Timestamp) => {
+  const entities = Arr.map(
+    landscape.things,
+    (thing, index) =>
+      ({
+        ...thing,
+        id: entityIdFor(world.spawned + index + 1),
+      }) satisfies Entity
+  );
+
+  return [
+    ...removed(edit, idsOf(entitiesIn(world, cells))),
+    ...painted(edit, landscape.tiles),
+    ...spawned(edit, entities),
+  ];
+};
+
+/**
+ * Decides what an admin command does to the world: the events to record, or
+ * why nothing happens. Every event of one decision shares `now` and `by`.
+ */
+export const decide = (
+  world: World,
+  command: Command,
+  now: Timestamp,
+  by: Editor
+) => {
+  const edit: Edit = { at: now, by };
+
   const decision: Decision = Command.match(command, {
-    Create: ({ actor, item, tile }) =>
-      acting(world, actor, now, (scene) => create(scene, tile, item)),
-    Destroy: ({ actor, entity }) =>
-      acting(world, actor, now, (scene) => destroy(scene, entity)),
-    Look: ({ actor }) => acting(world, actor, now, nothingMore),
-    Move: ({ actor, to }) =>
-      acting(world, actor, now, (scene) => move(scene, to)),
-    PickUp: ({ actor, entity }) =>
-      acting(world, actor, now, (scene) => pickUp(scene, entity)),
-    PutDown: ({ actor, tile }) =>
-      acting(world, actor, now, (scene) => putDown(scene, tile)),
-    Rename: ({ actor, name }) =>
-      acting(world, actor, now, (scene) => rename(scene, name)),
-    Say: ({ actor, text }) =>
-      acting(world, actor, now, (scene) => say(scene, text)),
-    StreamClosed: nothingMore,
-    StreamOpened: ({ actor }) => acting(world, actor, now, nothingMore),
+    Change: ({ components, entity }) => change(world, edit, entity, components),
+    Erase: ({ region }) => Result.succeed(erase(world, edit, region)),
+    Generate: (generating) => Result.succeed(generate(world, edit, generating)),
+    Move: ({ entity, to }) => move(world, edit, entity, to),
+    Paint: ({ height, kind, region }) =>
+      Result.succeed(paint(world, edit, region, kind, height)),
+    Remove: ({ entities }) => remove(world, edit, entities),
+    RemoveIn: ({ kind, region }) =>
+      Result.succeed(removeIn(world, edit, region, kind)),
+    Scatter: (scattering) => Result.succeed(scatter(world, edit, scattering)),
+    Spawn: ({ cell, components, kind }) =>
+      spawn(world, edit, kind, cell, components ?? {}),
   });
 
   return decision;

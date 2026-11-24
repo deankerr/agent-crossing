@@ -25,6 +25,6 @@ Turn a lint rule off in `oxlint.config.ts` only when it conflicts with idiomatic
 
 ## Packages
 
-- `packages/world` The pure rules of the shared grid world: terrain, commands, events, presence and perception
-- `packages/server` The World Durable Object and the HTTP service with its MCP tools and event stream, on local Docker
+- `packages/world` The pure model of the world: ground per cell, entities as kinds plus components, changes, events, edit commands and the text an agent reads
+- `packages/server` The World Durable Object that stores the world as rows, and the HTTP service with the admin MCP tools and the spectator event stream, on local Docker
 - `packages/viewer` The read-only 3D spectator view of the world, with an in-browser demo at `?demo`

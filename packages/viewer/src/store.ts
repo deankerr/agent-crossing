@@ -1,49 +1,31 @@
-import * as Effect from "effect/Effect";
-import * as Result from "effect/Result";
-import type * as Schema from "effect/Schema";
+import * as Option from "effect/Option";
+import { createContext, use, useSyncExternalStore } from "react";
 
-import type { LocalClock } from "./clock.ts";
-import { decodeFrame } from "./feed.ts";
-import type { Frame, UnknownFrame, WorldFeed } from "./feed.ts";
-import { initialState, receive, withConnection } from "./viewer-state.ts";
-import type { ViewerState } from "./viewer-state.ts";
+import { initialFeedState, receive, withConnection } from "./feed-state.ts";
+import type { FeedState } from "./feed-state.ts";
+import type { WorldFeed } from "./live-feed.ts";
 
 export interface ViewerStore {
-  readonly clock: LocalClock;
-  readonly getState: () => ViewerState;
+  readonly getState: () => FeedState;
   readonly subscribe: (listener: () => void) => () => void;
   readonly stop: () => void;
 }
 
-export type UndecodableFrame = (
-  frame: Frame,
-  error: Schema.SchemaError | UnknownFrame
-) => void;
-
-export const logUndecodableFrame: UndecodableFrame = (frame, error) => {
-  Effect.runSync(
-    Effect.logError(
-      `Dropped a "${frame.event}" message from the world feed that did not decode`,
-      error.message,
-      { data: frame.data, event: frame.event }
-    ).pipe(Effect.annotateLogs({ source: "agent-crossing-viewer" }))
-  );
-};
-
-export const startViewer = (
-  feed: WorldFeed,
-  clock: LocalClock,
-  onUndecodable: UndecodableFrame = logUndecodableFrame
-) => {
-  let state = initialState("connecting");
+/** Runs a feed and keeps the folded state for React to read. */
+export const startViewer = (feed: WorldFeed) => {
+  let state = initialFeedState("connecting");
   const listeners = new Set<() => void>();
 
-  const publish = (next: ViewerState) => {
+  const publish = (next: FeedState) => {
+    if (next === state) {
+      return;
+    }
+
     state = next;
 
-    listeners.forEach((listener) => {
+    for (const listener of listeners) {
       listener();
-    });
+    }
   };
 
   const stop = feed({
@@ -51,21 +33,11 @@ export const startViewer = (
       publish(withConnection(state, connection));
     },
     onFrame: (frame) => {
-      const decoded = decodeFrame(frame);
-
-      Result.match(decoded, {
-        onFailure: (error) => {
-          onUndecodable(frame, error);
-        },
-        onSuccess: (message) => {
-          publish(receive(state, message, clock()));
-        },
-      });
+      publish(receive(state, frame));
     },
   });
 
   const store: ViewerStore = {
-    clock,
     getState: () => state,
     stop,
     subscribe: (listener) => {
@@ -78,4 +50,15 @@ export const startViewer = (
   };
 
   return store;
+};
+
+export const ViewerContext = createContext(Option.none<ViewerStore>());
+
+export const useFeedState = () => {
+  const store = Option.getOrThrowWith(
+    use(ViewerContext),
+    () => new Error("useFeedState needs a ViewerContext provider")
+  );
+
+  return useSyncExternalStore(store.subscribe, store.getState);
 };

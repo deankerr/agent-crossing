@@ -1,4 +1,4 @@
-import { sameName, Username } from "@agent-crossing/world/values";
+import { Editor } from "@agent-crossing/world/values";
 import * as Arr from "effect/Array";
 import * as Data from "effect/Data";
 import * as HashMap from "effect/HashMap";
@@ -6,6 +6,8 @@ import * as Option from "effect/Option";
 import * as Result from "effect/Result";
 import * as Schema from "effect/Schema";
 import * as Str from "effect/String";
+
+export const TOKENS_VARIABLE = "AGENT_CROSSING_ADMIN_TOKENS";
 
 export const Token = Schema.String.check(
   Schema.isPattern(/^[\w.~-]{16,256}$/u)
@@ -17,44 +19,57 @@ export class MalformedTokens extends Data.TaggedError("MalformedTokens")<{
   readonly message: string;
 }> {}
 
-export interface Characters {
-  readonly usernames: readonly Username[];
-  readonly byToken: HashMap.HashMap<Token, Username>;
+export interface Pair {
+  readonly editor: Editor;
+  readonly token: Token;
+}
+
+/** Who may edit the world, by token. */
+export interface Editors {
+  readonly pairs: readonly Pair[];
+  readonly byToken: HashMap.HashMap<Token, Editor>;
 }
 
 const malformed = (message: string) =>
   Result.fail(
     new MalformedTokens({
-      message: `AGENT_CROSSING_TOKENS is malformed: ${message}. Write comma-separated username:token pairs, each token at least 16 characters of letters, digits, _ . ~ or -.`,
+      message: `${TOKENS_VARIABLE} is malformed: ${message}. Write comma-separated name:token pairs, each name 1-24 characters and each token at least 16 characters of letters, digits, _ . ~ or -.`,
     })
   );
 
-const decodeUsername = Schema.decodeUnknownResult(Username);
+const decodeEditor = Schema.decodeUnknownResult(Editor);
 const decodeToken = Schema.decodeUnknownResult(Token);
 
 const parsePair = (pair: string) =>
   Option.match(Str.indexOf(":")(pair), {
-    onNone: () => malformed(`"${pair}" has no colon`),
+    onNone: () => malformed(`"${Str.trim(pair)}" has no colon`),
     onSome: (colon) => {
-      const username = decodeUsername(Str.trim(Str.slice(0, colon)(pair)));
+      const editor = decodeEditor(Str.slice(0, colon)(pair));
       const token = decodeToken(Str.trim(Str.slice(colon + 1)(pair)));
 
-      if (Result.isFailure(username)) {
-        return malformed(`the username in "${pair}" is not 1-24 characters`);
+      if (Result.isFailure(editor)) {
+        return malformed(
+          `the name before the colon in a pair is not 1-24 characters`
+        );
       }
 
       if (Result.isFailure(token)) {
-        return malformed(`the token for ${username.success} is not acceptable`);
+        return malformed(`the token for ${editor.success} is not acceptable`);
       }
 
-      return Result.succeed({
+      return Result.succeed<Pair>({
+        editor: editor.success,
         token: token.success,
-        username: username.success,
       });
     },
   });
 
-export const parseCharacters = (text: string) =>
+const clashes = (a: Pair, b: Pair) =>
+  Str.toLowerCase(a.editor) === Str.toLowerCase(b.editor) ||
+  a.token === b.token;
+
+/** Parses `name:token` pairs separated by commas or newlines. */
+export const parseEditors = (text: string) =>
   Result.flatMap(
     Result.all(
       Arr.map(
@@ -64,30 +79,25 @@ export const parseCharacters = (text: string) =>
     ),
     (pairs) => {
       if (pairs.length === 0) {
-        return malformed("it names no characters");
+        return malformed("it names nobody");
       }
 
       const clash = Arr.findFirst(pairs, (pair, index) =>
-        Arr.some(
-          pairs.slice(index + 1),
-          (other) =>
-            sameName(other.username, pair.username) ||
-            other.token === pair.token
-        )
+        Arr.some(pairs.slice(index + 1), (other) => clashes(pair, other))
       );
 
       if (Option.isSome(clash)) {
         return malformed(
-          `${clash.value.username} shares its username (ignoring case) or its token with another pair`
+          `${clash.value.editor} shares its name (ignoring case) or its token with another pair`
         );
       }
 
-      return Result.succeed({
+      return Result.succeed<Editors>({
         byToken: HashMap.fromIterable(
-          Arr.map(pairs, ({ token, username }) => [token, username] as const)
+          Arr.map(pairs, ({ editor, token }) => [token, editor] as const)
         ),
-        usernames: Arr.map(pairs, ({ username }) => username),
-      } satisfies Characters);
+        pairs,
+      });
     }
   );
 
@@ -99,20 +109,11 @@ export const bearerToken = (authorization: string | undefined) =>
     (token) => Option.getSuccess(decodeToken(token))
   );
 
-export const characterFor = (
-  characters: Characters,
+/** The editor an `Authorization` header names, if its token is known. */
+export const editorFor = (
+  editors: Editors,
   authorization: string | undefined
 ) =>
   Option.flatMap(bearerToken(authorization), (token) =>
-    HashMap.get(characters.byToken, token)
-  );
-
-export const reservedBy = (
-  characters: Characters,
-  name: string,
-  self: Username
-) =>
-  Arr.findFirst(
-    characters.usernames,
-    (username) => username !== self && sameName(username, name)
+    HashMap.get(editors.byToken, token)
   );

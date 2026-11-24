@@ -6,6 +6,7 @@
         "name": "@effect/language-service",
         "diagnostics": false,
         "allowedUnstableApis": [
+          "@effect/platform-bun/BunFileSystem",
           "@effect/platform-bun/BunRuntime",
           "@effect/vitest",
           "effect/ai/McpProtocol",
@@ -13,6 +14,7 @@
           "effect/ai/McpServer",
           "effect/ai/Tool",
           "effect/ai/Toolkit",
+          "effect/ConfigProvider",
           "effect/http/FetchHttpClient",
           "effect/http/HttpClient",
           "effect/http/HttpClientRequest",

@@ -1,74 +1,61 @@
-import { Username } from "@agent-crossing/world/values";
+import { Editor } from "@agent-crossing/world/values";
 import { describe, expect, it } from "@effect/vitest";
-import * as HashMap from "effect/HashMap";
+import * as Arr from "effect/Array";
 import * as Option from "effect/Option";
 import * as Result from "effect/Result";
 
-import {
-  bearerToken,
-  characterFor,
-  parseCharacters,
-  reservedBy,
-} from "../src/tokens.ts";
+import { bearerToken, editorFor, parseEditors } from "../src/tokens.ts";
 
-const ALICE_TOKEN = "alice-token-0123456789";
-const BOB_TOKEN = "bob-token-0123456789ab";
-const alice = Username.make("alice");
-const bob = Username.make("bob");
+const CLAUDE_TOKEN = "claude-token-0123456789";
+const DEAN_TOKEN = "dean-token-0123456789ab";
 
 const parsed = Result.getOrThrow(
-  parseCharacters(`alice:${ALICE_TOKEN}, bob : ${BOB_TOKEN}\n`)
+  parseEditors(`claude:${CLAUDE_TOKEN}, dean : ${DEAN_TOKEN}\n`)
 );
 
 const failureOf = (text: string) =>
-  Result.match(parseCharacters(text), {
-    onFailure: (error) => error.message,
+  Result.match(parseEditors(text), {
+    onFailure: (malformed) => malformed.message,
     onSuccess: () => "parsed",
   });
 
-describe("tokens", () => {
-  it("parses comma- or newline-separated username:token pairs", () => {
-    expect(parsed.usernames).toStrictEqual([alice, bob]);
-    expect(HashMap.size(parsed.byToken)).toBe(2);
+describe("admin tokens", () => {
+  it("parses comma- or newline-separated name:token pairs", () => {
+    expect(Arr.map(parsed.pairs, ({ editor }) => editor)).toStrictEqual([
+      Editor.make("claude"),
+      Editor.make("dean"),
+    ]);
   });
 
-  it("finds the character for a bearer token and nothing for others", () => {
-    expect(characterFor(parsed, `Bearer ${BOB_TOKEN}`)).toStrictEqual(
-      Option.some(bob)
+  it("finds the editor for a bearer token and nothing for others", () => {
+    expect(editorFor(parsed, `Bearer ${DEAN_TOKEN}`)).toStrictEqual(
+      Option.some(Editor.make("dean"))
     );
-    expect(characterFor(parsed, `bearer   ${ALICE_TOKEN}`)).toStrictEqual(
-      Option.some(alice)
+    expect(editorFor(parsed, `bearer   ${CLAUDE_TOKEN}`)).toStrictEqual(
+      Option.some(Editor.make("claude"))
     );
-    expect(
-      characterFor(parsed, "Bearer not-a-known-token-at-all")
-    ).toStrictEqual(Option.none());
-  });
-
-  it("finds nothing without a well-formed bearer header", () => {
-    expect(characterFor(parsed, ALICE_TOKEN)).toStrictEqual(Option.none());
-    expect(characterFor(parsed, undefined)).toStrictEqual(Option.none());
-    expect(bearerToken("Bearer short")).toStrictEqual(Option.none());
-  });
-
-  it("fails loudly on malformed configuration", () => {
-    expect(failureOf("")).toContain("names no characters");
-    expect(failureOf("alice")).toContain("has no colon");
-    expect(failureOf("alice:short")).toContain("token for alice");
-    expect(failureOf(`:${ALICE_TOKEN}`)).toContain("username");
-  });
-
-  it("refuses clashing usernames or tokens", () => {
-    expect(failureOf(`alice:${ALICE_TOKEN},Alice:${BOB_TOKEN}`)).toContain(
-      "shares its username"
+    expect(editorFor(parsed, "Bearer someone-elses-token-000")).toStrictEqual(
+      Option.none()
     );
-    expect(failureOf(`alice:${ALICE_TOKEN},bob:${ALICE_TOKEN}`)).toContain(
-      "shares its username (ignoring case) or its token"
-    );
+    expect(editorFor(parsed, undefined)).toStrictEqual(Option.none());
+    expect(bearerToken(`Basic ${DEAN_TOKEN}`)).toStrictEqual(Option.none());
   });
 
-  it("reserves every other configured username as a display name", () => {
-    expect(reservedBy(parsed, "BOB", alice)).toStrictEqual(Option.some(bob));
-    expect(reservedBy(parsed, "Alice", alice)).toStrictEqual(Option.none());
-    expect(reservedBy(parsed, "Carol", alice)).toStrictEqual(Option.none());
+  it("says what is wrong with a malformed list", () => {
+    expect(failureOf("")).toContain("it names nobody");
+    expect(failureOf("claude")).toContain('"claude" has no colon');
+    expect(failureOf("claude:short")).toContain(
+      "the token for claude is not acceptable"
+    );
+    expect(failureOf(`:${CLAUDE_TOKEN}`)).toContain("not 1-24 characters");
+  });
+
+  it("refuses names or tokens used twice", () => {
+    expect(failureOf(`claude:${CLAUDE_TOKEN},Claude:${DEAN_TOKEN}`)).toContain(
+      "claude shares its name"
+    );
+    expect(failureOf(`claude:${CLAUDE_TOKEN},dean:${CLAUDE_TOKEN}`)).toContain(
+      "shares its name (ignoring case) or its token"
+    );
   });
 });

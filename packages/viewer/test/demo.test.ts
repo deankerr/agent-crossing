@@ -1,98 +1,111 @@
+import { evolveAll } from "@agent-crossing/world/event";
 import type { WorldEvent } from "@agent-crossing/world/event";
-import { evolveAll } from "@agent-crossing/world/evolve";
-import { entityCount, presentCharacters } from "@agent-crossing/world/world";
+import { FeedFrame } from "@agent-crossing/world/feed";
+import {
+  bounds,
+  cellCount,
+  emptyWorld,
+  entityCount,
+} from "@agent-crossing/world/world";
 import { describe, expect, it } from "@effect/vitest";
 import * as Arr from "effect/Array";
-import * as Result from "effect/Result";
+import * as Option from "effect/Option";
 
-import { DEMO_SEED, openDemo, step, STEP_MILLIS } from "../src/demo.ts";
-import type { Demo } from "../src/demo.ts";
-import { decodeFrame, worldFrame } from "../src/feed.ts";
+import {
+  DEMO_SEED,
+  DEMO_SIZE,
+  demoCommand,
+  demoEdit,
+  demoWorld,
+  snapshotFrames,
+} from "../src/demo.ts";
+import { initialFeedState, receive } from "../src/feed-state.ts";
 
-const START = 1_764_000_000_000;
-const TEN_MINUTES = 600_000;
+const params = (query: string) => new URLSearchParams(query);
 
-const run = (seed: number, millis: number) => {
-  const opened = openDemo(seed, START);
-
-  return Arr.reduce(
-    Arr.makeBy(
-      millis / STEP_MILLIS,
-      (index) => START + (index + 1) * STEP_MILLIS
-    ),
-    { demo: opened, events: Arr.empty<WorldEvent>(), opened },
-    (
-      sofar: { demo: Demo; events: readonly WorldEvent[]; opened: Demo },
-      at
-    ) => {
-      const stepped = step(sofar.demo, at);
-
-      return {
-        ...sofar,
-        demo: stepped.demo,
-        events: Arr.appendAll(sofar.events, stepped.events),
-      };
-    }
-  );
-};
-
-const played = run(DEMO_SEED, TEN_MINUTES);
-
-describe(openDemo, () => {
-  it("opens on a world with everyone present and things already made", () => {
-    const { world } = played.opened.server;
-
-    expect(presentCharacters(world).length).toBeGreaterThanOrEqual(4);
-    expect(entityCount(world)).toBeGreaterThan(5);
+describe(demoCommand, () => {
+  it("defaults to the demo seed and a 64 × 64 landscape centred on 0,0", () => {
+    expect(demoCommand(params("demo"))).toMatchObject({
+      height: DEMO_SIZE,
+      origin: { x: -32, y: -32 },
+      seed: DEMO_SEED,
+      width: DEMO_SIZE,
+    });
   });
 
-  it("is reproducible from its seed", () => {
-    expect(run(DEMO_SEED, 30_000).events).toStrictEqual(
-      run(DEMO_SEED, 30_000).events
-    );
-    expect(run(DEMO_SEED + 1, 30_000).events).not.toStrictEqual(
-      run(DEMO_SEED, 30_000).events
-    );
+  it("reads the seed and a square or rectangular size", () => {
+    expect(demoCommand(params("demo&seed=7&size=20"))).toMatchObject({
+      height: 20,
+      origin: { x: -10, y: -10 },
+      seed: 7,
+      width: 20,
+    });
+    expect(demoCommand(params("demo&size=40x16"))).toMatchObject({
+      height: 16,
+      origin: { x: -20, y: -8 },
+      width: 40,
+    });
+  });
+
+  it("falls back to the defaults for sizes the rules refuse", () => {
+    expect(demoCommand(params("demo&seed=x&size=3"))).toMatchObject({
+      height: DEMO_SIZE,
+      seed: DEMO_SEED,
+      width: DEMO_SIZE,
+    });
   });
 });
 
-describe(step, () => {
-  it("shows every kind of event within ten minutes", () => {
-    expect(
-      new Set(Arr.map(played.events, (event) => event._tag))
-    ).toStrictEqual(
-      new Set([
-        "Appeared",
-        "Created",
-        "Destroyed",
-        "PickedUp",
-        "PutDown",
-        "Renamed",
-        "Said",
-        "Vanished",
-        "WalkStarted",
-      ])
+describe(demoWorld, () => {
+  const generate = demoCommand(params("demo&seed=11&size=24"));
+  const world = demoWorld(generate);
+
+  it("covers the generated rectangle, with negative coordinates", () => {
+    expect(cellCount(world)).toBe(24 * 24);
+    expect(entityCount(world)).toBeGreaterThan(0);
+    expect(bounds(world)).toStrictEqual(
+      Option.some({ maxX: 11, maxY: 11, minX: -12, minY: -12 })
     );
   });
 
-  it("numbers events in order so a viewer can follow along", () => {
-    expect(played.demo.seq - played.opened.seq).toBe(played.events.length);
+  it("is the same world for the same seed", () => {
+    expect(demoWorld(generate)).toStrictEqual(world);
   });
 
-  it("emits events that survive the wire and replay to the same world", () => {
-    const decoded = Arr.map(played.events, (event, index) =>
-      Result.getOrThrow(
-        decodeFrame(Result.getOrThrow(worldFrame({ event, seq: index + 1 })))
-      )
+  it("reaches a viewer whole through snapshot frames", () => {
+    const frames = snapshotFrames(world, 0);
+    const state = Arr.reduce(frames, initialFeedState("demo"), receive);
+
+    expect(frames[0]).toStrictEqual(FeedFrame.cases.Reset.make({}));
+    expect(Option.map(state.shown, (shown) => shown.world)).toStrictEqual(
+      Option.some(world)
+    );
+  });
+
+  it("makes scripted edits the rules accept", () => {
+    const edits = Arr.makeBy(9, (step) => step);
+
+    const result = Arr.reduce(
+      edits,
+      { events: Arr.empty<WorldEvent>(), world },
+      (sofar, step) => {
+        const events = demoEdit(sofar.world, generate, step, 1000 + step);
+
+        return {
+          events: [...sofar.events, ...events],
+          world: evolveAll(sofar.world, events),
+        };
+      }
     );
 
-    expect(
-      evolveAll(
-        played.opened.server.world,
-        Arr.flatMap(decoded, (message) =>
-          message._tag === "Applied" ? [message.event] : []
-        )
-      )
-    ).toStrictEqual(played.demo.server.world);
+    expect(result.events.length).toBeGreaterThanOrEqual(6);
+    expect(entityCount(result.world)).toBeGreaterThan(entityCount(world));
+    expect(demoEdit(world, generate, 0, 1000)).toStrictEqual(
+      demoEdit(world, generate, 0, 1000)
+    );
+  });
+
+  it("gives up quietly on a world with no ground", () => {
+    expect(demoEdit(emptyWorld, generate, 0, 0)).toStrictEqual([]);
   });
 });

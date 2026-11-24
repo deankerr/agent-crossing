@@ -2,666 +2,362 @@ import { describe, expect, it } from "@effect/vitest";
 import * as Arr from "effect/Array";
 import * as Option from "effect/Option";
 import * as Result from "effect/Result";
-import * as Str from "effect/String";
 
-import { Command, decodeCommand } from "../src/command.ts";
-import { ENTITY_LIMIT, entityIdFor, Location } from "../src/entity.ts";
-import { WorldEvent } from "../src/event.ts";
+import { Command } from "../src/command.ts";
+import { entityIdFor } from "../src/entity.ts";
+import { EVENT_MAX_ITEMS, WorldEvent } from "../src/event.ts";
+import { cellsOf, Disc } from "../src/region.ts";
 import {
-  allTiles,
-  centre,
-  chebyshevDistance,
-  neighbours,
-} from "../src/grid.ts";
-import {
-  AlreadyCarrying,
-  CarryingNothing,
-  CharacterInTheWay,
-  EntityCarried,
-  EntityLimitReached,
-  NameTaken,
-  NoPath,
-  NotAdjacent,
-  OnWalkersPath,
-  StillWalking,
-  TileIsWater,
-  TileOccupied,
+  LayerTaken,
+  NoGround,
   UnknownEntity,
+  UnsuitableGround,
 } from "../src/rejection.ts";
 import { decide } from "../src/rules.ts";
-import { isLand } from "../src/terrain.ts";
-import { DisplayName } from "../src/values.ts";
-import { carriedBy, entityCount, entityOf } from "../src/world.ts";
 import {
-  alice,
-  appeared,
-  block,
-  bob,
-  createAt,
-  created,
-  flower,
-  look,
-  moveTo,
-  play,
-  shoreline,
-  sign,
-  text,
-  tile,
-  waterBeside,
-  worldOf,
+  cellCount,
+  entitiesAt,
+  entityCount,
+  entityOf,
+  groundAt,
+  isWalkable,
+  occupantOf,
+} from "../src/world.ts";
+import {
+  cell,
+  dean,
+  eventsOf,
+  garden,
+  invariantProblems,
+  paint,
+  run,
+  runAll,
+  span,
+  spawn,
 } from "./world.fixture.ts";
 
-const east = tile(17, 16);
-const south = tile(16, 17);
 const e1 = entityIdFor(1);
 const e2 = entityIdFor(2);
+const withOak = run(garden, spawn("oak", cell(2, 2)));
 
-const aliceAtCentre = worldOf([appeared(alice, centre)]);
-const withBlockEast = worldOf([created(east, 1)], aliceAtCentre);
+const rejection = (world: typeof garden, command: Command) =>
+  Result.match(decide(world, command, 0, dean), {
+    onFailure: Option.some,
+    onSuccess: () => Option.none(),
+  });
 
-const aliceCarrying = worldOf(
-  [
-    WorldEvent.cases.PickedUp.make({
-      actor: alice,
-      at: 0,
-      entity: e1,
-      tile: east,
-    }),
-  ],
-  withBlockEast
-);
+describe("Paint", () => {
+  it("creates ground only where a kind is given, with height 0 by default", () => {
+    const world = run(garden, paint(span(10, 0, 11, 0), "sand"));
+    expect(groundAt(world, cell(11, 0))).toStrictEqual(
+      Option.some({ height: 0, kind: "sand" })
+    );
+    expect(cellCount(world)).toBe(102);
 
-const aliceWalkingEast = worldOf(
-  [
-    WorldEvent.cases.WalkStarted.make({
-      actor: alice,
-      at: 0,
-      path: [centre, east, tile(18, 16), tile(19, 16)],
-    }),
-  ],
-  aliceAtCentre
-);
+    const raised = run(garden, paint(span(10, 0, 11, 0), undefined, 3));
+    expect(cellCount(raised)).toBe(100);
+  });
 
-const pickUp = (entity = e1) =>
-  Command.cases.PickUp.make({ actor: alice, entity });
+  it("changes only the given field of existing ground", () => {
+    const world = run(garden, paint(span(0, 0, 1, 0), undefined, 4));
+    expect(groundAt(world, cell(1, 0))).toStrictEqual(
+      Option.some({ height: 4, kind: "grass" })
+    );
+  });
 
-const putDown = (where = east) =>
-  Command.cases.PutDown.make({ actor: alice, tile: where });
+  it("reports only the cells that actually changed", () => {
+    const events = eventsOf(garden, paint(span(0, 0, 9, 0), "grass", 1));
+    expect(events).toStrictEqual([]);
+  });
 
-const destroy = (entity = e1) =>
-  Command.cases.Destroy.make({ actor: alice, entity });
+  it("removes things that the new ground no longer suits", () => {
+    const world = runAll(
+      [spawn("lily-pad", cell(8, 8)), spawn("rock", cell(1, 1))],
+      garden
+    );
 
-const say = (words: string) =>
-  Command.cases.Say.make({ actor: alice, text: text(words) });
+    const events = eventsOf(world, paint(span(0, 0, 9, 9), "water"));
+    expect(Arr.map(events, (event) => event._tag)).toStrictEqual([
+      "Removed",
+      "GroundPainted",
+    ]);
 
-const rename = (name: string) =>
-  Command.cases.Rename.make({ actor: alice, name: DisplayName.make(name) });
+    const flooded = run(world, paint(span(0, 0, 9, 9), "water"));
+    expect(entityCount(flooded)).toBe(1);
+    expect(Option.isSome(entityOf(flooded, e1))).toBeTruthy();
+    expect(invariantProblems(flooded)).toStrictEqual([]);
+  });
 
-describe("arriving", () => {
-  it("brings a newcomer to the centre before its first action", () => {
-    expect(play([[look(alice), 5]]).events).toStrictEqual([
-      appeared(alice, centre, 5),
+  it("splits big edits into events of at most a thousand tiles", () => {
+    const events = eventsOf(garden, paint(span(0, 0, 49, 49), "meadow"));
+    expect(events).toHaveLength(3);
+    expect(
+      Arr.every(
+        events,
+        (event) =>
+          event._tag === "GroundPainted" &&
+          event.tiles.length <= EVENT_MAX_ITEMS
+      )
+    ).toBeTruthy();
+  });
+});
+
+describe("Erase", () => {
+  it("removes the ground and everything on it", () => {
+    const world = run(
+      withOak,
+      Command.cases.Erase.make({ region: span(0, 0, 4, 4) })
+    );
+
+    expect(cellCount(world)).toBe(75);
+    expect(entityCount(world)).toBe(0);
+    expect(invariantProblems(world)).toStrictEqual([]);
+  });
+});
+
+describe("Spawn", () => {
+  it("puts a numbered entity holding only its own components", () => {
+    const events = eventsOf(
+      garden,
+      spawn("sign", cell(3, 3), { text: "Hello" })
+    );
+
+    expect(events).toStrictEqual([
+      WorldEvent.cases.Spawned.make({
+        at: 0,
+        by: dean,
+        entities: [
+          {
+            cell: cell(3, 3),
+            components: { text: "Hello" },
+            id: e1,
+            kind: "sign",
+          },
+        ],
+      }),
     ]);
   });
 
-  it("appears and then acts in one decision", () => {
-    expect(decide(worldOf([]), say("hello"), 7)).toStrictEqual(
-      Result.succeed([
-        appeared(alice, centre, 7),
-        WorldEvent.cases.Said.make({
-          actor: alice,
-          at: 7,
-          text: text("hello"),
-          tile: centre,
-        }),
-      ])
-    );
-  });
-
-  it("places a newcomer on the nearest free land when the centre is taken", () => {
-    const { events } = play([[look(bob), 0]], {
-      sessions: {},
-      world: worldOf([created(centre, 1)]),
-    });
-
-    expect(events).toStrictEqual([appeared(bob, tile(16, 15), 0)]);
-  });
-
-  it("lets a newcomer appear on a flower", () => {
-    const { events } = play([[look(bob), 0]], {
-      sessions: {},
-      world: worldOf([created(centre, 1, 0, flower())]),
-    });
-
-    expect(events).toStrictEqual([appeared(bob, centre, 0)]);
-  });
-});
-
-describe("walking", () => {
-  it("starts a walk along a shortest path", () => {
-    expect(decide(aliceAtCentre, moveTo(alice, tile(19, 16)), 0)).toStrictEqual(
-      Result.succeed([
-        WorldEvent.cases.WalkStarted.make({
-          actor: alice,
-          at: 0,
-          path: [centre, east, tile(18, 16), tile(19, 16)],
-        }),
-      ])
-    );
-  });
-
-  it.each([
-    ["move", moveTo(alice, tile(10, 10))],
-    ["create", createAt(alice, tile(17, 17))],
-    ["pick up", pickUp()],
-    ["put down", putDown(tile(17, 17))],
-    ["destroy", destroy()],
-  ] as const)("rejects %s while walking, giving the arrival", (_, command) => {
-    expect(decide(aliceWalkingEast, command, 500)).toStrictEqual(
-      Result.fail(
-        new StillWalking({ arrivesAt: 1000, destination: tile(19, 16) })
-      )
-    );
-  });
-
-  it.each([
-    ["say", say("on my way")],
-    ["rename", rename("Walker")],
-    ["look", look(alice)],
-  ] as const)("lets a walker %s", (_, command) => {
-    expect(
-      Result.isSuccess(decide(aliceWalkingEast, command, 500))
-    ).toBeTruthy();
-  });
-
-  it("accepts actions again on arrival", () => {
-    expect(
-      Result.isSuccess(decide(aliceWalkingEast, moveTo(alice, centre), 1000))
-    ).toBeTruthy();
-  });
-
-  it("refuses water, occupied destinations and unreachable ones", () => {
-    const water = waterBeside(shoreline);
-
-    const walledIn = worldOf(
-      Arr.map(neighbours(centre), (wall, index) => created(wall, index + 1)),
-      aliceAtCentre
-    );
-
-    expect(decide(aliceAtCentre, moveTo(alice, water), 0)).toStrictEqual(
-      Result.fail(new TileIsWater({ tile: water }))
-    );
-    expect(decide(withBlockEast, moveTo(alice, east), 0)).toStrictEqual(
-      Result.fail(
-        new TileOccupied({
-          entity: Option.getOrThrow(entityOf(withBlockEast, e1)),
-          tile: east,
-        })
-      )
-    );
-    expect(decide(walledIn, moveTo(alice, tile(20, 20)), 0)).toStrictEqual(
-      Result.fail(new NoPath({ from: centre, to: tile(20, 20) }))
-    );
-  });
-});
-
-describe("solid entities", () => {
-  const withFlowerEast = worldOf(
-    [created(east, 1, 0, flower())],
-    aliceAtCentre
-  );
-
-  it("walks through a flower", () => {
-    expect(
-      decide(withFlowerEast, moveTo(alice, tile(18, 16)), 0)
-    ).toStrictEqual(
-      Result.succeed([
-        WorldEvent.cases.WalkStarted.make({
-          actor: alice,
-          at: 0,
-          path: [centre, east, tile(18, 16)],
-        }),
-      ])
-    );
-  });
-
-  it("stops on a flower", () => {
-    expect(decide(withFlowerEast, moveTo(alice, east), 0)).toStrictEqual(
-      Result.succeed([
-        WorldEvent.cases.WalkStarted.make({
-          actor: alice,
-          at: 0,
-          path: [centre, east],
-        }),
-      ])
-    );
-  });
-
-  it.each([
-    ["block", block()],
-    ["sign", sign()],
-  ] as const)("walks around a %s", (_, item) => {
-    const blocked = worldOf([created(east, 1, 0, item)], aliceAtCentre);
-
-    expect(decide(blocked, moveTo(alice, tile(18, 16)), 0)).toStrictEqual(
-      Result.succeed([
-        WorldEvent.cases.WalkStarted.make({
-          actor: alice,
-          at: 0,
-          path: [
-            centre,
-            tile(16, 15),
-            tile(17, 15),
-            tile(18, 15),
-            tile(18, 16),
-          ],
-        }),
-      ])
-    );
-    expect(decide(blocked, moveTo(alice, east), 0)).toStrictEqual(
-      Result.fail(
-        new TileOccupied({
-          entity: Option.getOrThrow(entityOf(blocked, e1)),
-          tile: east,
-        })
-      )
-    );
-  });
-
-  it("leaves a character ringed by flowers free to walk", () => {
-    const ringed = worldOf(
-      Arr.map(neighbours(centre), (around, index) =>
-        created(around, index + 1, 0, flower())
-      ),
-      aliceAtCentre
-    );
-
-    expect(
-      Result.isSuccess(decide(ringed, moveTo(alice, tile(20, 20)), 0))
-    ).toBeTruthy();
-  });
-
-  it("will not create or put down on a flower", () => {
-    const flowerAndBlock = worldOf(
-      [created(tile(15, 16), 2, 0, block())],
-      withFlowerEast
-    );
-
-    const holdingBlock = worldOf(
+  it("numbers ids from the count of everything ever spawned", () => {
+    const world = runAll(
       [
-        WorldEvent.cases.PickedUp.make({
-          actor: alice,
-          at: 0,
-          entity: e2,
-          tile: tile(15, 16),
-        }),
+        Command.cases.Remove.make({ entities: [e1] }),
+        spawn("rock", cell(4, 4)),
       ],
-      flowerAndBlock
+      withOak
     );
 
-    const occupied = Result.fail(
-      new TileOccupied({
-        entity: Option.getOrThrow(entityOf(withFlowerEast, e1)),
-        tile: east,
+    expect(Option.isSome(entityOf(world, e2))).toBeTruthy();
+    expect(world.spawned).toBe(2);
+  });
+
+  it("rejects a cell without ground", () => {
+    expect(rejection(garden, spawn("oak", cell(20, 20)))).toStrictEqual(
+      Option.some(new NoGround({ cell: cell(20, 20) }))
+    );
+  });
+
+  it("keeps land things off water and water things off land", () => {
+    expect(rejection(garden, spawn("oak", cell(8, 8)))).toStrictEqual(
+      Option.some(
+        new UnsuitableGround({
+          cell: cell(8, 8),
+          ground: "water",
+          needsWater: false,
+        })
+      )
+    );
+    expect(rejection(garden, spawn("reeds", cell(1, 1)))).toStrictEqual(
+      Option.some(
+        new UnsuitableGround({
+          cell: cell(1, 1),
+          ground: "grass",
+          needsWater: true,
+        })
+      )
+    );
+  });
+
+  it("rejects a taken layer and names the occupant", () => {
+    const oak = Option.getOrThrow(entityOf(withOak, e1));
+    expect(rejection(withOak, spawn("rock", cell(2, 2)))).toStrictEqual(
+      Option.some(
+        new LayerTaken({ cell: cell(2, 2), layer: "object", occupant: oak })
+      )
+    );
+  });
+
+  it("lets things on different layers or with no layer share a cell", () => {
+    const world = runAll(
+      [spawn("fern", cell(2, 2)), spawn("mushroom", cell(2, 2))],
+      withOak
+    );
+
+    expect(entitiesAt(world, cell(2, 2))).toHaveLength(3);
+    expect(
+      Option.map(
+        occupantOf(world, cell(2, 2), "cover"),
+        (entity) => entity.kind
+      )
+    ).toStrictEqual(Option.some("fern"));
+    expect(isWalkable(world, cell(2, 2))).toBeFalsy();
+    expect(isWalkable(world, cell(3, 2))).toBeTruthy();
+    expect(isWalkable(world, cell(8, 8))).toBeFalsy();
+  });
+});
+
+const scatter = (seed: number) =>
+  Command.cases.Scatter.make({
+    density: 0.5,
+    kinds: ["flowers", "reeds"],
+    region: span(0, 0, 9, 9),
+    seed,
+  });
+
+describe("Scatter", () => {
+  it("is deterministic for its seed and skips unsuitable cells", () => {
+    expect(eventsOf(garden, scatter(7))).toStrictEqual(
+      eventsOf(garden, scatter(7))
+    );
+    expect(eventsOf(garden, scatter(7))).not.toStrictEqual(
+      eventsOf(garden, scatter(8))
+    );
+
+    const world = run(garden, scatter(7));
+    expect(entityCount(world)).toBeGreaterThan(10);
+    expect(invariantProblems(world)).toStrictEqual([]);
+  });
+
+  it("never stacks two things on one layer", () => {
+    const world = run(
+      run(garden, scatter(1)),
+      Command.cases.Scatter.make({
+        density: 1,
+        kinds: ["tall-grass"],
+        region: span(0, 0, 9, 9),
+        seed: 2,
       })
     );
 
-    expect(decide(withFlowerEast, createAt(alice, east), 0)).toStrictEqual(
-      occupied
-    );
-    expect(decide(holdingBlock, putDown(east), 0)).toStrictEqual(occupied);
+    expect(invariantProblems(world)).toStrictEqual([]);
+    expect(
+      Arr.every(cellsOf(span(0, 0, 6, 6)), (here) =>
+        Option.isSome(occupantOf(world, here, "cover"))
+      )
+    ).toBeTruthy();
   });
 });
 
-describe("creating", () => {
-  it("creates entities with ids counted from the state", () => {
-    const { events } = play([
-      [createAt(alice, east), 0],
-      [createAt(alice, south, "blue"), 1],
+describe("Move", () => {
+  it("moves an entity to a suitable cell", () => {
+    const world = run(
+      withOak,
+      Command.cases.Move.make({ entity: e1, to: cell(5, 5) })
+    );
+
+    expect(
+      Option.map(entityOf(world, e1), (entity) => entity.cell)
+    ).toStrictEqual(Option.some(cell(5, 5)));
+    expect(entitiesAt(world, cell(2, 2))).toStrictEqual([]);
+    expect(invariantProblems(world)).toStrictEqual([]);
+  });
+
+  it("may stay where it is without blocking itself", () => {
+    expect(
+      Result.isSuccess(
+        decide(
+          withOak,
+          Command.cases.Move.make({ entity: e1, to: cell(2, 2) }),
+          0,
+          dean
+        )
+      )
+    ).toBeTruthy();
+  });
+
+  it("rejects unknown entities and unsuitable cells", () => {
+    expect(
+      rejection(garden, Command.cases.Move.make({ entity: e1, to: cell(1, 1) }))
+    ).toStrictEqual(Option.some(new UnknownEntity({ entity: e1 })));
+    expect(
+      Option.map(
+        rejection(
+          withOak,
+          Command.cases.Move.make({ entity: e1, to: cell(8, 8) })
+        ),
+        (failure) => failure._tag
+      )
+    ).toStrictEqual(Option.some("UnsuitableGround"));
+  });
+});
+
+describe("Change", () => {
+  it("replaces the entity's own components", () => {
+    const world = run(
+      run(garden, spawn("block", cell(1, 1), { colour: "blue" })),
+      Command.cases.Change.make({ components: { colour: "green" }, entity: e1 })
+    );
+
+    expect(
+      Option.map(entityOf(world, e1), (entity) => entity.components)
+    ).toStrictEqual(Option.some({ colour: "green" }));
+  });
+
+  it("rejects components that no longer fit the cell", () => {
+    expect(
+      Option.map(
+        rejection(
+          withOak,
+          Command.cases.Change.make({
+            components: { aquatic: true },
+            entity: e1,
+          })
+        ),
+        (failure) => failure._tag
+      )
+    ).toStrictEqual(Option.some("UnsuitableGround"));
+  });
+});
+
+describe("Remove and RemoveIn", () => {
+  it("removes the listed entities once each", () => {
+    const events = eventsOf(
+      withOak,
+      Command.cases.Remove.make({ entities: [e1, e1] })
+    );
+
+    expect(events).toStrictEqual([
+      WorldEvent.cases.Removed.make({ at: 0, by: dean, entities: [e1] }),
     ]);
+  });
 
+  it("rejects an unknown entity", () => {
     expect(
-      Arr.map(
-        Arr.drop(events, 1),
-        (event) => event._tag === "Created" && event.entity
-      )
-    ).toStrictEqual([e1, e2]);
+      rejection(withOak, Command.cases.Remove.make({ entities: [e1, e2] }))
+    ).toStrictEqual(Option.some(new UnknownEntity({ entity: e2 })));
   });
 
-  it("keeps the counter going after destruction", () => {
-    const { server } = play([
-      [createAt(alice, east), 0],
-      [destroy(), 1],
-      [createAt(alice, east), 2],
-    ]);
-
-    expect(Option.isSome(entityOf(server.world, e2))).toBeTruthy();
-    expect(Option.isNone(entityOf(server.world, e1))).toBeTruthy();
-  });
-
-  it("only reaches the four neighbouring tiles", () => {
-    expect(
-      decide(aliceAtCentre, createAt(alice, tile(17, 17)), 0)
-    ).toStrictEqual(
-      Result.fail(new NotAdjacent({ position: centre, target: tile(17, 17) }))
-    );
-  });
-
-  it("will not build on water or on another entity", () => {
-    const water = waterBeside(shoreline);
-    expect(
-      decide(worldOf([appeared(alice, shoreline)]), createAt(alice, water), 0)
-    ).toStrictEqual(Result.fail(new TileIsWater({ tile: water })));
-    expect(decide(withBlockEast, createAt(alice, east), 0)).toStrictEqual(
-      Result.fail(
-        new TileOccupied({
-          entity: Option.getOrThrow(entityOf(withBlockEast, e1)),
-          tile: east,
-        })
-      )
-    );
-  });
-
-  it("will not build where a present character stands", () => {
-    const crowded = worldOf([appeared(bob, east)], aliceAtCentre);
-    expect(decide(crowded, createAt(alice, east), 0)).toStrictEqual(
-      Result.fail(new CharacterInTheWay({ character: bob, tile: east }))
-    );
-  });
-
-  it("will not build on the rest of a walk in progress", () => {
-    const bobPassing = worldOf(
-      [
-        appeared(bob, tile(14, 17)),
-        WorldEvent.cases.WalkStarted.make({
-          actor: bob,
-          at: 0,
-          path: [tile(14, 17), tile(15, 17), south, tile(17, 17), tile(18, 17)],
-        }),
-      ],
-      aliceAtCentre
+  it("removes everything in a region, or only one kind", () => {
+    const world = runAll(
+      [spawn("rock", cell(3, 3)), spawn("fern", cell(3, 3))],
+      withOak
     );
 
-    expect(decide(bobPassing, createAt(alice, south), 100)).toStrictEqual(
-      Result.fail(
-        new OnWalkersPath({ arrivesAt: 1334, tile: south, walker: bob })
-      )
-    );
-    expect(decide(bobPassing, createAt(alice, south), 700)).toStrictEqual(
-      Result.fail(new CharacterInTheWay({ character: bob, tile: south }))
-    );
-    expect(
-      Result.isSuccess(decide(bobPassing, createAt(alice, south), 1000))
-    ).toBeTruthy();
-  });
-
-  it("stops at the entity limit, counting carried entities", () => {
-    const farAway = Arr.take(
-      Arr.filter(
-        allTiles,
-        (candidate) =>
-          isLand(candidate) && chebyshevDistance(candidate, centre) > 2
-      ),
-      ENTITY_LIMIT
+    const ferns = run(
+      world,
+      Command.cases.RemoveIn.make({
+        kind: "fern",
+        region: Disc.make({ centre: cell(3, 3), radius: 2 }),
+      })
     );
 
-    const full = worldOf(
-      Arr.map(farAway, (where, index) => created(where, index + 1)),
-      aliceCarrying
+    expect(entityCount(ferns)).toBe(2);
+
+    const cleared = run(
+      world,
+      Command.cases.RemoveIn.make({ region: span(0, 0, 9, 9) })
     );
 
-    expect(entityCount(full)).toBe(ENTITY_LIMIT);
-    expect(decide(full, createAt(alice, south), 0)).toStrictEqual(
-      Result.fail(new EntityLimitReached({ limit: ENTITY_LIMIT }))
-    );
-  });
-});
-
-describe("carrying", () => {
-  it("picks up an adjacent entity", () => {
-    const after = worldOf(
-      Result.getOrThrow(decide(withBlockEast, pickUp(), 0)),
-      withBlockEast
-    );
-
-    expect(
-      Option.map(carriedBy(after, alice), (entity) => entity.id)
-    ).toStrictEqual(Option.some(e1));
-    expect(
-      Option.map(entityOf(after, e1), (entity) => entity.location)
-    ).toStrictEqual(Option.some(Location.cases.Carried.make({ by: alice })));
-  });
-
-  it("carries one thing at a time", () => {
-    const another = worldOf([created(south, 2)], aliceCarrying);
-    expect(decide(another, pickUp(e2), 0)).toStrictEqual(
-      Result.fail(
-        new AlreadyCarrying({
-          carrying: Option.getOrThrow(entityOf(another, e1)),
-        })
-      )
-    );
-  });
-
-  it("refuses unknown, carried and distant entities", () => {
-    const bobCarrying = worldOf(
-      [
-        appeared(bob, tile(18, 16)),
-        WorldEvent.cases.PickedUp.make({
-          actor: bob,
-          at: 0,
-          entity: e1,
-          tile: east,
-        }),
-      ],
-      withBlockEast
-    );
-
-    const distant = worldOf([created(tile(20, 20), 1)], aliceAtCentre);
-    expect(decide(aliceAtCentre, pickUp(), 0)).toStrictEqual(
-      Result.fail(new UnknownEntity({ entity: e1 }))
-    );
-    expect(decide(bobCarrying, pickUp(), 0)).toStrictEqual(
-      Result.fail(new EntityCarried({ carriedBy: bob, entity: e1 }))
-    );
-    expect(decide(distant, pickUp(), 0)).toStrictEqual(
-      Result.fail(new NotAdjacent({ position: centre, target: tile(20, 20) }))
-    );
-  });
-
-  it("puts the carried entity down on a free adjacent tile", () => {
-    const after = worldOf(
-      Result.getOrThrow(decide(aliceCarrying, putDown(south), 0)),
-      aliceCarrying
-    );
-
-    expect(Option.isNone(carriedBy(after, alice))).toBeTruthy();
-    expect(
-      Option.map(entityOf(after, e1), (entity) => entity.location)
-    ).toStrictEqual(Option.some(Location.cases.Ground.make({ tile: south })));
-  });
-
-  it("needs something to put down and somewhere free to put it", () => {
-    const blocked = worldOf([created(south, 2)], aliceCarrying);
-    expect(decide(aliceAtCentre, putDown(), 0)).toStrictEqual(
-      Result.fail(new CarryingNothing())
-    );
-    expect(decide(blocked, putDown(south), 0)).toStrictEqual(
-      Result.fail(
-        new TileOccupied({
-          entity: Option.getOrThrow(entityOf(blocked, e2)),
-          tile: south,
-        })
-      )
-    );
-    expect(decide(aliceCarrying, putDown(tile(18, 16)), 0)).toStrictEqual(
-      Result.fail(new NotAdjacent({ position: centre, target: tile(18, 16) }))
-    );
-  });
-});
-
-describe("destroying", () => {
-  it("removes an adjacent entity on the ground", () => {
-    expect(decide(withBlockEast, destroy(), 3)).toStrictEqual(
-      Result.succeed([
-        WorldEvent.cases.Destroyed.make({
-          actor: alice,
-          at: 3,
-          entity: e1,
-          tile: east,
-        }),
-      ])
-    );
-  });
-
-  it("refuses unknown, carried and distant entities", () => {
-    const distant = worldOf([created(tile(20, 20), 1)], aliceAtCentre);
-    expect(decide(aliceAtCentre, destroy(), 0)).toStrictEqual(
-      Result.fail(new UnknownEntity({ entity: e1 }))
-    );
-    expect(decide(aliceCarrying, destroy(), 0)).toStrictEqual(
-      Result.fail(new EntityCarried({ carriedBy: alice, entity: e1 }))
-    );
-    expect(decide(distant, destroy(), 0)).toStrictEqual(
-      Result.fail(new NotAdjacent({ position: centre, target: tile(20, 20) }))
-    );
-  });
-});
-
-describe("names", () => {
-  const twoOfUs = worldOf(
-    [
-      appeared(bob, east),
-      WorldEvent.cases.Renamed.make({
-        actor: bob,
-        at: 0,
-        displayName: DisplayName.make("Robert"),
-        tile: east,
-      }),
-    ],
-    aliceAtCentre
-  );
-
-  it("renames a character", () => {
-    expect(decide(twoOfUs, rename("Alice B"), 0)).toStrictEqual(
-      Result.succeed([
-        WorldEvent.cases.Renamed.make({
-          actor: alice,
-          at: 0,
-          displayName: DisplayName.make("Alice B"),
-          tile: centre,
-        }),
-      ])
-    );
-  });
-
-  it("refuses another character's name or username in any case", () => {
-    expect(decide(twoOfUs, rename("ROBERT"), 0)).toStrictEqual(
-      Result.fail(
-        new NameTaken({ displayName: DisplayName.make("ROBERT"), takenBy: bob })
-      )
-    );
-    expect(decide(twoOfUs, rename("Bob"), 0)).toStrictEqual(
-      Result.fail(
-        new NameTaken({ displayName: DisplayName.make("Bob"), takenBy: bob })
-      )
-    );
-  });
-
-  it("lets a character take back its own username", () => {
-    expect(Result.isSuccess(decide(twoOfUs, rename("ALICE"), 0))).toBeTruthy();
-  });
-});
-
-describe(decodeCommand, () => {
-  it("trims text once at the boundary", () => {
-    expect(
-      decodeCommand({ _tag: "Say", actor: "alice", text: "  hi there \n" })
-    ).toStrictEqual(Result.succeed(say("hi there")));
-  });
-
-  it("refuses blank, overlong and untrimmed-overlong text", () => {
-    expect(
-      Result.isSuccess(
-        decodeCommand({ _tag: "Say", actor: "alice", text: "   " })
-      )
-    ).toBeFalsy();
-    expect(
-      Result.isSuccess(
-        decodeCommand({
-          _tag: "Say",
-          actor: "alice",
-          text: Str.repeat(281)("x"),
-        })
-      )
-    ).toBeFalsy();
-    expect(
-      Result.isSuccess(
-        decodeCommand({
-          _tag: "Say",
-          actor: "alice",
-          text: ` ${Str.repeat(280)("x")} `,
-        })
-      )
-    ).toBeTruthy();
-  });
-
-  it("refuses tiles off the map and colours off the palette", () => {
-    expect(
-      Result.isSuccess(
-        decodeCommand({ _tag: "Move", actor: "alice", to: { x: 32, y: 0 } })
-      )
-    ).toBeFalsy();
-    expect(
-      Result.isSuccess(
-        decodeCommand({ _tag: "Move", actor: "alice", to: { x: 1.5, y: 0 } })
-      )
-    ).toBeFalsy();
-    expect(
-      Result.isSuccess(
-        decodeCommand({
-          _tag: "Create",
-          actor: "alice",
-          item: { _tag: "Flower", colour: "black" },
-          tile: { x: 1, y: 1 },
-        })
-      )
-    ).toBeFalsy();
-    expect(
-      Result.isSuccess(
-        decodeCommand({
-          _tag: "Create",
-          actor: "alice",
-          item: block("pink"),
-          tile: { x: 1, y: 1 },
-        })
-      )
-    ).toBeTruthy();
-  });
-
-  it("bounds display names to 24 characters", () => {
-    expect(
-      Result.isSuccess(
-        decodeCommand({
-          _tag: "Rename",
-          actor: "alice",
-          name: Str.repeat(24)("n"),
-        })
-      )
-    ).toBeTruthy();
-    expect(
-      Result.isSuccess(
-        decodeCommand({
-          _tag: "Rename",
-          actor: "alice",
-          name: Str.repeat(25)("n"),
-        })
-      )
-    ).toBeFalsy();
-    expect(
-      Result.isSuccess(
-        decodeCommand({ _tag: "Rename", actor: "alice", name: "" })
-      )
-    ).toBeFalsy();
+    expect(entityCount(cleared)).toBe(0);
   });
 });

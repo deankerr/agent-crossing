@@ -1,53 +1,50 @@
-import * as Arr from "effect/Array";
+import { evolve } from "@agent-crossing/world/event";
+import { FeedFrame } from "@agent-crossing/world/feed";
 import * as Effect from "effect/Effect";
 import * as Fiber from "effect/Fiber";
-import * as Result from "effect/Result";
 import * as Schedule from "effect/Schedule";
 
-import type { LocalClock } from "./clock.ts";
-import { openDemo, step, STEP_MILLIS } from "./demo.ts";
-import { snapshotFrame, worldFrame } from "./feed.ts";
-import type { WorldFeed } from "./feed.ts";
+import { DEMO_EDITS, demoEdit, demoWorld, snapshotFrames } from "./demo.ts";
+import type { Generate } from "./demo.ts";
+import type { WorldFeed } from "./live-feed.ts";
 
-export interface DemoFeedOptions {
-  readonly seed: number;
-  readonly clock: LocalClock;
-  readonly serverSkew: number;
-}
+const EDIT_EVERY = "3500 millis";
 
-export const demoFeed = ({ clock, seed, serverSkew }: DemoFeedOptions) => {
-  const serverNow = () => Math.round(clock() + serverSkew);
-
+/**
+ * A feed with no server: the generated landscape as a snapshot, then a
+ * scripted edit every few seconds until {@link DEMO_EDITS} have been made.
+ */
+export const demoFeed = (generate: Generate, clock: () => number) => {
   const feed: WorldFeed = (listener) => {
-    const openedAt = serverNow();
-    let demo = openDemo(seed, openedAt);
+    let world = demoWorld(generate, clock());
+    let seq = 0;
+    let step = 0;
 
     listener.onConnection("demo");
 
-    listener.onFrame(
-      Result.getOrThrow(
-        snapshotFrame({
-          cursor: demo.seq,
-          now: openedAt,
-          world: demo.server.world,
-        })
-      )
-    );
+    for (const frame of snapshotFrames(world, seq)) {
+      listener.onFrame(frame);
+    }
 
     const tick = () => {
-      const cursor = demo.seq;
-      const stepped = step(demo, serverNow());
-      ({ demo } = stepped);
+      if (step >= DEMO_EDITS) {
+        return;
+      }
 
-      Arr.forEach(stepped.events, (event, index) => {
-        listener.onFrame(
-          Result.getOrThrow(worldFrame({ event, seq: cursor + index + 1 }))
-        );
-      });
+      for (const event of demoEdit(world, generate, step, clock())) {
+        seq += 1;
+        world = evolve(world, event);
+        listener.onFrame(FeedFrame.cases.Happened.make({ event, seq }));
+      }
+
+      step += 1;
     };
 
     const running = Effect.runFork(
-      Effect.repeat(Effect.sync(tick), Schedule.spaced(STEP_MILLIS))
+      Effect.repeat(
+        Effect.sync(tick).pipe(Effect.delay(EDIT_EVERY)),
+        Schedule.recurs(DEMO_EDITS)
+      )
     );
 
     return () => {

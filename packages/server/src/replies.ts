@@ -1,101 +1,97 @@
-import { observe } from "@agent-crossing/world/perception";
-import type { Username } from "@agent-crossing/world/values";
+import { spanOf } from "@agent-crossing/world/region";
+import type { Span } from "@agent-crossing/world/region";
 import * as Arr from "effect/Array";
 import * as Option from "effect/Option";
+import * as Str from "effect/String";
 
-import type { Numbered } from "./journal.ts";
-import {
-  nearbyText,
-  ownEventsText,
-  rejectionText,
-  tileText,
-} from "./narration.ts";
-import { lookText, selfText } from "./sight.ts";
-import type { CatchUp, Report } from "./wire.ts";
+import { EDIT_MAP_MAX_SIDE, framedEdit } from "./affected.ts";
+import type { Area, Framed } from "./affected.ts";
+import type { Verdict } from "./wire.ts";
 
-const SINCE_LAST_CALL = "since your last call";
+/** Edits of more events than this are told as a tally, not sentence by sentence. */
+export const SENTENCES_SHOWN = 3;
 
-const sections = (...parts: readonly string[]) =>
-  Arr.join(
-    Arr.filter(parts, (part) => part !== ""),
-    "\n\n"
+type Accepted = Extract<Verdict, { readonly _tag: "Accepted" }>;
+
+const spanText = (span: Span) =>
+  `x ${span.minX} to ${span.maxX}, y ${span.minY} to ${span.maxY}`;
+
+/** The area to map after an edit, if it touched any cells. */
+export const framedOf = (accepted: Accepted) =>
+  Option.map(Option.fromNullishOr(accepted.edited), (edited: Area) =>
+    framedEdit(spanOf(edited.from, edited.to))
   );
 
-export const refusalOf = (report: Report) =>
-  report.verdict._tag === "Rejected"
-    ? Option.some(
-        sections(
-          `Refused: ${rejectionText(report.world, report.verdict.rejection, report.now)}`,
-          nearbyText(report.world, report.nearby, report.now, SINCE_LAST_CALL)
-        )
-      )
-    : Option.none<string>();
+const plural = (count: number, one: string, many: string) =>
+  `${count} ${count === 1 ? one : many}`;
 
-const ownText = (report: Report, self: Username) =>
-  report.verdict._tag === "Accepted"
-    ? ownEventsText(report.world, self, report.verdict.events, report.now)
-    : "";
-
-export const actedText = (report: Report, self: Username) =>
-  sections(
-    ownText(report, self),
-    nearbyText(report.world, report.nearby, report.now, SINCE_LAST_CALL)
+const tallyText = ({ tally }: Accepted) => {
+  const parts = Arr.filter(
+    [
+      tally.painted > 0
+        ? `painted ${plural(tally.painted, "cell", "cells")}`
+        : "",
+      tally.erased > 0 ? `erased ${plural(tally.erased, "cell", "cells")}` : "",
+      tally.removed > 0
+        ? `removed ${plural(tally.removed, "thing", "things")}`
+        : "",
+      tally.placed > 0
+        ? `placed ${plural(tally.placed, "thing", "things")}`
+        : "",
+      tally.moved > 0 ? `moved ${plural(tally.moved, "thing", "things")}` : "",
+      tally.changed > 0
+        ? `changed ${plural(tally.changed, "thing", "things")}`
+        : "",
+    ],
+    (part) => part !== ""
   );
 
-export const lookedText = (report: Report, self: Username) =>
-  sections(
-    ownText(report, self),
-    Option.match(observe(report.world, self, report.now), {
-      onNone: () => "",
-      onSome: (observation) => lookText(report.world, observation),
-    }),
-    nearbyText(report.world, report.nearby, report.now, SINCE_LAST_CALL)
-  );
+  const listed =
+    parts.length <= 1
+      ? Arr.join(parts, "")
+      : `${Arr.join(Arr.dropRight(parts, 1), ", ")} and ${parts.at(-1) ?? ""}`;
 
-export const arrivedText = (
-  departure: Report,
-  arrival: CatchUp,
-  self: Username
-) => {
-  const nearby: readonly Numbered[] = Arr.appendAll(
-    departure.nearby,
-    arrival.nearby
-  );
+  return `${Str.capitalize(listed)}.`;
+};
 
-  const departed =
-    departure.verdict._tag === "Accepted" ? departure.verdict.events : [];
+const happenedText = (accepted: Accepted) => {
+  const { changes, sentences } = accepted;
 
-  const walked = Arr.findFirst(departed, (event) =>
-    event._tag === "WalkStarted" && event.actor === self
-      ? Option.some(
-          event.path.length === 1
-            ? `You were already at ${tileText(Arr.headNonEmpty(event.path))}.`
-            : `You walked from ${tileText(Arr.headNonEmpty(event.path))} to ${tileText(Arr.lastNonEmpty(event.path))}, ${event.path.length - 1} steps, and have arrived.`
-        )
-      : Option.none()
-  );
+  if (sentences.length === 0) {
+    return "Nothing changed: the edit matched nothing that differs from what is already there.";
+  }
 
-  return sections(
-    Arr.join(
-      Arr.filter(
-        [
-          ownEventsText(
-            departure.world,
-            self,
-            departed,
-            departure.now,
-            (event) => event._tag !== "WalkStarted"
-          ),
-          Option.getOrElse(walked, () => "You were already there."),
-          Option.match(observe(arrival.world, self, arrival.now), {
-            onNone: () => "",
-            onSome: (observation) => selfText(arrival.world, observation),
-          }),
-        ],
-        (line) => line !== ""
-      ),
-      "\n"
-    ),
-    nearbyText(arrival.world, nearby, arrival.now, SINCE_LAST_CALL)
+  const told =
+    sentences.length > SENTENCES_SHOWN
+      ? [tallyText(accepted)]
+      : Arr.map(sentences, (sentence) => `${sentence}.`);
+
+  return Arr.join(
+    [
+      ...told,
+      `(${plural(sentences.length, "event", "events")}, ${plural(changes, "change", "changes")}.)`,
+    ],
+    " "
   );
 };
+
+const editedText = (framed: Framed) =>
+  framed.cut
+    ? `The edit touched ${spanText(framed.edited)}. That is more than this map shows (at most ${EDIT_MAP_MAX_SIDE} x ${EDIT_MAP_MAX_SIDE} cells, from the north-west corner); use view_map for the rest.`
+    : `The edit touched ${spanText(framed.edited)}.`;
+
+/** What an accepted edit did, then the map of the area it touched. */
+export const editText = (
+  accepted: Accepted,
+  framed: Option.Option<{ readonly framed: Framed; readonly map: string }>
+) =>
+  Arr.join(
+    [
+      happenedText(accepted),
+      ...Option.match(framed, {
+        onNone: () => [],
+        onSome: ({ framed: shown, map }) => ["", editedText(shown), "", map],
+      }),
+    ],
+    "\n"
+  );

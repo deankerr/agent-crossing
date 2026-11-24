@@ -1,13 +1,13 @@
 import * as Schema from "effect/Schema";
 import * as Str from "effect/String";
 
-import { Tile } from "./grid.ts";
-import { Colour, Text, Username } from "./values.ts";
-
-export const ENTITY_LIMIT = 500;
+import { Cell } from "./cell.ts";
+import { Components, overlay } from "./components.ts";
+import type { Label } from "./components.ts";
+import { kindDefaults, KindName } from "./kind.ts";
 
 export const EntityId = Schema.String.check(
-  Schema.isPattern(/^e[1-9]\d*$/u)
+  Schema.isPattern(/^e[1-9]\d{0,8}$/u)
 ).pipe(Schema.brand("EntityId"));
 
 export type EntityId = typeof EntityId.Type;
@@ -16,32 +16,30 @@ export const entityIdFor = (serial: number) => EntityId.make(`e${serial}`);
 
 export const entitySerial = (id: EntityId) => Number(Str.slice(1)(id));
 
-export const Item = Schema.TaggedUnion({
-  Block: { colour: Colour },
-  Flower: { colour: Colour },
-  Sign: { text: Text },
-});
-
-export type Item = typeof Item.Type;
-
-export const isSolid = (item: Item) =>
-  Item.match(item, {
-    Block: () => true,
-    Flower: () => false,
-    Sign: () => true,
-  });
-
-export const Location = Schema.TaggedUnion({
-  Carried: { by: Username },
-  Ground: { tile: Tile },
-});
-
-export type Location = typeof Location.Type;
-
+/**
+ * A thing in the world. `components` holds only what differs from its kind,
+ * so it is often empty, or just a colour or a text.
+ */
 export const Entity = Schema.Struct({
   id: EntityId,
-  item: Item,
-  location: Location,
+  kind: KindName,
+  cell: Cell,
+  components: Components,
 });
 
 export type Entity = typeof Entity.Type;
+
+/** The entity's effective components: its kind's defaults overlaid by its own. */
+export const componentsOf = (entity: Pick<Entity, "kind" | "components">) =>
+  overlay(kindDefaults(entity.kind), entity.components);
+
+const unlabelled = (kind: string) =>
+  ({ glyph: "?", noun: kind }) satisfies Label;
+
+export const labelOf = (entity: Pick<Entity, "kind" | "components">) =>
+  componentsOf(entity).label ?? unlabelled(entity.kind);
+
+export const nounOf = (entity: Pick<Entity, "kind" | "components">) =>
+  labelOf(entity).noun;
+
+export const pluralOf = (label: Label) => label.plural ?? `${label.noun}s`;
