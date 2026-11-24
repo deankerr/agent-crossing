@@ -3,10 +3,11 @@ import { cellCount, groundAt } from "@agent-crossing/world/world";
 import type { World } from "@agent-crossing/world/world";
 import { Canvas } from "@react-three/fiber";
 import * as Option from "effect/Option";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import { statusOf } from "./feed-state.ts";
 import type { FeedState } from "./feed-state.ts";
+import { clearsSelection } from "./keys.ts";
 import { landSurface, surfaceOf } from "./layout.ts";
 import { VIEW_DIRECTION } from "./scene/camera-rig.tsx";
 import type { FocusRequest } from "./scene/camera-rig.tsx";
@@ -49,6 +50,29 @@ export const App = () => {
   const [focus, setFocus] = useState(Option.none<FocusRequest>());
   const [overlay, setOverlay] = useState<HTMLElement | null>(null);
   const notice = stageNotice(state);
+
+  useEffect(() => {
+    const clearOnEscape = (event: KeyboardEvent) => {
+      const { isComposing, key, target } = event;
+
+      if (
+        clearsSelection({
+          isComposing,
+          key,
+          target:
+            target instanceof HTMLElement ? Option.some(target) : Option.none(),
+        })
+      ) {
+        setSelected(Option.none());
+      }
+    };
+
+    window.addEventListener("keydown", clearOnEscape);
+
+    return () => {
+      window.removeEventListener("keydown", clearOnEscape);
+    };
+  }, []);
 
   const pick = (cell: Cell) => {
     setSelected(Option.some(cell));

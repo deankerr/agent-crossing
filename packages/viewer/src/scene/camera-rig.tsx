@@ -46,6 +46,16 @@ export const fittingZoom = (span: Span, size: Size) => {
 export const cameraDistance = (span: Span) =>
   Math.max(MIN_DISTANCE, diagonalOf(span) * DISTANCE_PER_DIAGONAL);
 
+interface Rig {
+  readonly target: Vector3;
+  readonly object: { readonly position: Vector3 };
+}
+
+const shiftBy = (rig: Rig, shift: Vector3) => {
+  rig.target.add(shift);
+  rig.object.position.add(shift);
+};
+
 /**
  * Pan, zoom and orbit within limits derived from the world's bounds. It fits
  * the world when mounted; remount it (with a new key) to fit again.
@@ -103,25 +113,27 @@ export const CameraRig = ({
     );
   }, [focus]);
 
-  const shiftBy = (shift: Vector3) => {
+  // WARNING: never pass MapControls an `onChange`; each new one reconnects the controls, and mid-drag that loses the pointerup and deafens them for good.
+  useEffect(() => {
     const rig = controls.current;
 
-    if (rig !== null) {
-      rig.target.add(shift);
-      rig.object.position.add(shift);
+    if (rig === null) {
+      return;
     }
-  };
 
-  const keepOverWorld = () => {
-    const rig = controls.current;
+    const lowest = new Vector3(span.minX - 0.5, 0, span.minY - 0.5);
+    const highest = new Vector3(span.maxX + 0.5, TALLEST, span.maxY + 0.5);
 
-    if (rig !== null) {
-      const lowest = new Vector3(span.minX - 0.5, 0, span.minY - 0.5);
-      const highest = new Vector3(span.maxX + 0.5, TALLEST, span.maxY + 0.5);
+    const keepOverWorld = () => {
+      shiftBy(rig, rig.target.clone().clamp(lowest, highest).sub(rig.target));
+    };
 
-      shiftBy(rig.target.clone().clamp(lowest, highest).sub(rig.target));
-    }
-  };
+    rig.addEventListener("change", keepOverWorld);
+
+    return () => {
+      rig.removeEventListener("change", keepOverWorld);
+    };
+  }, [span]);
 
   useFrame((_, delta) => {
     const rig = controls.current;
@@ -139,7 +151,7 @@ export const CameraRig = ({
         return;
       }
 
-      shiftBy(remaining.multiplyScalar(1 - Math.exp(-delta * GLIDE_RATE)));
+      shiftBy(rig, remaining.multiplyScalar(1 - Math.exp(-delta * GLIDE_RATE)));
       rig.update();
     });
   });
@@ -158,7 +170,6 @@ export const CameraRig = ({
         MIDDLE: MOUSE.DOLLY,
         RIGHT: MOUSE.ROTATE,
       }}
-      onChange={keepOverWorld}
       ref={controls}
       screenSpacePanning={false}
       touches={{ ONE: TOUCH.PAN, TWO: TOUCH.DOLLY_ROTATE }}
