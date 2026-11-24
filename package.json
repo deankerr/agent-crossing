@@ -1,6 +1,7 @@
 {
   "name": "agent-crossing",
   "private": true,
+  "license": "MIT",
   "type": "module",
   "scripts": {
     "check": "ultracite check",
