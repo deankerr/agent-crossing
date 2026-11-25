@@ -7,7 +7,7 @@ import { MIN_LEVEL } from "../../schema/cell.ts";
 import type { Cell, Level } from "../../schema/cell.ts";
 import type { Components } from "../../schema/components.ts";
 import { generateLandscape } from "../generation/landscape.ts";
-import type { Thing } from "../generation/landscape.ts";
+import type { NewEntity } from "../generation/landscape.ts";
 import { seededRandom } from "../generation/random.ts";
 import { ensurePlaceable, misfitsIn } from "../rules/placement.ts";
 import { UnknownEntity } from "../rules/rejection.ts";
@@ -87,12 +87,12 @@ const idsOf = (entities: readonly Present[]) =>
 const entitiesIn = (world: World, cells: readonly At[]) =>
   Arr.flatMap(cells, (cell) => entitiesAt(world, cell));
 
-const numbered = (world: World, things: readonly Thing[]) =>
+const numbered = (world: World, fresh: readonly NewEntity[]) =>
   Arr.map(
-    things,
-    (thing, index) =>
+    fresh,
+    (entity, index) =>
       ({
-        ...thing,
+        ...entity,
         id: entityIdFor(world.spawned + index + 1),
       }) satisfies Present
   );
@@ -104,7 +104,7 @@ const paint = (
   floor: Name | undefined,
   level: typeof Level.Type | undefined
 ) => {
-  const laid: Thing[] = [];
+  const laid: NewEntity[] = [];
   const repainted: Present[] = [];
 
   for (const cell of cellsOf(region)) {
@@ -138,7 +138,7 @@ const pour = (
   edit: Edit,
   { bed, liquid, region }: typeof Command.cases.Pour.Type
 ) => {
-  const liquids: Thing[] = [];
+  const liquids: NewEntity[] = [];
   const beds: Present[] = [];
 
   for (const cell of cellsOf(region)) {
@@ -168,8 +168,8 @@ const pour = (
 const erase = (world: World, region: typeof Region.Type) =>
   outcome(idsOf(entitiesIn(world, cellsOf(region))));
 
-const nextEntity = (world: World, thing: Thing) =>
-  ({ ...thing, id: entityIdFor(world.spawned + 1) }) satisfies Present;
+const nextEntity = (world: World, fresh: NewEntity) =>
+  ({ ...fresh, id: entityIdFor(world.spawned + 1) }) satisfies Present;
 
 const counted = (world: World, entity: Present) =>
   apply(

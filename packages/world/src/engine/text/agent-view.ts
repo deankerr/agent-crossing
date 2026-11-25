@@ -59,7 +59,7 @@ const nearbyCounts = (entities: readonly (typeof Entity.Type)[]) => {
   const others = sorted.length - SUMMARY_MAX_NOUNS;
 
   return others > 0
-    ? [...named, `${others} other ${others === 1 ? "kind" : "kinds"} of thing`]
+    ? [...named, `${others} other ${others === 1 ? "sort" : "sorts"} of entity`]
     : named;
 };
 
@@ -94,7 +94,7 @@ const standing = (world: World, at: typeof Cell.Type) =>
 
 /**
  * What a character standing at `at` would be told: where it stands, the map
- * of the square around it with `@` at its own cell, how many things of each
+ * of the square around it with `@` at its own cell, how many entities of each
  * sort are nearby and any writing among them. Provisional: change it here.
  */
 export const agentViewText = (

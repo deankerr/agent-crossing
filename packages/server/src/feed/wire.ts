@@ -50,7 +50,7 @@ const isOther = (entity: typeof Entity.Type) =>
 
 /**
  * The tally with one more event, given the world it happens to. Removed
- * floors count as erased cells, other removed entities as removed things.
+ * floors count as erased cells, everything else removed as removed entities.
  */
 export const tallied = (
   tally: Counts,

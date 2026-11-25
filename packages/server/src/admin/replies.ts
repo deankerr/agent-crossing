@@ -35,14 +35,16 @@ const tallyText = ({ tally }: Accepted) => {
       tally.poured > 0 ? `poured ${plural(tally.poured, "cell", "cells")}` : "",
       tally.erased > 0 ? `erased ${plural(tally.erased, "cell", "cells")}` : "",
       tally.removed > 0
-        ? `removed ${plural(tally.removed, "thing", "things")}`
+        ? `removed ${plural(tally.removed, "entity", "entities")}`
         : "",
       tally.placed > 0
-        ? `placed ${plural(tally.placed, "thing", "things")}`
+        ? `placed ${plural(tally.placed, "entity", "entities")}`
         : "",
-      tally.moved > 0 ? `moved ${plural(tally.moved, "thing", "things")}` : "",
+      tally.moved > 0
+        ? `moved ${plural(tally.moved, "entity", "entities")}`
+        : "",
       tally.changed > 0
-        ? `changed ${plural(tally.changed, "thing", "things")}`
+        ? `changed ${plural(tally.changed, "entity", "entities")}`
         : "",
     ],
     (part) => part !== ""

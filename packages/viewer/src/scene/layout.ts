@@ -42,7 +42,7 @@ export const liquidTop = (liquid: typeof Entity.Type) => {
   return surfaceOf(liquid) + (tops.length === 0 ? 0 : Math.max(...tops));
 };
 
-/** Where things stand on a cell: the top of its liquid, or else its floor's surface. */
+/** Where entities stand on a cell: the top of its liquid, or else its floor's surface. */
 export const standingSurface = (
   floor: Option.Option<typeof Entity.Type>,
   liquid: Option.Option<typeof Entity.Type>

@@ -14,7 +14,7 @@ import { cellsWord, counted, listed, spanText } from "./words.ts";
 
 /**
  * The world's extent, its floors and water, and how many of each other
- * thing it holds by what an agent calls them.
+ * entity it holds by what an agent calls them.
  */
 export const summaryText = (world: World) =>
   Option.match(bounds(world), {
@@ -33,7 +33,7 @@ export const summaryText = (world: World) =>
         Arr.map(others, (entity) => [nounOf(entity), labelOf(entity)] as const)
       );
 
-      const things = Arr.getSomes(
+      const tallies = Arr.getSomes(
         Arr.map(countsBy(others, nounOf), ({ count, key }) =>
           Option.map(Option.fromNullishOr(labels.get(key)), (label) =>
             counted(count, label)
@@ -51,9 +51,9 @@ export const summaryText = (world: World) =>
             )
           )}.`,
           `Water: ${cellsWord(liquids.length)}.`,
-          things.length === 0
+          tallies.length === 0
             ? "Entities: none."
-            : `Entities (${others.length}): ${listed(things)}.`,
+            : `Entities (${others.length}): ${listed(tallies)}.`,
         ],
         "\n"
       );

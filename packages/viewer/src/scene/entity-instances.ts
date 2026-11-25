@@ -21,8 +21,6 @@ import type { PaintedModel } from "./model-geometry.ts";
 
 type Id = typeof EntityId.Type;
 
-type Thing = typeof Entity.Type;
-
 /** One entity as its model's instanced mesh draws it. */
 export interface EntityInstance {
   readonly id: Id;
@@ -63,14 +61,14 @@ const QUARTER = Math.PI / 2;
 const TURN = Math.PI * 2;
 
 interface CellContents {
-  floor: Option.Option<Thing>;
-  liquid: Option.Option<Thing>;
+  floor: Option.Option<typeof Entity.Type>;
+  liquid: Option.Option<typeof Entity.Type>;
   object: boolean;
   cover: boolean;
   readonly loose: Id[];
 }
 
-const contentsOf = (entities: Iterable<Thing>) => {
+const contentsOf = (entities: Iterable<typeof Entity.Type>) => {
   const cells = new Map<typeof CellKey.Type, CellContents>();
 
   for (const entity of entities) {
@@ -122,7 +120,7 @@ const corner = (index: number, aside: number, scale: number) => {
   return { dx: cx * aside, dz: cz * aside, scale } satisfies Offset;
 };
 
-const offsetOf = (entity: Thing, contents: CellContents) => {
+const offsetOf = (entity: typeof Entity.Type, contents: CellContents) => {
   const { layer } = componentsOf(entity);
   const first = Math.floor(cellNoise(entity.cell.x, entity.cell.y) * 4);
 
@@ -193,7 +191,7 @@ const fenceHeading = (cell: typeof Cell.Type, fences: ReadonlySet<string>) => {
   return northSouth && !eastWest ? QUARTER : 0;
 };
 
-const fenceCellsOf = (entities: Iterable<Thing>) => {
+const fenceCellsOf = (entities: Iterable<typeof Entity.Type>) => {
   const byPrefab = new Map<string, Set<string>>();
 
   for (const entity of entities) {

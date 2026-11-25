@@ -21,5 +21,5 @@ export const quoted = (text: string) => `"${Str.replaceAll('"', "'")(text)}"`;
 export const cellsWord = (count: number) =>
   count === 1 ? "1 cell" : `${count} cells`;
 
-export const thingsWord = (count: number) =>
-  count === 1 ? "1 thing" : `${count} things`;
+export const entitiesWord = (count: number) =>
+  count === 1 ? "1 entity" : `${count} entities`;

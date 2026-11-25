@@ -19,7 +19,7 @@ export const Area = Schema.Struct({ from: Cell, to: Cell });
 const oldCell = (world: World, id: typeof EntityId.Type) =>
   Arr.fromOption(Option.map(entityOf(world, id), (entity) => entity.cell));
 
-/** The cells a change touches, given the world it applies to: where things were and where they are now. */
+/** The cells a change touches, given the world it applies to: where entities were and where they are now. */
 export const touchedBy = (world: World, change: typeof Change.Type) => {
   const cells: readonly (typeof Cell.Type)[] = Change.match(change, {
     EntityDropped: ({ id }) => oldCell(world, id),

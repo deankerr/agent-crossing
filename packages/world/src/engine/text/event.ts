@@ -5,7 +5,7 @@ import { WorldEvent } from "../editing/event.ts";
 import { nounOf } from "../state/entity.ts";
 import type { Entity } from "../state/entity.ts";
 import { isFloor, isLiquid } from "../state/world.ts";
-import { article, cellsWord, thingsWord } from "./words.ts";
+import { article, cellsWord, entitiesWord } from "./words.ts";
 
 const painted = (by: string, floors: readonly (typeof Entity.Type)[]) => {
   const nouns = Arr.dedupe(Arr.map(floors, nounOf));
@@ -33,7 +33,7 @@ export const eventText = (event: typeof WorldEvent.Type) =>
     Removed: ({ by, entities }) =>
       entities.length === 1
         ? `${by} removed ${entities[0]}`
-        : `${by} removed ${thingsWord(entities.length)}`,
+        : `${by} removed ${entitiesWord(entities.length)}`,
     Spawned: ({ by, entities }) => {
       if (Arr.every(entities, isFloor)) {
         return painted(by, entities);
@@ -45,7 +45,7 @@ export const eventText = (event: typeof WorldEvent.Type) =>
 
       return entities.length === 1
         ? `${by} put ${article(nounOf(entities[0]))} at ${formatCell(entities[0].cell)}`
-        : `${by} placed ${thingsWord(entities.length)}`;
+        : `${by} placed ${entitiesWord(entities.length)}`;
     },
     Updated: ({ by, entities }) => {
       if (Arr.every(entities, isFloor)) {
@@ -54,6 +54,6 @@ export const eventText = (event: typeof WorldEvent.Type) =>
 
       return entities.length === 1
         ? `${by} changed ${entities[0].id}`
-        : `${by} changed ${thingsWord(entities.length)}`;
+        : `${by} changed ${entitiesWord(entities.length)}`;
     },
   });

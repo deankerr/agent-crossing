@@ -48,7 +48,7 @@ _Avoid_: Trait, property, attribute
 
 _Avoid_: Aquatic, floating, walks, swims
 
-**Obstacle**: A component: the entity fills its place, so nothing else can be there whatever its habitat. The floor under an obstacle is still land.
+**Obstacle**: A component: the entity is in the way, so no character can move into its cell whatever its habitat. Other entities may still share the cell, as a mushroom does under an oak. The floor under an obstacle is still land.
 
 _Avoid_: Blocking, solid, unwalkable
 

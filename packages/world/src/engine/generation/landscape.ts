@@ -12,8 +12,8 @@ import type { Prefab } from "../../schema/prefab.ts";
 import { pickWeighted, seededRandom } from "./random.ts";
 import type { SeededRandom } from "./random.ts";
 
-/** Something the landscape puts in a cell: a prefab and its own components. */
-export interface Thing {
+/** An entity before it has an id: a prefab, a cell and its own components. */
+export interface NewEntity {
   readonly prefab: typeof PrefabName.Type;
   readonly cell: typeof Cell.Type;
   readonly components: typeof Components.Type;
@@ -385,7 +385,7 @@ const picked = (random: SeededRandom, grown: Prefab | Choice) =>
 
 const nameOf = Schema.decodeUnknownOption(PrefabName);
 
-const thingsOn = (random: SeededRandom, biome: Biome) => {
+const growthOn = (random: SeededRandom, biome: Biome) => {
   const roll = random.next();
   let sofar = 0;
   const found: Prefab[] = [];
@@ -474,17 +474,17 @@ const biomeAt = (terrain: Terrain, at: Point, index: number) => {
   return biome;
 };
 
-const thingIn = (
+const newEntityIn = (
   cell: typeof Cell.Type,
   prefab: Prefab,
   components: typeof Components.Type
 ) =>
   Option.map(
     nameOf(prefab.name),
-    (name) => ({ cell, components, prefab: name }) satisfies Thing
+    (name) => ({ cell, components, prefab: name }) satisfies NewEntity
   );
 
-const cellThings = (
+const cellEntities = (
   random: SeededRandom,
   biome: Biome,
   cell: typeof Cell.Type,
@@ -494,15 +494,17 @@ const cellThings = (
 
   const ground =
     liquid === undefined
-      ? [thingIn(cell, biome.floor, { level })]
+      ? [newEntityIn(cell, biome.floor, { level })]
       : [
-          thingIn(cell, biome.floor, { level: level - 1 }),
-          thingIn(cell, liquid, { level }),
+          newEntityIn(cell, biome.floor, { level: level - 1 }),
+          newEntityIn(cell, liquid, { level }),
         ];
 
   return Arr.getSomes([
     ...ground,
-    ...Arr.map(thingsOn(random, biome), (prefab) => thingIn(cell, prefab, {})),
+    ...Arr.map(growthOn(random, biome), (prefab) =>
+      newEntityIn(cell, prefab, {})
+    ),
   ]);
 };
 
@@ -568,7 +570,7 @@ export const generateLandscape = (spec: LandscapeSpec) => {
     water,
   };
 
-  const things: Thing[] = [];
+  const entities: NewEntity[] = [];
 
   for (let y = 0; y < height; y += 1) {
     for (let x = 0; x < width; x += 1) {
@@ -577,12 +579,12 @@ export const generateLandscape = (spec: LandscapeSpec) => {
       if (Option.isSome(cell)) {
         const index = y * width + x;
         const biome = biomeAt(terrain, [x, y], index);
-        things.push(
-          ...cellThings(random, biome, cell.value, levels[index] ?? 0)
+        entities.push(
+          ...cellEntities(random, biome, cell.value, levels[index] ?? 0)
         );
       }
     }
   }
 
-  return things;
+  return entities;
 };

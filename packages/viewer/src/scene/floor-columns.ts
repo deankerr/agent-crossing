@@ -30,8 +30,6 @@ export interface ColumnGroup {
   readonly columns: readonly Column[];
 }
 
-type Thing = typeof Entity.Type;
-
 const CHECKER = 0.025;
 const BRIGHTER_PER_LEVEL = 0.025;
 const DARKER_FILL_PER_LEVEL = 0.02;
@@ -51,7 +49,7 @@ export const cellShade = (cell: typeof Cell.Type, variation: number) =>
   (cellNoise(cell.x, cell.y) * 2 - 1) * variation +
   ((cell.x + cell.y) % 2 === 0 ? CHECKER : -CHECKER) * variation * 4;
 
-const floorSurfaces = (entities: Iterable<Thing>) => {
+const floorSurfaces = (entities: Iterable<typeof Entity.Type>) => {
   const surfaces = new Map<typeof CellKey.Type, number>();
 
   for (const entity of entities) {
@@ -69,7 +67,7 @@ const floorSurfaces = (entities: Iterable<Thing>) => {
  * a floor's fill reaches the bottom of the world and a liquid's the floor
  * beneath it. Floors brighten their slabs and darken their fills with level.
  */
-export const floorColumns = (entities: Iterable<Thing>) => {
+export const floorColumns = (entities: Iterable<typeof Entity.Type>) => {
   const all = [...entities];
   const floors = floorSurfaces(all);
   const groups = new Map<string, ColumnGroup & { columns: Column[] }>();

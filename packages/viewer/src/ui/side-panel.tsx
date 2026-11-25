@@ -33,9 +33,7 @@ import { partHex } from "../scene/model-geometry.ts";
 const HISTORY_SHOWN = 120;
 const PREFABS_SHOWN = 18;
 
-type Thing = typeof Entity.Type;
-
-const swatchOf = (entity: Thing) => {
+const swatchOf = (entity: typeof Entity.Type) => {
   const { colors, model } = componentsOf(entity);
 
   return Option.match(Option.fromNullishOr(model?.parts[0]), {
@@ -44,9 +42,10 @@ const swatchOf = (entity: Thing) => {
   });
 };
 
-const isStanding = (entity: Thing) => !isFloor(entity) && !isLiquid(entity);
+const isStanding = (entity: typeof Entity.Type) =>
+  !isFloor(entity) && !isLiquid(entity);
 
-const LayerLine = ({ entity }: { readonly entity: Thing }) => (
+const LayerLine = ({ entity }: { readonly entity: typeof Entity.Type }) => (
   <>
     <span className="swatch" style={{ background: swatchOf(entity) }} />
     {nounOf(entity)} · level {storedLevel(entity)}
@@ -155,14 +154,14 @@ const PrefabChips = ({
   entities,
   swatches,
 }: {
-  readonly entities: readonly Thing[];
+  readonly entities: readonly (typeof Entity.Type)[];
   readonly swatches: boolean;
 }) => {
   const counts = countsBy(entities, (entity) => entity.prefab);
   const shown = Arr.take(counts, PREFABS_SHOWN);
   const hidden = counts.length - shown.length;
 
-  const samples = new Map<string, Thing>(
+  const samples = new Map<string, typeof Entity.Type>(
     Arr.map(entities, (entity) => [entity.prefab, entity] as const)
   );
 
@@ -199,7 +198,7 @@ const Summary = ({ world }: { readonly world: World }) => {
       {Option.isSome(span) ? (
         <p>
           {cellCount(world).toLocaleString()} cells ·{" "}
-          {standing.length.toLocaleString()} things
+          {standing.length.toLocaleString()} entities
           <span className="quiet">
             {" "}
             · x {span.value.minX} to {span.value.maxX}, y {span.value.minY} to{" "}

@@ -8,7 +8,7 @@ const MIN_CAPACITY = 16;
 
 /**
  * Room for `count` instances, rounded up to a power of two so that a mesh is
- * only rebuilt when the world grows past it, not on every new thing.
+ * only rebuilt when the world grows past it, not on every new entity.
  */
 export const capacityFor = (count: number) =>
   Math.max(MIN_CAPACITY, 2 ** Math.ceil(Math.log2(Math.max(1, count))));

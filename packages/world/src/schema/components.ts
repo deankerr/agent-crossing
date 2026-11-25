@@ -13,7 +13,7 @@ const trimmedText = (maximum: number) =>
 /** Writing on a sign and the like. */
 export const Text = trimmedText(TEXT_MAX_LENGTH);
 
-/** What an agent calls a thing, in the singular: "oak tree". */
+/** What an agent calls an entity, in the singular: "oak tree". */
 export const Noun = trimmedText(NOUN_MAX_LENGTH);
 
 /** One printable ASCII character drawn on an agent's map. */
@@ -50,7 +50,7 @@ export const Components = Schema.Struct({
   layer: Schema.optionalKey(Layer),
   /** Where the entity can be. Floors and liquids have none. */
   habitat: Schema.optionalKey(Schema.NonEmptyArray(Place)),
-  /** It fills its place, so nothing else can be there. */
+  /** It is in the way: nothing can move into its cell. */
   obstacle: Schema.optionalKey(Marker),
   model: Schema.optionalKey(Model),
   colors: Schema.optionalKey(Colors),

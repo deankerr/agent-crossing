@@ -12,8 +12,6 @@ import { componentsOf, entitySerial, storedLevel } from "./entity.ts";
 import type { Entity, EntityId } from "./entity.ts";
 import type { Span } from "./span.ts";
 
-type Thing = typeof Entity.Type;
-
 type Id = typeof EntityId.Type;
 
 type Key = typeof CellKey.Type;
@@ -26,7 +24,7 @@ type At = typeof Cell.Type;
  * {@link apply}.
  */
 export interface World {
-  readonly entities: HashMap.HashMap<Id, Thing>;
+  readonly entities: HashMap.HashMap<Id, typeof Entity.Type>;
   readonly entitiesByCell: HashMap.HashMap<Key, HashSet.HashSet<Id>>;
   /** How many entities were ever spawned; the next id is one more. */
   readonly spawned: number;
@@ -107,14 +105,14 @@ export const indexEntities = (entities: World["entities"]) =>
 export const entityOf = (world: World, id: Id) =>
   HashMap.get(world.entities, id);
 
-const bySerial = Order.mapInput(Order.Number, (entity: Thing) =>
+const bySerial = Order.mapInput(Order.Number, (entity: typeof Entity.Type) =>
   entitySerial(entity.id)
 );
 
 /** The entities in a cell, oldest first. */
 export const entitiesAt = (world: World, cell: At) =>
   Option.match(HashMap.get(world.entitiesByCell, cellKey(cell)), {
-    onNone: () => Arr.empty<Thing>(),
+    onNone: () => Arr.empty<typeof Entity.Type>(),
     onSome: (ids) =>
       Arr.sort(
         Arr.getSomes(
@@ -151,7 +149,7 @@ export const placeAt = (world: World, cell: At) =>
     return place;
   });
 
-/** The level things stand at in the cell: the liquid's when there is one, otherwise the floor's. */
+/** The level entities stand at in the cell: the liquid's when there is one, otherwise the floor's. */
 export const standingLevelAt = (world: World, cell: At) =>
   Option.map(
     Option.orElse(liquidAt(world, cell), () => floorAt(world, cell)),
@@ -170,10 +168,10 @@ export const isWalkable = (world: World, cell: At) =>
 export const allEntities = (world: World) =>
   Arr.sort(Arr.fromIterable(HashMap.values(world.entities)), bySerial);
 
-export const isFloor = (entity: Thing) =>
+export const isFloor = (entity: typeof Entity.Type) =>
   componentsOf(entity).layer === "floor";
 
-export const isLiquid = (entity: Thing) =>
+export const isLiquid = (entity: typeof Entity.Type) =>
   componentsOf(entity).layer === "liquid";
 
 /** Every floor, oldest first. */
@@ -214,8 +212,8 @@ export interface Count {
 
 /** How many entities share each key, most first, then by key. */
 export const countsBy = (
-  entities: Iterable<Thing>,
-  keyOf: (entity: Thing) => string
+  entities: Iterable<typeof Entity.Type>,
+  keyOf: (entity: typeof Entity.Type) => string
 ) => {
   const counts = new Map<string, number>();
 
