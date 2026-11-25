@@ -2,23 +2,23 @@ import { PrefabName } from "@agent-crossing/world/definitions/prefabs";
 import {
   Command,
   FloorName,
-  GENERATE_MAX_SIZE,
-  GENERATE_MIN_SIZE,
   LiquidName,
-  SCATTER_MAX_PREFABS,
 } from "@agent-crossing/world/editing/command";
 import {
   DISC_MAX_RADIUS,
   Region,
   REGION_MAX_AREA,
 } from "@agent-crossing/world/editing/region";
-import { MAX_LEVEL, MIN_LEVEL } from "@agent-crossing/world/schema/cell";
+import { cellAt, COORDINATE_LIMIT } from "@agent-crossing/world/schema/cell";
 import { Components } from "@agent-crossing/world/schema/components";
-import { EntityId } from "@agent-crossing/world/state/entity";
 import * as Arr from "effect/Array";
+import * as Effect from "effect/Effect";
 import * as Match from "effect/Match";
+import * as Option from "effect/Option";
 import * as Result from "effect/Result";
 import * as Schema from "effect/Schema";
+
+import { refused } from "./tool.ts";
 
 /** The tools' inputs: plain integers and small tagged objects an AI can write by hand. */
 
@@ -62,118 +62,30 @@ export const RegionInput = Schema.Union([
   description: `Which cells: {"type":"rect","x1":0,"y1":0,"x2":9,"y2":9}, {"type":"disc","x":5,"y":5,"radius":3} or {"type":"cells","cells":[{"x":1,"y":2}]}. At most ${REGION_MAX_AREA} cells.`,
 });
 
-const ComponentsInput = Components.annotate({
+export const ComponentsInput = Components.annotate({
   description:
     'Components of this one entity that differ from its prefab\'s, for example {"text":"Welcome to the glade"} for a sign or {"colors":{"body":"blue"}} for a block. Keys: label ({noun, plural?, glyph}), layer ("floor", "liquid", "cover" or "object"), habitat (["land"], ["water"] or both), obstacle (true), model, colors ({part: shade}), text, level.',
 });
 
-const Prefab = PrefabName.annotate({
+export const Prefab = PrefabName.annotate({
   description: "A prefab; list_prefabs describes them all.",
 });
 
-const Floor = FloorName.annotate({
+export const Floor = FloorName.annotate({
   description: "A floor prefab; list_prefabs describes them all.",
 });
 
-const Liquid = LiquidName.annotate({
+export const Liquid = LiquidName.annotate({
   description: "A liquid prefab; list_prefabs describes them all.",
 });
 
-const Seed = Schema.Int.annotate({
+export const Seed = Schema.Int.annotate({
   description:
     "Seed for the random choices; the same seed gives the same result. Random when left out.",
 });
 
-/** The inputs of the edit tools. */
-export const PaintInput = Schema.Struct({
-  region: RegionInput,
-  floor: Schema.optionalKey(Floor),
-  level: Schema.optionalKey(
-    Schema.Int.annotate({
-      description: `Level ${MIN_LEVEL} (low) to ${MAX_LEVEL} (high). Floors keep their level when left out; new floors start at 0.`,
-    })
-  ),
-});
-
-export const PourInput = Schema.Struct({
-  region: RegionInput,
-  liquid: Liquid,
-  bed: Schema.optionalKey(
-    Floor.annotate({
-      description:
-        "The floor prefab the bed under the liquid becomes; the floor keeps its prefab when left out.",
-    })
-  ),
-});
-
-export const EraseInput = Schema.Struct({ region: RegionInput });
-
-export const SpawnInput = Schema.Struct({
-  prefab: Prefab,
-  x: X,
-  y: Y,
-  components: Schema.optionalKey(ComponentsInput),
-});
-
-export const ScatterInput = Schema.Struct({
-  prefabs: Schema.NonEmptyArray(Prefab).annotate({
-    description: `1 to ${SCATTER_MAX_PREFABS} prefabs, chosen at random for each placement.`,
-  }),
-  region: RegionInput,
-  density: Schema.Finite.annotate({
-    description:
-      "The share of the region's cells to try, 0 to 1. Cells where an entity may not be are skipped.",
-  }),
-  seed: Schema.optionalKey(Seed),
-  components: Schema.optionalKey(ComponentsInput),
-});
-
-export const MoveInput = Schema.Struct({
-  id: EntityId.annotate({ description: "The entity's id, like e12." }),
-  x: X,
-  y: Y,
-});
-
-export const ChangeInput = Schema.Struct({
-  id: EntityId.annotate({ description: "The entity's id, like e12." }),
-  components: ComponentsInput.annotate({
-    description:
-      'The entity\'s own components, replacing those it had; its prefab\'s still apply beneath. {} resets it to its prefab. Example: {"text":"Gone fishing","colors":{"board":"blue"}}.',
-  }),
-});
-
-export const RemoveInput = Schema.Struct({
-  ids: Schema.optionalKey(
-    Schema.NonEmptyArray(EntityId).annotate({
-      description: 'The ids of the entities to remove, like ["e3", "e7"].',
-    })
-  ),
-  region: Schema.optionalKey(RegionInput),
-  prefab: Schema.optionalKey(
-    PrefabName.annotate({
-      description:
-        "With region: remove only entities of this prefab, floors and liquids included.",
-    })
-  ),
-});
-
-export const GenerateInput = Schema.Struct({
-  width: Schema.Int.annotate({
-    description: `Width in cells, ${GENERATE_MIN_SIZE} to ${GENERATE_MAX_SIZE}.`,
-  }),
-  height: Schema.Int.annotate({
-    description: `Height in cells, ${GENERATE_MIN_SIZE} to ${GENERATE_MAX_SIZE}.`,
-  }),
-  x: Schema.optionalKey(
-    X.annotate({ description: "x of the north-west corner; default 0." })
-  ),
-  y: Schema.optionalKey(
-    Y.annotate({ description: "y of the north-west corner; default 0." })
-  ),
-  seed: Schema.optionalKey(Seed),
-});
-
-const regionOf = (input: typeof RegionInput.Type) =>
+/** A region input in the encoded form of a `Region`, still to be parsed. */
+export const regionOf = (input: typeof RegionInput.Type) =>
   Match.value(input).pipe(
     Match.discriminatorsExhaustive("type")({
       cells: ({ cells }) =>
@@ -216,83 +128,12 @@ export const parsedCommand = (encoded: typeof Command.Encoded) =>
     (issue) => `The edit is not valid: ${issue.message}`
   );
 
-export const paintCommand = ({ region, ...floor }: typeof PaintInput.Type) =>
-  parsedCommand({ ...floor, _tag: "Paint", region: regionOf(region) });
-
-export const pourCommand = ({ region, ...liquid }: typeof PourInput.Type) =>
-  parsedCommand({ ...liquid, _tag: "Pour", region: regionOf(region) });
-
-export const eraseCommand = (input: typeof EraseInput.Type) =>
-  parsedCommand({ _tag: "Erase", region: regionOf(input.region) });
-
-export const spawnCommand = ({ x, y, ...spawned }: typeof SpawnInput.Type) =>
-  parsedCommand({ ...spawned, _tag: "Spawn", cell: { x, y } });
-
-export const scatterCommand = (
-  { region, seed, ...scattered }: typeof ScatterInput.Type,
-  randomSeed: number
-) =>
-  parsedCommand({
-    ...scattered,
-    _tag: "Scatter",
-    region: regionOf(region),
-    seed: seed ?? randomSeed,
-  });
-
-export const moveCommand = (input: typeof MoveInput.Type) =>
-  parsedCommand({
-    _tag: "Move",
-    entity: input.id,
-    to: { x: input.x, y: input.y },
-  });
-
-export const changeCommand = (input: typeof ChangeInput.Type) =>
-  parsedCommand({
-    _tag: "Change",
-    components: input.components,
-    entity: input.id,
-  });
-
-export const removeCommand = ({
-  ids,
-  region,
-  ...only
-}: typeof RemoveInput.Type) => {
-  if (ids !== undefined && region !== undefined) {
-    return Result.fail(
-      "Give either ids or a region, not both: ids removes those entities, region (with an optional prefab) removes what is there."
-    );
-  }
-
-  if (region !== undefined) {
-    return parsedCommand({
-      ...only,
-      _tag: "RemoveIn",
-      region: regionOf(region),
-    });
-  }
-
-  if (ids !== undefined) {
-    return only.prefab === undefined
-      ? parsedCommand({ _tag: "Remove", entities: ids })
-      : Result.fail(
-          "prefab only narrows a region; with ids, the listed entities are removed whatever their prefab."
-        );
-  }
-
-  return Result.fail(
-    'Give ids (a non-empty list like ["e3"]) or a region to remove from.'
-  );
-};
-
-export const generateCommand = (
-  input: typeof GenerateInput.Type,
-  seed: number
-) =>
-  parsedCommand({
-    _tag: "Generate",
-    height: input.height,
-    origin: { x: input.x ?? 0, y: input.y ?? 0 },
-    seed: input.seed ?? seed,
-    width: input.width,
+/** The cell at x, y, or a refusal when it is outside the coordinate range. */
+export const cellFor = (x: number, y: number) =>
+  Option.match(cellAt(x, y), {
+    onNone: () =>
+      refused(
+        `The cell ${x},${y} is outside the coordinate range: x and y must be between -${COORDINATE_LIMIT} and ${COORDINATE_LIMIT}.`
+      ),
+    onSome: (cell) => Effect.succeed(cell),
   });

@@ -1,4 +1,5 @@
 import { effectNative, strict } from "@effect/tsgo/oxlint-presets";
+import * as Arr from "effect/Array";
 import * as Record from "effect/Record";
 import { defineConfig } from "oxlint";
 import type { OxlintConfig } from "oxlint";
@@ -37,6 +38,21 @@ const effectPromiseBoundaries = {
   "typescript/promise-function-async": "off",
 } satisfies Rules;
 
+const importsPointOneWay = (doors: readonly string[], message: string) =>
+  ({
+    "no-restricted-imports": [
+      "error",
+      {
+        patterns: [
+          {
+            message,
+            regex: `^(\\.\\./)+(${Arr.join(doors, "|")})/|^(\\.\\./)+api(\\.ts)?$`,
+          },
+        ],
+      },
+    ],
+  }) satisfies Rules;
+
 export default defineConfig({
   env: core.env,
   extends: [core, vitest, landmines, antiSlop, strict, effectNativeAsErrors],
@@ -52,6 +68,44 @@ export default defineConfig({
       files: ["packages/spectator/**"],
       plugins: react.plugins,
       rules: react.rules,
+    },
+    {
+      files: ["packages/host/src/world-object/**"],
+      rules: importsPointOneWay(
+        ["admin", "spectate"],
+        "world-object reads only the world package; admin, spectate and api.ts read world-object, never the other way."
+      ),
+    },
+    {
+      files: ["packages/host/src/admin/**"],
+      rules: importsPointOneWay(
+        ["spectate"],
+        "admin reads world-object only; spectate is a separate door, and api.ts reads admin, never the other way."
+      ),
+    },
+    {
+      files: ["packages/host/src/spectate/**"],
+      rules: importsPointOneWay(
+        ["admin"],
+        "spectate reads world-object only; admin is a separate door, and api.ts reads spectate, never the other way."
+      ),
+    },
+    {
+      files: ["packages/world/**"],
+      rules: {
+        "no-restricted-imports": [
+          "error",
+          {
+            patterns: [
+              {
+                message:
+                  "The world package reads no other package; host and spectator read world, never the other way.",
+                regex: "^@agent-crossing/(host|spectator)(/|$)",
+              },
+            ],
+          },
+        ],
+      },
     },
   ],
   rules: {

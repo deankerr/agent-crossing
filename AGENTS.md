@@ -25,6 +25,10 @@
 
 Turn a lint rule off in `oxlint.config.ts` only when it conflicts with idiomatic Effect or Alchemy code.
 
+## Testing
+
+Keep testing light for now. This is an experimental project in its very early stages and in constant flux: we are still iterating on its foundational elements, and tests would bake in assumptions we have not settled. Don't add tests as a matter of course.
+
 ## Run and deploy
 
 The one Alchemy stack is `alchemy.run.ts` at the root, and its commands run from the root.

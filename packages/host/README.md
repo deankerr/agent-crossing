@@ -82,7 +82,7 @@ Commands run one at a time. `decide` turns a command into events; for each event
 
 ## Layout
 
-Imports point one way: `world-object` reads only the world package, `admin` and `spectate` read `world-object`, and `api.ts` reads all three.
+Imports point one way: `world-object` reads only the world package, `admin` and `spectate` read `world-object`, and `api.ts` reads all three. `no-restricted-imports` overrides in `oxlint.config.ts` enforce it, and keep the world package from reading `host` or `spectator`.
 
 - `src/api.ts` the Worker, which only routes: `/mcp` to the admin handler and `/events` to the spectator stream.
 - `src/cluster.ts` where the World object runs: the local Docker swarm under `alchemy dev`, a Rivet Cloud cluster when deployed.
@@ -90,10 +90,11 @@ Imports point one way: `world-object` reads only the world package, `admin` and 
   - `world-object.ts` the Durable Object: the world in memory, commits, reads and the feed.
   - `rows.ts` the tables, `Change` to SQL statements, and parsing rows back.
   - `wire.ts` what crosses its calls: the verdict on a command and the items of the feed.
-  - `client.ts` the object as typed calls, which is all that `admin` and `spectate` see of it.
+  - `client.ts` the `WorldClient` service, the object as typed calls, which is all that `admin` and `spectate` see of it. `api.ts` provides its layer once, on the Worker's construction effect.
 - `src/admin/` the editor's door:
   - `server.ts` the MCP endpoint and its bearer tokens (`tokens.ts`), with the tools' `instructions.ts`.
-  - `tools.ts` the MCP tools; `inputs.ts` their inputs and the commands they become.
+  - `tools/` one file per tool, named after it (`paint-floor.ts` for `paint_floor`): its input, its MCP annotations, the command it becomes and its handler, registered as its own toolkit. `tools/index.ts` lists them all, in the order they are listed to clients.
+  - `tool.ts` what every tool shares: the `Caller`, the `Refused` error and the text answer; `inputs.ts` the input vocabulary several tools share (coordinates, regions, prefabs, components, seeds) and its parsing; `edit.ts` the common path of an edit, from command to reply.
   - `replies.ts` and `refusal.ts` the sentences that are the admin's own: what an edit did, and what to try after a refusal.
 - `src/spectate/` the spectator's door: `stream.ts` the `/events` response and `sse.ts` the frames as server-sent events.
 - `scripts/admin.ts` the command-line client.

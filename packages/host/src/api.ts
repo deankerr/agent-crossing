@@ -5,7 +5,7 @@ import * as HttpServerResponse from "effect/http/HttpServerResponse";
 
 import { adminHandler } from "./admin/server.ts";
 import { preflight, spectate } from "./spectate/stream.ts";
-import { worldClient } from "./world-object/client.ts";
+import { WorldClient } from "./world-object/client.ts";
 
 /** Where `alchemy dev` serves the Api on this machine. */
 export const DEV_PORT = 1337;
@@ -14,8 +14,8 @@ export default class Api extends Cloudflare.Worker<Api>()(
   "Api",
   { dev: { port: DEV_PORT, strictPort: true }, main: import.meta.url },
   Effect.gen(function* () {
-    const client = yield* worldClient;
-    const admin = yield* adminHandler(client);
+    const admin = yield* adminHandler;
+    const spectator = yield* spectate;
 
     return {
       fetch: Effect.gen(function* () {
@@ -27,7 +27,7 @@ export default class Api extends Cloudflare.Worker<Api>()(
         }
 
         if (pathname === "/events" && request.method === "GET") {
-          return spectate(client);
+          return spectator();
         }
 
         if (pathname === "/mcp") {
@@ -37,5 +37,5 @@ export default class Api extends Cloudflare.Worker<Api>()(
         return HttpServerResponse.text("Not found", { status: 404 });
       }),
     };
-  })
+  }).pipe(Effect.provide(WorldClient.layer))
 ) {}
