@@ -13,7 +13,6 @@ import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import * as Record from "effect/Record";
 import * as Redacted from "effect/Redacted";
-import * as Ref from "effect/Ref";
 import * as Result from "effect/Result";
 import * as Schema from "effect/Schema";
 import * as Str from "effect/String";
@@ -29,7 +28,7 @@ Usage:
   bun scripts/admin.ts schema <tool>                 print a tool's JSON input schema
 
 Settings, from the environment or packages/server/.env:
-  AGENT_CROSSING_URL          the server, default http://localhost:3000
+  AGENT_CROSSING_URL          the server, the api address alchemy deploy prints
   AGENT_CROSSING_ADMIN_TOKEN  the bearer token to use, or else
   ${TOKENS_VARIABLE} with AGENT_CROSSING_EDITOR naming which pair (default the first)
 
@@ -102,16 +101,20 @@ const decodeArguments = Schema.decodeUnknownResult(
 );
 
 const settings = Effect.gen(function* () {
-  const url = yield* Config.String("AGENT_CROSSING_URL").pipe(
-    Config.withDefault("http://localhost:3000")
-  );
+  const url = yield* Config.option(Config.String("AGENT_CROSSING_URL"));
+
+  if (Option.isNone(url)) {
+    return yield* failed(
+      "No server: set AGENT_CROSSING_URL to the api address that alchemy deploy prints, in the environment or in packages/server/.env."
+    );
+  }
 
   const single = yield* Config.option(
     Config.Redacted("AGENT_CROSSING_ADMIN_TOKEN")
   );
 
   if (Option.isSome(single)) {
-    return { token: Redacted.value(single.value), url };
+    return { token: Redacted.value(single.value), url: url.value };
   }
 
   const pairs = yield* Config.option(Config.Redacted(TOKENS_VARIABLE));
@@ -149,7 +152,7 @@ const settings = Effect.gen(function* () {
           ", "
         )}.`
       ),
-    onSome: ({ token }) => Effect.succeed({ token, url }),
+    onSome: ({ token }) => Effect.succeed({ token, url: url.value }),
   });
 }).pipe(
   Effect.catchTag("ConfigError", (issue) =>
@@ -171,32 +174,41 @@ const bodyJson = (body: string, contentType: string) =>
       )
     : body;
 
-const PROTOCOL_VERSION = "2025-06-18";
+const PROTOCOL_VERSION = "2026-07-28";
 
 const connect = Effect.gen(function* () {
   const { token, url } = yield* settings;
   const client = yield* HttpClient.HttpClient;
   const endpoint = `${Str.endsWith("/")(url) ? Str.slice(0, -1)(url) : url}/mcp`;
-  const session = yield* Ref.make(Option.none<string>());
-  const counter = yield* Ref.make(1);
 
-  const post = (body: Schema.Json) =>
+  return (
+    method: string,
+    params: { readonly [key: string]: Schema.Json },
+    routing: { readonly "mcp-name"?: string } = {}
+  ) =>
     Effect.gen(function* () {
-      const sessionId = yield* Ref.get(session);
-
       const response = yield* client
         .execute(
           HttpClientRequest.post(endpoint).pipe(
             HttpClientRequest.bearerToken(token),
             HttpClientRequest.setHeaders({
               accept: "application/json, text/event-stream",
+              "mcp-method": method,
               "mcp-protocol-version": PROTOCOL_VERSION,
-              ...Option.match(sessionId, {
-                onNone: () => ({}),
-                onSome: (id) => ({ "mcp-session-id": id }),
-              }),
+              ...routing,
             }),
-            HttpClientRequest.bodyJsonUnsafe(body)
+            HttpClientRequest.bodyJsonUnsafe({
+              id: 1,
+              jsonrpc: "2.0",
+              method,
+              params: {
+                ...params,
+                _meta: {
+                  "io.modelcontextprotocol/clientCapabilities": {},
+                  "io.modelcontextprotocol/protocolVersion": PROTOCOL_VERSION,
+                },
+              },
+            })
           )
         )
         .pipe(
@@ -225,29 +237,11 @@ const connect = Effect.gen(function* () {
         );
       }
 
-      yield* Option.match(
-        Option.fromNullishOr(response.headers["mcp-session-id"]),
-        {
-          onNone: () => Effect.void,
-          onSome: (id) => Ref.set(session, Option.some(id)),
-        }
-      );
-
-      return { contentType: response.headers["content-type"] ?? "", text };
-    });
-
-  const request = (method: string, params: Schema.Json) =>
-    Effect.gen(function* () {
-      const id = yield* Ref.getAndUpdate(counter, (next) => next + 1);
-      const reply = yield* post({ id, jsonrpc: "2.0", method, params });
-
       const decoded = yield* decodeRpcReply(
-        bodyJson(reply.text, reply.contentType)
+        bodyJson(text, response.headers["content-type"] ?? "")
       ).pipe(
         Effect.catchTag("SchemaError", () =>
-          failed(
-            `The server's reply to ${method} is not JSON-RPC: ${reply.text}`
-          )
+          failed(`The server's reply to ${method} is not JSON-RPC: ${text}`)
         )
       );
 
@@ -259,15 +253,6 @@ const connect = Effect.gen(function* () {
 
       return decoded.result;
     });
-
-  yield* request("initialize", {
-    capabilities: {},
-    clientInfo: { name: "agent-crossing-admin-cli", version: "1" },
-    protocolVersion: PROTOCOL_VERSION,
-  });
-  yield* post({ jsonrpc: "2.0", method: "notifications/initialized" });
-
-  return request;
 });
 
 const argumentsOf = (json: string | undefined) =>
@@ -368,7 +353,11 @@ const main = Effect.gen(function* () {
   const args = yield* argumentsOf(json);
 
   const result = yield* decodeToolResult(
-    yield* request("tools/call", { arguments: args, name: command })
+    yield* request(
+      "tools/call",
+      { arguments: args, name: command },
+      { "mcp-name": command }
+    )
   ).pipe(
     Effect.catchTag("SchemaError", (issue) =>
       failed(`The tool result is not as expected: ${issue.message}`)

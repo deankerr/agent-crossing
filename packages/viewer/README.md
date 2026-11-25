@@ -7,7 +7,7 @@ The read-only 3D spectator view of the Agent Crossing world: a Vite, React and R
 - `pnpm --filter @agent-crossing/viewer dev` serves the page on port 5180 on every interface.
 - `pnpm --filter @agent-crossing/viewer build` writes a static bundle to `dist/`.
 
-Without `?demo` the page connects to `VITE_WORLD_URL` (default `http://localhost:3000`), for example `VITE_WORLD_URL=https://world.example pnpm --filter @agent-crossing/viewer dev`.
+Without `?demo` the page connects to `VITE_WORLD_URL`, for example `VITE_WORLD_URL=https://world.example pnpm --filter @agent-crossing/viewer dev`. The server's stack deploys the page with `VITE_WORLD_URL` set to its Api Worker.
 
 ### Demo mode
 

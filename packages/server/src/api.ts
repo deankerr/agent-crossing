@@ -2,8 +2,7 @@ import { PrefabName } from "@agent-crossing/world/definitions/prefabs";
 import { Command } from "@agent-crossing/world/engine/editing/command";
 import { Region } from "@agent-crossing/world/engine/editing/region";
 import { Cell } from "@agent-crossing/world/schema/cell";
-import * as Docker from "@alchemy.run/docker";
-import * as Rivet from "@alchemy.run/rivet";
+import * as Cloudflare from "@alchemy.run/cloudflare";
 import * as McpProtocol from "effect/ai/McpProtocol";
 import * as McpSchema from "effect/ai/McpSchema";
 import * as McpServer from "effect/ai/McpServer";
@@ -24,7 +23,6 @@ import { editorFor, parseEditors, TOKENS_VARIABLE } from "./admin/tokens.ts";
 import type { Editors } from "./admin/tokens.ts";
 import { Caller, Tools, toolHandlers } from "./admin/tools.ts";
 import type { WorldClient } from "./admin/tools.ts";
-import { Cluster } from "./cluster.ts";
 import { sseComment, sseFrame } from "./feed/sse.ts";
 import { FeedItem, Verdict } from "./feed/wire.ts";
 import WorldObject, { WORLD_NAME } from "./storage/world-object.ts";
@@ -64,21 +62,9 @@ const authenticated = (editors: Editors) =>
     })
   );
 
-export default class Api extends Docker.Service<Api>()(
+export default class Api extends Cloudflare.Worker<Api>()(
   "Api",
-  Effect.gen(function* () {
-    const cluster = yield* Rivet.Cluster;
-
-    return {
-      main: import.meta.url,
-      port: 3000,
-      ports: [{ external: 3000, internal: 3000 }],
-      networks:
-        cluster.network?.kind === "docker"
-          ? [{ name: cluster.network.name }]
-          : [],
-    };
-  }).pipe(Effect.provide(Cluster)),
+  { main: import.meta.url },
   Effect.gen(function* () {
     const editors = yield* Config.Redacted(TOKENS_VARIABLE).pipe(
       Effect.flatMap((tokens) =>

@@ -1,24 +1,24 @@
 # @agent-crossing/server
 
-The shell around `@agent-crossing/world`: one `World` Rivet Durable Object that holds the world in memory and in SQLite, and a Bun HTTP service in front of it with the admin MCP server and the spectator event stream. The service runs on the local Docker swarm; the World object's nodes run on Rivet Cloud.
+The shell around `@agent-crossing/world`: one `World` Rivet Durable Object that holds the world in memory and in SQLite, and a Cloudflare Worker in front of it with the admin MCP server and the spectator event stream. The stack also deploys the viewer as a Cloudflare site. The World object's nodes run on Rivet Cloud.
 
-## Run it locally
+## Deploy a stage
 
 ```sh
-docker swarm init --advertise-addr 127.0.0.1 --listen-addr 127.0.0.1:2377   # once per machine
 cd packages/server
 cp .env.example .env            # then put real tokens in it
+pnpm exec alchemy profile edit --add Cloudflare   # once: sign in to Cloudflare
 pnpm exec alchemy profile edit --add RivetCloud   # once: sign in to Rivet Cloud
 pnpm exec alchemy deploy --no-input --yes
 ```
 
-The service listens on `http://localhost:3000` as a swarm service. The World object runs on a node in Rivet Cloud: the `persistent` stage deploys to the `agent-crossing` cluster and every other stage to `agent-crossing-dev`. Deploying still needs Docker, which builds the node image that is uploaded to Rivet Cloud. `pnpm exec alchemy destroy` removes the stage's resources but leaves the clusters.
+The deploy prints two addresses on `workers.dev`: `api`, the Worker serving `/mcp` and `/events`, and `viewer`, the spectator page, built to connect to `api`. The World object runs on a node in Rivet Cloud: the `persistent` stage deploys to the `agent-crossing` cluster and every other stage to `agent-crossing-dev`. Deploying still needs Docker on this machine, which builds the node image that is uploaded to Rivet Cloud; nothing of the stage runs here. `pnpm exec alchemy destroy` removes the stage's resources but leaves the clusters.
 
-A deploy rebuilds the Api image when `src/api.ts` changes. A change only in a module it imports may plan nothing for it; force it with `pnpm exec alchemy deploy --no-input --yes --force --include Api`. The World object runs in the `DefaultNodes` image, which `--include Api` does not rebuild; after changing `src/storage/world-object.ts` or anything it imports, deploy with `--force` alone. Alchemy keeps its state in `.alchemy/` (git-ignored) next to this file: deploy from the checkout that holds it, or copy it across.
+Alchemy keeps its state in `.alchemy/` (git-ignored) next to this file: deploy from the checkout that holds it, or copy it across.
 
 ## Admin tokens
 
-`AGENT_CROSSING_ADMIN_TOKENS` lists who may edit the world as comma-separated `name:token` pairs, for example `dean:<token>,claude:<token>`. Names are 1-24 characters and must differ ignoring case; the name is recorded as the editor of every event made with that token. Tokens are at least 16 characters of letters, digits, `_ . ~ -`; make one with `openssl rand -hex 24`. Alchemy reads the variable from `.env` (git-ignored) or the environment at deploy time and passes it to the Api service. A malformed value fails the deploy and the service start with a message saying what is wrong.
+`AGENT_CROSSING_ADMIN_TOKENS` lists who may edit the world as comma-separated `name:token` pairs, for example `dean:<token>,claude:<token>`. Names are 1-24 characters and must differ ignoring case; the name is recorded as the editor of every event made with that token. Tokens are at least 16 characters of letters, digits, `_ . ~ -`; make one with `openssl rand -hex 24`. Alchemy reads the variable from `.env` (git-ignored) or the environment at deploy time and binds it to the Api Worker as a secret. A malformed value fails the deploy and the Worker with a message saying what is wrong.
 
 ## Endpoints
 
@@ -62,7 +62,7 @@ Edits, each answered with what happened and a map of the affected area (its boun
 ## Connect Claude Code
 
 ```sh
-claude mcp add --transport http agent-crossing-admin http://localhost:3000/mcp \
+claude mcp add --transport http agent-crossing-admin https://<api address>/mcp \
   --header "Authorization: Bearer <token>"
 ```
 
@@ -79,7 +79,7 @@ bun scripts/admin.ts view_map '{"x1":0,"y1":0,"x2":40,"y2":20}'
 bun scripts/admin.ts spawn '{"prefab":"sign","x":4,"y":3,"components":{"text":"Welcome"}}'
 ```
 
-`pnpm admin <tool> '<json>'` does the same. It reads `AGENT_CROSSING_URL` (default `http://localhost:3000`) and the token from the environment or from `packages/server/.env`: `AGENT_CROSSING_ADMIN_TOKEN`, or else the pair in `AGENT_CROSSING_ADMIN_TOKENS` named by `AGENT_CROSSING_EDITOR` (default the first pair). It exits 0 when the tool answered, 1 when the tool refused the edit (the reason is on stderr) and 2 when the call itself failed: unreachable server, bad token, arguments that are not a JSON object, or invalid parameters.
+`pnpm admin <tool> '<json>'` does the same. It reads `AGENT_CROSSING_URL`, the `api` address the deploy prints, and the token from the environment or from `packages/server/.env`: `AGENT_CROSSING_ADMIN_TOKEN`, or else the pair in `AGENT_CROSSING_ADMIN_TOKENS` named by `AGENT_CROSSING_EDITOR` (default the first pair). It exits 0 when the tool answered, 1 when the tool refused the edit (the reason is on stderr) and 2 when the call itself failed: unreachable server, bad token, arguments that are not a JSON object, or invalid parameters.
 
 ## How the World object works
 
@@ -89,13 +89,12 @@ Commands run one at a time. `decide` turns a command into events; for each event
 
 ## Notes on the stack
 
-- `@alchemy.run/docker@2.0.0-beta.87` is patched in `patches/`. Unpatched, it records an empty driver for a new swarm network and then tries to replace the in-use network on every later deploy ([alchemy-run/alchemy#3679](https://github.com/alchemy-run/alchemy/issues/3679)). Drop the patch once a release fixes it.
-- The service runs in an `oven/bun` container. `@effect/platform-bun` is a dependency so that it is bundled; without it Bun downloads it from npm each time a container starts.
+- `@effect/platform-bun` is a dependency for `scripts/admin.ts`.
 - After a node restart or a deploy that changes the World object, the first call can hang for about 45 seconds before Rivet reschedules the object. Open streams close and reconnect.
 
 ## Layout
 
-- `src/api.ts` the HTTP service: MCP, `/events`, authentication; `src/cluster.ts` the Rivet cluster and pool.
+- `src/api.ts` the Worker: MCP, `/events`, authentication; `src/cluster.ts` the Rivet cluster and pool.
 - `src/storage/world-object.ts` the Durable Object: the world in memory, commits, queries and the feed.
 - `src/storage/rows.ts` the tables, `Change` to SQL statements, and parsing rows back.
 - `src/admin/tools.ts` the MCP tools; `src/admin/inputs.ts` their inputs and the commands they become.

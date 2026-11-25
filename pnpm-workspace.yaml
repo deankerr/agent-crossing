@@ -5,7 +5,7 @@ packages:
 # an exact version, so they move together. Effect packages are versioned
 # together too.
 catalog:
-  "@alchemy.run/docker": 2.0.0-beta.87
+  "@alchemy.run/cloudflare": 2.0.0-beta.87
   "@alchemy.run/rivet": 2.0.0-beta.87
   "@effect/platform-bun": 4.1.5
   "@effect/vitest": 4.1.5
@@ -27,10 +27,8 @@ catalog:
 allowBuilds:
   cbor-extract: true
   lefthook: true
+  workerd: true
 
 permissions:
   ultracite:
     skills: false
-
-patchedDependencies:
-  "@alchemy.run/docker@2.0.0-beta.87": patches/@alchemy.run__docker@2.0.0-beta.87.patch

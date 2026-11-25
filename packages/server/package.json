@@ -12,7 +12,7 @@
   },
   "dependencies": {
     "@agent-crossing/world": "workspace:*",
-    "@alchemy.run/docker": "catalog:",
+    "@alchemy.run/cloudflare": "catalog:",
     "@alchemy.run/rivet": "catalog:",
     "@effect/platform-bun": "catalog:",
     "alchemy": "catalog:",
