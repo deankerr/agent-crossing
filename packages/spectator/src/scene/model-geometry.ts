@@ -30,7 +30,7 @@ import type { BufferGeometry } from "three";
 import { mergeGeometries } from "three/addons/utils/BufferGeometryUtils.js";
 
 /** A part with its color settled: its shade, or the entity's override for it. */
-export interface PaintedPart {
+interface PaintedPart {
   readonly hex: string;
   readonly glow: boolean;
   readonly forms: readonly (typeof Form.Type)[];
@@ -46,11 +46,9 @@ export interface PaintedModel {
   readonly parts: readonly PaintedPart[];
 }
 
-/** A model's parts merged into at most one geometry per material. */
-export interface ModelGeometry {
+interface ModelGeometry {
   readonly lit: Option.Option<BufferGeometry>;
   readonly glowing: Option.Option<BufferGeometry>;
-  /** How tall the model stands, for labels above it. */
   readonly height: number;
 }
 
@@ -120,10 +118,6 @@ export const paintedModelOf = (entity: typeof Entity.Type) => {
 
   return painted;
 };
-
-/** Whether a solid fills its whole cell, as floors and liquids are drawn. */
-export const fillsCell = (solid: typeof Solid.Type) =>
-  "slab" in solid || "fill" in solid;
 
 const solidGeometry = (solid: typeof Solid.Type) => {
   if ("box" in solid) {

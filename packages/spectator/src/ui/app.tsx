@@ -12,11 +12,16 @@ import type { FocusRequest } from "../scene/camera-rig.tsx";
 import { levelSurface, standingSurfaceAt } from "../scene/layout.ts";
 import { OverlayContext } from "../scene/overlay.tsx";
 import { WorldScene } from "../scene/world-scene.tsx";
-import { clearsSelection } from "./keys.ts";
 import { SidePanel } from "./side-panel.tsx";
 import { useFeedState } from "./store.ts";
 
 const INITIAL_DISTANCE = 40;
+
+const TEXT_FIELDS = new Set(["INPUT", "SELECT", "TEXTAREA"]);
+
+const takesTyping = (target: EventTarget | null) =>
+  target instanceof HTMLElement &&
+  (target.isContentEditable || TEXT_FIELDS.has(target.tagName));
 
 const focusPoint = (world: World, cell: typeof Cell.Type) =>
   [
@@ -50,15 +55,10 @@ export const App = () => {
 
   useEffect(() => {
     const clearOnEscape = (event: KeyboardEvent) => {
-      const { isComposing, key, target } = event;
-
       if (
-        clearsSelection({
-          isComposing,
-          key,
-          target:
-            target instanceof HTMLElement ? Option.some(target) : Option.none(),
-        })
+        event.key === "Escape" &&
+        !event.isComposing &&
+        !takesTyping(event.target)
       ) {
         setSelected(Option.none());
       }

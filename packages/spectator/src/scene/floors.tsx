@@ -93,7 +93,7 @@ const paintColumn: Paint<Column> = (column, color) => {
   color.setRGB(...column.color);
 };
 
-export interface CellPicking {
+interface CellPicking {
   readonly onHover: (cell: typeof Cell.Type) => void;
   readonly onLeave: () => void;
   readonly onSelect: (cell: typeof Cell.Type) => void;

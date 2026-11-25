@@ -140,8 +140,7 @@ const offsetOf = (entity: typeof Entity.Type, contents: CellContents) => {
     : centered;
 };
 
-/** Heading and size from the entity's id alone, so they never flicker. */
-export const jitterOf = (id: Id, pose: typeof Pose.Type) => {
+const jitterOf = (id: Id, pose: typeof Pose.Type) => {
   const heading = unitOf(id, 1);
   const size = unitOf(id, 2);
 

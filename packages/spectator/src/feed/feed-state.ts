@@ -12,15 +12,13 @@ import { eventText } from "@agent-crossing/world/text/event";
 import * as Arr from "effect/Array";
 import * as Option from "effect/Option";
 
-/** The most history entries kept. */
-export const HISTORY_LIMIT = 200;
+const HISTORY_LIMIT = 120;
 
-export type Connection = "connecting" | "live" | "reconnecting" | "demo";
+export type Connection = "connecting" | "live" | "reconnecting";
 
 /** One line of the history log. */
 export interface HistoryEntry {
   readonly key: string;
-  readonly seq: number;
   readonly at: number;
   readonly kind: (typeof WorldEvent.Type)["_tag"];
   readonly sentence: string;
@@ -29,7 +27,7 @@ export interface HistoryEntry {
 }
 
 /** A complete world, as of the event numbered `cursor`. */
-export interface Shown {
+interface Shown {
   readonly world: World;
   readonly cursor: number;
   /** Counts the snapshots received, so keys stay unique across reconnects. */
@@ -63,8 +61,7 @@ export const withConnection = (state: FeedState, connection: Connection) =>
 const cellOfEntity = (world: World, id: typeof EntityId.Type) =>
   Option.map(entityOf(world, id), (entity) => entity.cell);
 
-/** Where an event happened, judged from the world it happened to. */
-export const eventCell = (world: World, event: typeof WorldEvent.Type) =>
+const eventCell = (world: World, event: typeof WorldEvent.Type) =>
   WorldEvent.match(event, {
     Changed: ({ entity }) => cellOfEntity(world, entity),
     Moved: ({ to }) => Option.some(to),
@@ -89,7 +86,6 @@ const happened = (
     key: `${shown.generation}:${seq}`,
     kind: event._tag,
     sentence: eventText(event),
-    seq,
   };
 
   const next: FeedState = {
@@ -157,8 +153,7 @@ export type Status =
   | "loading"
   | "reloading"
   | "live"
-  | "reconnecting"
-  | "demo";
+  | "reconnecting";
 
 /** What the badge says, derived from the connection and the snapshot. */
 export const statusOf = (state: FeedState) => {

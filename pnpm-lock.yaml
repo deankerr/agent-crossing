@@ -305,15 +305,9 @@ importers:
         specifier: 'catalog:'
         version: 4.1.5
     devDependencies:
-      '@effect/vitest':
-        specifier: 'catalog:'
-        version: 4.1.5(effect@4.1.5)(vitest@5.1.0(@opentelemetry/api@1.10.0)(@types/node@24.19.2)(vite@8.3.8(@types/node@24.19.2)(yaml@2.9.1)))
       '@types/node':
         specifier: 'catalog:'
         version: 24.19.2
-      vitest:
-        specifier: 'catalog:'
-        version: 5.1.0(@opentelemetry/api@1.10.0)(@types/node@24.19.2)(vite@8.3.8(@types/node@24.19.2)(yaml@2.9.1))
 
   packages/spectator:
     dependencies:
@@ -339,9 +333,6 @@ importers:
         specifier: 'catalog:'
         version: 0.187.0
     devDependencies:
-      '@effect/vitest':
-        specifier: 'catalog:'
-        version: 4.1.5(effect@4.1.5)(vitest@5.1.0(@opentelemetry/api@1.10.0)(@types/node@24.19.2)(vite@8.3.8(@types/node@24.19.2)(yaml@2.9.1)))
       '@types/node':
         specifier: 'catalog:'
         version: 24.19.2
@@ -360,9 +351,6 @@ importers:
       vite:
         specifier: 'catalog:'
         version: 8.3.8(@types/node@24.19.2)(yaml@2.9.1)
-      vitest:
-        specifier: 'catalog:'
-        version: 5.1.0(@opentelemetry/api@1.10.0)(@types/node@24.19.2)(vite@8.3.8(@types/node@24.19.2)(yaml@2.9.1))
 
   packages/world:
     dependencies:

@@ -19,7 +19,7 @@ import { levelSurface, standingSurfaceAt } from "./layout.ts";
 import { modelGeometry, paintedModelOf } from "./model-geometry.ts";
 import { Overlay } from "./overlay.tsx";
 
-export type MarkerTone = "hover" | "selected";
+type MarkerTone = "hover" | "selected";
 
 const LIFT = 0.03;
 const LABEL_GAP = 0.25;
@@ -116,7 +116,7 @@ export const CellMarker = ({
         position={[0, label.tallest + LABEL_GAP, 0]}
         zIndexRange={tone === "selected" ? [60, 50] : [40, 30]}
       >
-        <div className={`cell-label cell-label-${tone}`}>
+        <div className="cell-label">
           {Arr.map(label.writing, (text, index) => (
             <p className="sign-card" key={`${index}:${text}`}>
               {text}

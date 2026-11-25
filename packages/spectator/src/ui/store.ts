@@ -9,10 +9,9 @@ import {
 import type { FeedState } from "../feed/feed-state.ts";
 import type { WorldFeed } from "../feed/live-feed.ts";
 
-export interface SpectatorStore {
+interface SpectatorStore {
   readonly getState: () => FeedState;
   readonly subscribe: (listener: () => void) => () => void;
-  readonly stop: () => void;
 }
 
 /** Runs a feed and keeps the folded state for React to read. */
@@ -32,7 +31,7 @@ export const startSpectator = (feed: WorldFeed) => {
     }
   };
 
-  const stop = feed({
+  feed({
     onConnection: (connection) => {
       publish(withConnection(state, connection));
     },
@@ -43,7 +42,6 @@ export const startSpectator = (feed: WorldFeed) => {
 
   const store: SpectatorStore = {
     getState: () => state,
-    stop,
     subscribe: (listener) => {
       listeners.add(listener);
 

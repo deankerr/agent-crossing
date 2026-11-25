@@ -8,7 +8,6 @@
   --sun: #ffc85c;
   --sky-top: #bfe6f5;
   --sky-horizon: #f4f0dc;
-  --berry: #b48cf0;
   --panel-width: 400px;
   color: var(--ink);
   font-family:
@@ -161,10 +160,6 @@ p {
   background: var(--leaf);
 }
 
-.badge-demo .badge-dot {
-  background: var(--berry);
-}
-
 .badge-connecting .badge-dot,
 .badge-loading .badge-dot,
 .badge-reloading .badge-dot,
@@ -222,48 +217,6 @@ ol {
   padding: 0;
 }
 
-.swatch {
-  border: 2px solid white;
-  border-radius: 50%;
-  box-shadow: 0 0 0 1px var(--line);
-  display: inline-block;
-  flex: none;
-  height: 12px;
-  margin-right: 6px;
-  vertical-align: -1px;
-  width: 12px;
-}
-
-.floor-line {
-  font-weight: 600;
-}
-
-.entity-list li {
-  align-items: baseline;
-  border-radius: 8px;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 2px 8px;
-  padding: 3px 0;
-}
-
-.entity-noun {
-  font-weight: 600;
-}
-
-.part-color {
-  font-size: 12px;
-}
-
-.writing {
-  background: #f4dcae;
-  border-radius: 6px;
-  color: #4e3a24;
-  flex-basis: 100%;
-  font-weight: 600;
-  padding: 3px 8px;
-}
-
 .agent-view {
   background: #2f2d3a;
   border-radius: 10px;
@@ -276,20 +229,6 @@ ol {
   overflow: auto;
   padding: 10px 12px;
   white-space: pre-wrap;
-}
-
-.chips {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px;
-  margin-top: 6px;
-}
-
-.chips li {
-  background: var(--paper-deep);
-  border-radius: 999px;
-  font-size: 12px;
-  padding: 2px 9px;
 }
 
 .history li button {
@@ -322,7 +261,7 @@ ol {
   font-variant-numeric: tabular-nums;
 }
 
-.history-Removed span {
+.history-removed span {
   color: #8c6f6a;
 }
 

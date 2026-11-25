@@ -14,8 +14,7 @@ const fraction = (value: number) => value - Math.floor(value);
 
 const scatter = (value: number) => fraction(Math.sin(value) * SCATTER);
 
-/** A stable hash of a string, as an integer below 2^31. */
-export const hashText = (text: string) =>
+const hashText = (text: string) =>
   Arr.reduce(
     Arr.fromIterable(text),
     HASH_SEED,

@@ -33,8 +33,7 @@ interface Size {
   readonly height: number;
 }
 
-/** Pixels per unit that fit the whole span in view from the default angle. */
-export const fittingZoom = (span: Span, size: Size) => {
+const fittingZoom = (span: Span, size: Size) => {
   const wide = span.maxX - span.minX + 1 + MARGIN * 2;
 
   const deep = (span.maxY - span.minY + 1) * DEPTH_SHARE + TALLEST + MARGIN * 2;
@@ -42,8 +41,7 @@ export const fittingZoom = (span: Span, size: Size) => {
   return Math.max(0.5, Math.min(size.width / wide, size.height / deep));
 };
 
-/** How far the camera stands back, so that no part of the world is behind it. */
-export const cameraDistance = (span: Span) =>
+const cameraDistance = (span: Span) =>
   Math.max(MIN_DISTANCE, diagonalOf(span) * DISTANCE_PER_DIAGONAL);
 
 interface Rig {

@@ -6,18 +6,14 @@ import type { BufferGeometry, InstancedMesh, Material } from "three";
 
 const MIN_CAPACITY = 16;
 
-/**
- * Room for `count` instances, rounded up to a power of two so that a mesh is
- * only rebuilt when the world grows past it, not on every new entity.
- */
-export const capacityFor = (count: number) =>
+const capacityFor = (count: number) =>
   Math.max(MIN_CAPACITY, 2 ** Math.ceil(Math.log2(Math.max(1, count))));
 
 export type Place<A> = (item: A, matrix: Matrix4) => void;
 
 export type Paint<A> = (item: A, color: Color) => void;
 
-export interface InstancesProps<A> {
+interface InstancesProps<A> {
   readonly items: readonly A[];
   readonly geometry: BufferGeometry;
   readonly material: Material;
@@ -28,7 +24,7 @@ export interface InstancesProps<A> {
   readonly receiveShadow?: boolean;
   /** Draw order among meshes of the same pass: lower is earlier. */
   readonly renderOrder?: number;
-  readonly onPick?: (item: A, event: ThreeEvent<PointerEvent>) => void;
+  readonly onPick?: (item: A) => void;
   readonly onPickClick?: (item: A, event: ThreeEvent<MouseEvent>) => void;
   readonly onLeave?: () => void;
 }
@@ -92,7 +88,7 @@ export const Instances = <A,>({
 
     if (item !== undefined && onPick !== undefined) {
       event.stopPropagation();
-      onPick(item, event);
+      onPick(item);
     }
   };
 

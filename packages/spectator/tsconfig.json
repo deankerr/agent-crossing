@@ -7,10 +7,9 @@
     "plugins": [
       {
         "name": "@effect/language-service",
-        "diagnostics": false,
-        "allowedUnstableApis": ["@effect/vitest"]
+        "diagnostics": false
       }
     ]
   },
-  "include": ["src/**/*.ts", "src/**/*.tsx", "test/**/*.ts", "*.config.ts"]
+  "include": ["src/**/*.ts", "src/**/*.tsx", "*.config.ts"]
 }

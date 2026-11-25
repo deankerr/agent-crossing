@@ -7,20 +7,18 @@ import type { World } from "@agent-crossing/world/state/world";
 import * as Arr from "effect/Array";
 import * as Option from "effect/Option";
 
-/**
- * Scene units: one cell is one unit, cell `x` sits at scene `x` and cell `y`
- * at scene `z`, so south is towards the camera. Levels step by
- * {@link LEVEL_HEIGHT}.
- */
-export const LEVEL_HEIGHT = 0.4;
+const LEVEL_HEIGHT = 0.4;
 
-/** The surface of level 0. */
-export const BASE_SURFACE = 0.3;
+const BASE_SURFACE = 0.3;
 
 /** The bottom of the world, where every floor's fill ends. */
 export const WORLD_BOTTOM = -1.2;
 
-/** The surface of a level, which a floor's or liquid's model is measured from. */
+/**
+ * The surface of a level, which a floor's or liquid's model is measured from.
+ * Scene units: one cell is one unit, cell `x` sits at scene `x` and cell `y`
+ * at scene `z`, so south is towards the camera.
+ */
 export const levelSurface = (level: number) =>
   BASE_SURFACE + level * LEVEL_HEIGHT;
 
@@ -28,8 +26,7 @@ export const levelSurface = (level: number) =>
 export const surfaceOf = (entity: typeof Entity.Type) =>
   levelSurface(storedLevel(entity));
 
-/** The top of a liquid: the highest top of its model's fills, or its level's surface without any. */
-export const liquidTop = (liquid: typeof Entity.Type) => {
+const liquidTop = (liquid: typeof Entity.Type) => {
   const tops = Arr.flatMap(componentsOf(liquid).model?.parts ?? [], (part) =>
     Arr.flatMap(part.forms, ({ solid }) =>
       "fill" in solid ? [solid.fill] : []

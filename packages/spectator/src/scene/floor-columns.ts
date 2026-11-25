@@ -9,7 +9,7 @@ import { surfaceOf, WORLD_BOTTOM } from "./layout.ts";
 import { partHex } from "./model-geometry.ts";
 
 /** Linear RGB, as instance colors want it. */
-export type Rgb = readonly [number, number, number];
+type Rgb = readonly [number, number, number];
 
 /** A box filling one cell, from `bottom` to `top` in scene units. */
 export interface Column {
@@ -40,8 +40,7 @@ const shaded = (hex: string, factor: number) => {
   return rgb;
 };
 
-/** Each cell's own brightness: noise and a faint checker, from its coordinates alone. */
-export const cellShade = (cell: typeof Cell.Type, variation: number) =>
+const cellShade = (cell: typeof Cell.Type, variation: number) =>
   1 +
   (cellNoise(cell.x, cell.y) * 2 - 1) * variation +
   ((cell.x + cell.y) % 2 === 0 ? CHECKER : -CHECKER) * variation * 4;

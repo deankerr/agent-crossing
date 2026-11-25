@@ -7,8 +7,7 @@
   "scripts": {
     "build": "vite build",
     "dev": "vite",
-    "preview": "vite preview",
-    "test": "vitest run --passWithNoTests"
+    "preview": "vite preview"
   },
   "dependencies": {
     "@agent-crossing/world": "workspace:*",
@@ -20,13 +19,11 @@
     "three": "catalog:"
   },
   "devDependencies": {
-    "@effect/vitest": "catalog:",
     "@types/node": "catalog:",
     "@types/react": "catalog:",
     "@types/react-dom": "catalog:",
     "@types/three": "catalog:",
     "@vitejs/plugin-react": "catalog:",
-    "vite": "catalog:",
-    "vitest": "catalog:"
+    "vite": "catalog:"
   }
 }
