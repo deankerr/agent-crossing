@@ -9,7 +9,13 @@
     "./schema/*": "./src/schema/*.ts",
     "./definitions/prefabs": "./src/definitions/prefabs/index.ts",
     "./definitions/biomes": "./src/definitions/biomes/index.ts",
-    "./engine/*": "./src/engine/*.ts"
+    "./state/*": "./src/state/*.ts",
+    "./rules/*": "./src/rules/*.ts",
+    "./history/*": "./src/history/*.ts",
+    "./editing/*": "./src/editing/*.ts",
+    "./generation/*": "./src/generation/*.ts",
+    "./text/*": "./src/text/*.ts",
+    "./feed/*": "./src/feed/*.ts"
   },
   "scripts": {
     "test": "vitest run"

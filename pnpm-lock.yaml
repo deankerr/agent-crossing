@@ -281,7 +281,7 @@ importers:
         specifier: 8.3.1
         version: 8.3.1(oxfmt@0.79.0)(oxlint@1.94.0(oxlint-tsgolint@7.0.2007))(prettier@3.10.1)
 
-  packages/server:
+  packages/host:
     dependencies:
       '@agent-crossing/world':
         specifier: workspace:*
@@ -315,7 +315,7 @@ importers:
         specifier: 'catalog:'
         version: 5.1.0(@opentelemetry/api@1.10.0)(@types/node@24.19.2)(vite@8.3.8(@types/node@24.19.2)(yaml@2.9.1))
 
-  packages/viewer:
+  packages/spectator:
     dependencies:
       '@agent-crossing/world':
         specifier: workspace:*

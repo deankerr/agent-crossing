@@ -7,8 +7,8 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 
-import Api, { DEV_PORT } from "./packages/server/src/api.ts";
-import { local } from "./packages/server/src/cluster.ts";
+import Api, { DEV_PORT } from "./packages/host/src/api.ts";
+import { local } from "./packages/host/src/cluster.ts";
 
 const DEV_API_AS_BROWSERS_REACH_IT = "AGENT_CROSSING_DEV_API_URL";
 
@@ -30,16 +30,16 @@ export default Alchemy.Stack(
       Config.String(DEV_API_AS_BROWSERS_REACH_IT)
     );
 
-    const viewer = yield* Cloudflare.Website.Vite("Viewer", {
+    const spectator = yield* Cloudflare.Website.Vite("Spectator", {
       dev: { port: DEV_PORT + 1, strictPort: true },
       env: {
         VITE_WORLD_URL: here
           ? Option.getOrElse(reached, () => api.url.as<string>())
           : api.url.as<string>(),
       },
-      rootDir: `${import.meta.dirname}/packages/viewer`,
+      rootDir: `${import.meta.dirname}/packages/spectator`,
     });
 
-    return { api: api.url.as<string>(), viewer: viewer.url.as<string>() };
+    return { api: api.url.as<string>(), spectator: spectator.url.as<string>() };
   })
 );

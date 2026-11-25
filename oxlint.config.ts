@@ -49,7 +49,7 @@ export default defineConfig({
   },
   overrides: [
     {
-      files: ["packages/viewer/**"],
+      files: ["packages/spectator/**"],
       plugins: react.plugins,
       rules: react.rules,
     },

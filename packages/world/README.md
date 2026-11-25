@@ -12,13 +12,13 @@ Run the tests with `pnpm --filter @agent-crossing/world test`.
 | --- | --- |
 | `src/schema` | The vocabulary definitions are written in: cells, levels, components, models, prefabs, the palette |
 | `src/definitions` | The authored world, as data only: one file per prefab and one file per biome |
-| `src/engine` | Everything that reads the definitions: state, rules, editing, generation, text and a feed |
+| `src/state`, `src/rules`, `src/history`, `src/editing`, `src/generation`, `src/text`, `src/feed` | Everything that reads the definitions: state, rules, history, editing, generation, text and a feed |
 
 Imports point one way: the engine reads definitions, and definitions are written in the schema. Definitions hold no rules, no randomness and nothing that acts, so they read as a contract for the rest of the code.
 
 The palette sits in the schema because shades are words that models are written in, like the color words beside it.
 
-Other packages import `@agent-crossing/world/schema/*`, `/definitions/prefabs`, `/definitions/biomes` and `/engine/*`.
+Other packages import `@agent-crossing/world/schema/*`, `/definitions/prefabs`, `/definitions/biomes`, `/state/*`, `/rules/*`, `/history/*`, `/editing/*`, `/generation/*`, `/text/*` and `/feed/*`.
 
 ## How the world is described
 
@@ -80,7 +80,7 @@ export const Oak = prefab("oak", {
 
 **A model is named parts.** Each part has one shade and one or more forms, and a form is a solid with an optional position, turn, scale and tone. An entity has no single color. Its `colors` component names a part and the shade to give it.
 
-**A shade is an entry of the palette** with the value the viewer paints and a plain color word, so that bark can be described to an agent as brown.
+**A shade is an entry of the palette** with the value the spectator view paints and a plain color word, so that bark can be described to an agent as brown.
 
 **Related prefabs are a plain record.** `flower-patch.ts` builds seven complete prefabs from one unexported base and exports them as `FlowerPatches`. There is no "variant" concept.
 
@@ -101,7 +101,7 @@ export const Meadow = biome({
 
 At most one entry of `grows` is placed per cell. Each entry of `extras` is rolled on its own and may share the cell. An entry is a prefab or a choice between prefabs, made with `weighted` or `anyOf`.
 
-**To add a prefab:** write its file, add it to its category's `index.ts`, and add it to a biome if it should generate. The stored prefab names, the admin tools and the viewer all follow from the index.
+**To add a prefab:** write its file, add it to its category's `index.ts`, and add it to a biome if it should generate. The stored prefab names, the admin tools and the spectator view all follow from the index.
 
 ## Engine
 
@@ -109,12 +109,13 @@ At most one entry of `grows` is placed per cell. Each entry of `extras` is rolle
 | --- | --- |
 | `state` | Entities, the in-memory world with its queries, changes and snapshots |
 | `rules` | Whether an entity may be in a cell, and the reasons a command is refused |
-| `editing` | Regions, commands, events and `decide` |
+| `history` | Events, editors and timestamps |
+| `editing` | Regions, commands and `decide` |
 | `generation` | The seeded landscape generator, which lays out biomes |
 | `text` | The world as an agent reads it: a map, the view from a cell, one cell, a summary |
-| `feed.ts` | The frames of the spectator stream |
+| `feed/frame.ts` | The frames of the spectator stream |
 
-An edit takes one path. `decide` turns a command into events or a refusal, `changesOf` turns an event into the smallest writes to state, and `apply` is the only function that changes a world. The server stores the same changes as rows and keeps the events as the world's history.
+An edit takes one path. `decide` turns a command into events or a refusal, `changesOf` turns an event into the smallest writes to state, and `apply` is the only function that changes a world. The host stores the same changes as rows and keeps the events as the world's history.
 
 After any edit, `decide` also removes the entities that no longer fit where they are, such as an oak whose floor was erased.
 

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "@effect/vitest";
 import * as Option from "effect/Option";
 
-import { generateLandscape } from "../src/engine/generation/landscape.ts";
+import { generateLandscape } from "../src/generation/landscape.ts";
 import { cellAt } from "../src/schema/cell.ts";
 
 const spec = (seed: number) => ({

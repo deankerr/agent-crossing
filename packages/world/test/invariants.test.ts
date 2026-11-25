@@ -5,20 +5,22 @@ import * as Option from "effect/Option";
 import * as Result from "effect/Result";
 
 import { PrefabName } from "../src/definitions/prefabs/index.ts";
-import { Command, LiquidName } from "../src/engine/editing/command.ts";
-import { decide } from "../src/engine/editing/decide.ts";
-import { Editor } from "../src/engine/editing/edit.ts";
-import { evolveAll } from "../src/engine/editing/event.ts";
-import { Region, rect } from "../src/engine/editing/region.ts";
-import { seededRandom } from "../src/engine/generation/random.ts";
-import type { SeededRandom } from "../src/engine/generation/random.ts";
-import { habitatOf } from "../src/engine/rules/placement.ts";
+import { Command, LiquidName } from "../src/editing/command.ts";
+import { decide } from "../src/editing/decide.ts";
+import { Region, rect } from "../src/editing/region.ts";
+import { seededRandom } from "../src/generation/random.ts";
+import type { SeededRandom } from "../src/generation/random.ts";
+import { Editor } from "../src/history/edit.ts";
+import { evolveAll } from "../src/history/event.ts";
+import { habitatOf } from "../src/rules/placement.ts";
+import { Cell, Coordinate, formatCell } from "../src/schema/cell.ts";
+import { Layer } from "../src/schema/components.ts";
 import {
   componentsOf,
   entityIdFor,
   entitySerial,
   prefabComponents,
-} from "../src/engine/state/entity.ts";
+} from "../src/state/entity.ts";
 import {
   allEntities,
   emptyWorld,
@@ -28,10 +30,8 @@ import {
   isFloor,
   isLiquid,
   placeAt,
-} from "../src/engine/state/world.ts";
-import type { World } from "../src/engine/state/world.ts";
-import { Cell, Coordinate, formatCell } from "../src/schema/cell.ts";
-import { Layer } from "../src/schema/components.ts";
+} from "../src/state/world.ts";
+import type { World } from "../src/state/world.ts";
 
 const cell = (x: number, y: number) =>
   Cell.make({ x: Coordinate.make(x), y: Coordinate.make(y) });
