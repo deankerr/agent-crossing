@@ -6,8 +6,6 @@
   "type": "module",
   "scripts": {
     "admin": "bun scripts/admin.ts",
-    "deploy": "alchemy deploy",
-    "destroy": "alchemy destroy",
     "test": "vitest run --passWithNoTests"
   },
   "dependencies": {

@@ -25,6 +25,10 @@
 
 Turn a lint rule off in `oxlint.config.ts` only when it conflicts with idiomatic Effect or Alchemy code.
 
+## Deploy
+
+The one Alchemy stack is `alchemy.run.ts` at the root; preview with `pnpm exec alchemy plan` and deploy with `pnpm exec alchemy deploy`, from the root.
+
 ## Packages
 
 - `packages/world` The world in three tiers: `schema` (the vocabulary definitions are written in, with the palette), `definitions` (prefabs and biomes, as data only) and `engine` (the pure state, rules, editing, generation and agent text that read them)

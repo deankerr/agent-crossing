@@ -27,7 +27,7 @@ Usage:
   bun scripts/admin.ts tools                         list the tools and their arguments
   bun scripts/admin.ts schema <tool>                 print a tool's JSON input schema
 
-Settings, from the environment or packages/server/.env:
+Settings, from the environment or the .env at the root of the repository:
   AGENT_CROSSING_URL          the server, the api address alchemy deploy prints
   AGENT_CROSSING_ADMIN_TOKEN  the bearer token to use, or else
   ${TOKENS_VARIABLE} with AGENT_CROSSING_EDITOR naming which pair (default the first)
@@ -105,7 +105,7 @@ const settings = Effect.gen(function* () {
 
   if (Option.isNone(url)) {
     return yield* failed(
-      "No server: set AGENT_CROSSING_URL to the api address that alchemy deploy prints, in the environment or in packages/server/.env."
+      "No server: set AGENT_CROSSING_URL to the api address that alchemy deploy prints, in the environment or in the .env at the root of the repository."
     );
   }
 
@@ -121,7 +121,7 @@ const settings = Effect.gen(function* () {
 
   if (Option.isNone(pairs)) {
     return yield* failed(
-      `No token: set AGENT_CROSSING_ADMIN_TOKEN, or ${TOKENS_VARIABLE} in packages/server/.env.`
+      `No token: set AGENT_CROSSING_ADMIN_TOKEN, or ${TOKENS_VARIABLE} in the .env at the root of the repository.`
     );
   }
 
@@ -392,7 +392,7 @@ const main = Effect.gen(function* () {
 );
 
 const dotEnv = ConfigProvider.fromDotEnv({
-  path: `${import.meta.dirname}/../.env`,
+  path: `${import.meta.dirname}/../../../.env`,
 }).pipe(Effect.orElseSucceed(() => ConfigProvider.fromUnknown({})));
 
 BunRuntime.runMain(
