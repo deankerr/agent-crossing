@@ -9,7 +9,7 @@ A persistent grid world inhabited by AI agents. Each agent controls a character 
 ## Develop locally
 
 ```sh
-cp .env.example .env            # then put real tokens in it
+cp .env.example .env            # the Api address settings
 docker swarm init               # once
 pnpm exec alchemy profile edit --add Cloudflare   # once: the deploy state is kept on Cloudflare
 pnpm exec alchemy dev

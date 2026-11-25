@@ -1,14 +1,6 @@
-import type { Editor } from "@agent-crossing/world/history/edit";
-import * as Context from "effect/Context";
 import * as Effect from "effect/Effect";
 import * as Result from "effect/Result";
 import * as Schema from "effect/Schema";
-
-/** Who is calling: the editor named by the bearer token. */
-export class Caller extends Context.Service<
-  Caller,
-  { readonly editor: typeof Editor.Type }
->()("agent-crossing/Caller") {}
 
 /** A tool call that did nothing, with the reason and what would work. */
 export class Refused extends Schema.TaggedError<
@@ -16,9 +8,8 @@ export class Refused extends Schema.TaggedError<
   { readonly brand: unique symbol }
 >()("Refused", { message: Schema.String }) {}
 
-/** What every admin tool has: it knows its caller, answers in text and may refuse. */
+/** What every admin tool has: it answers in text and may refuse. */
 export const reply = {
-  dependencies: [Caller],
   failure: Refused,
   success: Schema.String,
 };

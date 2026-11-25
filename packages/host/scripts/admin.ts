@@ -12,12 +12,9 @@ import * as HttpClientRequest from "effect/http/HttpClientRequest";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import * as Record from "effect/Record";
-import * as Redacted from "effect/Redacted";
 import * as Result from "effect/Result";
 import * as Schema from "effect/Schema";
 import * as Str from "effect/String";
-
-import { parseEditors, TOKENS_VARIABLE } from "../src/admin/tokens.ts";
 
 const USAGE = `Calls the Agent Crossing admin MCP server and prints the tool's text.
 
@@ -28,9 +25,7 @@ Usage:
   bun scripts/admin.ts schema <tool>                 print a tool's JSON input schema
 
 Settings, from the environment or the .env at the root of the repository:
-  AGENT_CROSSING_URL          the Api, the api address alchemy deploy prints
-  AGENT_CROSSING_ADMIN_TOKEN  the bearer token to use, or else
-  ${TOKENS_VARIABLE} with AGENT_CROSSING_EDITOR naming which pair (default the first)
+  AGENT_CROSSING_URL  the Api, the api address alchemy deploy prints
 
 Exit status: 0 done, 1 the tool refused the edit, 2 the call itself failed.`;
 
@@ -109,51 +104,7 @@ const settings = Effect.gen(function* () {
     );
   }
 
-  const single = yield* Config.option(
-    Config.Redacted("AGENT_CROSSING_ADMIN_TOKEN")
-  );
-
-  if (Option.isSome(single)) {
-    return { token: Redacted.value(single.value), url: url.value };
-  }
-
-  const pairs = yield* Config.option(Config.Redacted(TOKENS_VARIABLE));
-
-  if (Option.isNone(pairs)) {
-    return yield* failed(
-      `No token: set AGENT_CROSSING_ADMIN_TOKEN, or ${TOKENS_VARIABLE} in the .env at the root of the repository.`
-    );
-  }
-
-  const editors = yield* Result.match(
-    parseEditors(Redacted.value(pairs.value)),
-    {
-      onFailure: ({ message }) => failed(message),
-      onSuccess: Effect.succeed,
-    }
-  );
-
-  const wanted = yield* Config.option(Config.String("AGENT_CROSSING_EDITOR"));
-
-  const pair = Option.match(wanted, {
-    onNone: () => Arr.head(editors.pairs),
-    onSome: (name) =>
-      Arr.findFirst(
-        editors.pairs,
-        ({ editor }) => Str.toLowerCase(editor) === Str.toLowerCase(name)
-      ),
-  });
-
-  return yield* Option.match(pair, {
-    onNone: () =>
-      failed(
-        `AGENT_CROSSING_EDITOR names nobody in ${TOKENS_VARIABLE}; it lists ${Arr.join(
-          Arr.map(editors.pairs, ({ editor }) => editor),
-          ", "
-        )}.`
-      ),
-    onSome: ({ token }) => Effect.succeed({ token, url: url.value }),
-  });
+  return url.value;
 }).pipe(
   Effect.catchTag("ConfigError", (issue) =>
     failed(`The settings are not readable: ${issue.message}`)
@@ -177,7 +128,7 @@ const bodyJson = (body: string, contentType: string) =>
 const PROTOCOL_VERSION = "2026-07-28";
 
 const connect = Effect.gen(function* () {
-  const { token, url } = yield* settings;
+  const url = yield* settings;
   const client = yield* HttpClient.HttpClient;
   const endpoint = `${Str.endsWith("/")(url) ? Str.slice(0, -1)(url) : url}/mcp`;
 
@@ -190,7 +141,6 @@ const connect = Effect.gen(function* () {
       const response = yield* client
         .execute(
           HttpClientRequest.post(endpoint).pipe(
-            HttpClientRequest.bearerToken(token),
             HttpClientRequest.setHeaders({
               accept: "application/json, text/event-stream",
               "mcp-method": method,
@@ -224,12 +174,6 @@ const connect = Effect.gen(function* () {
           failed(`The Api's reply could not be read: ${issue.message}`)
         )
       );
-
-      if (response.status === 401) {
-        return yield* failed(
-          `The Api refused the token (401). Check it against ${TOKENS_VARIABLE} in the deployed service's .env.`
-        );
-      }
 
       if (response.status >= 400) {
         return yield* failed(

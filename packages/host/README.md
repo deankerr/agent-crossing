@@ -4,10 +4,6 @@ Where the one live world is kept and served: one `World` Rivet Durable Object th
 
 Running and deploying are described in the [root README](../../README.md#develop-locally).
 
-## Admin tokens
-
-`AGENT_CROSSING_ADMIN_TOKENS` lists who may edit the world as comma-separated `name:token` pairs, for example `dean:<token>,claude:<token>`. Names are 1-24 characters and must differ ignoring case; the name is recorded as the editor of every event made with that token. Tokens are at least 16 characters of letters, digits, `_ . ~ -`; make one with `openssl rand -hex 24`. Alchemy reads the variable from the `.env` (git-ignored) at the root of the repository or the environment and binds it to the Api Worker as a secret. A malformed value fails the deploy and the Worker with a message saying what is wrong.
-
 ## Endpoints
 
 **`GET /events`** The spectator stream, unauthenticated, as server-sent events with `Access-Control-Allow-Origin: *` and a `: keep-alive` comment every 15 s. Each event is an unnamed `message` whose `data` is one `FeedFrame` of `@agent-crossing/world/feed/frame` as JSON:
@@ -19,7 +15,7 @@ Running and deploying are described in the [root README](../../README.md#develop
 
 No event is lost or repeated between the snapshot and the live events. A reconnect simply gets a new `Reset` and snapshot.
 
-**`POST /mcp`** The admin MCP server `agent-crossing-admin` over Streamable HTTP, protocol revision 2026-07-28 only, served statelessly with each request its own. A request in any older revision, which would need a session kept in one Worker isolate's memory, is refused with `400` and a JSON-RPC error naming the supported revision and the one it asked for. Send `Authorization: Bearer <token>`; anything else gets `401`.
+**`POST /mcp`** The admin MCP server `agent-crossing-admin` over Streamable HTTP, protocol revision 2026-07-28 only, served statelessly with each request its own. A request in any older revision, which would need a session kept in one Worker isolate's memory, is refused with `400` and a JSON-RPC error naming the supported revision and the one it asked for. The endpoint is open: anyone who can reach the Api can edit the world, and every edit is recorded as made by `admin`.
 
 ## Tools
 
@@ -50,8 +46,7 @@ Edits, each answered with what happened and a map of the affected area (its boun
 ## Connect Claude Code
 
 ```sh
-claude mcp add --transport http agent-crossing-admin https://<api address>/mcp \
-  --header "Authorization: Bearer <token>"
+claude mcp add --transport http agent-crossing-admin https://<api address>/mcp
 ```
 
 ## The command-line client
@@ -67,7 +62,7 @@ bun scripts/admin.ts view_map '{"x1":0,"y1":0,"x2":40,"y2":20}'
 bun scripts/admin.ts spawn '{"prefab":"sign","x":4,"y":3,"components":{"text":"Welcome"}}'
 ```
 
-`pnpm admin <tool> '<json>'` does the same. It reads `AGENT_CROSSING_URL`, the Api's address (`http://localhost:1337` under `alchemy dev`, or the `api` address a deploy prints), and the token from the environment or from the `.env` at the root of the repository: `AGENT_CROSSING_ADMIN_TOKEN`, or else the pair in `AGENT_CROSSING_ADMIN_TOKENS` named by `AGENT_CROSSING_EDITOR` (default the first pair). It exits 0 when the tool answered, 1 when the tool reported an error, which is a refused edit or arguments the tool does not accept (the reason is on stderr), and 2 when the call itself failed: unreachable Api, bad token, or arguments that are not a JSON object.
+`pnpm admin <tool> '<json>'` does the same. It reads `AGENT_CROSSING_URL`, the Api's address (`http://localhost:1337` under `alchemy dev`, or the `api` address a deploy prints), from the environment or from the `.env` at the root of the repository. It exits 0 when the tool answered, 1 when the tool reported an error, which is a refused edit or arguments the tool does not accept (the reason is on stderr), and 2 when the call itself failed: unreachable Api or arguments that are not a JSON object.
 
 ## How the World object works
 
@@ -92,9 +87,9 @@ Imports point one way: `world-object` reads only the world package, `admin` and 
   - `wire.ts` what crosses its calls: the verdict on a command and the items of the feed.
   - `client.ts` the `WorldClient` service, the object as typed calls, which is all that `admin` and `spectate` see of it. `api.ts` provides its layer once, on the Worker's construction effect.
 - `src/admin/` the editor's door:
-  - `server.ts` the MCP endpoint and its bearer tokens (`tokens.ts`), with the tools' `instructions.ts`.
+  - `server.ts` the MCP endpoint, with the tools' `instructions.ts`.
   - `tools/` one file per tool, named after it (`paint-floor.ts` for `paint_floor`): its input, its MCP annotations, the command it becomes and its handler, registered as its own toolkit. `tools/index.ts` lists them all, in the order they are listed to clients.
-  - `tool.ts` what every tool shares: the `Caller`, the `Refused` error and the text answer; `inputs.ts` the input vocabulary several tools share (coordinates, regions, prefabs, components, seeds) and its parsing; `edit.ts` the common path of an edit, from command to reply.
+  - `tool.ts` what every tool shares: the `Refused` error and the text answer; `inputs.ts` the input vocabulary several tools share (coordinates, regions, prefabs, components, seeds) and its parsing; `edit.ts` the common path of an edit, from command to reply.
   - `replies.ts` and `refusal.ts` the sentences that are the admin's own: what an edit did, and what to try after a refusal.
 - `src/spectate/` the spectator's door: `stream.ts` the `/events` response and `sse.ts` the frames as server-sent events.
 - `scripts/admin.ts` the command-line client.
