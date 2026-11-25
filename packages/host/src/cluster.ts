@@ -2,17 +2,9 @@ import * as Rivet from "@alchemy.run/rivet";
 import * as RivetCloud from "@alchemy.run/rivet/Cloud";
 import * as RivetDocker from "@alchemy.run/rivet/Docker";
 import { AlchemyContext } from "alchemy/AlchemyContext";
-import { Stack } from "alchemy/Stack";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
-
-export const PERSISTENT_STAGE = "persistent";
-export const PERSISTENT_CLUSTER = "agent-crossing";
-export const REHEARSAL_CLUSTER = "agent-crossing-dev";
-
-export const clusterOf = (stage: string) =>
-  stage === PERSISTENT_STAGE ? PERSISTENT_CLUSTER : REHEARSAL_CLUSTER;
 
 /** True under `alchemy dev`, where everything runs on this machine. */
 export const local = Effect.map(
@@ -32,11 +24,10 @@ const LocalCluster = Layer.effect(
   })
 ).pipe(Layer.provide(swarm));
 
-const CloudCluster = Layer.unwrap(
-  Stack.useSync(({ stage }) =>
-    RivetCloud.ControlPlane("Rivet", { cluster: clusterOf(stage) })
-  )
-);
+// WARNING: the Rivet Cloud cluster "agent-crossing" holds the persistent world; renaming it starts another.
+const CloudCluster = RivetCloud.ControlPlane("Rivet", {
+  cluster: "agent-crossing",
+});
 
 const LocalPool = RivetDocker.SwarmPool("Default").pipe(
   Layer.provide(LocalCluster)

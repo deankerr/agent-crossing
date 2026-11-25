@@ -1,17 +1,14 @@
 import { PrefabName } from "@agent-crossing/world/definitions/prefabs";
 import { EntityId } from "@agent-crossing/world/state/entity";
-import * as McpServer from "effect/ai/McpServer";
-import * as Tool from "effect/ai/Tool";
-import * as Toolkit from "effect/ai/Toolkit";
 import * as Effect from "effect/Effect";
 import * as Result from "effect/Result";
 import * as Schema from "effect/Schema";
 
 import { AFTER_EDIT, editing } from "../edit.ts";
 import { parsedCommand, RegionInput, regionOf } from "../inputs.ts";
-import { reply, textContent } from "../tool.ts";
+import { editTool } from "../tool.ts";
 
-export const RemoveInput = Schema.Struct({
+const RemoveInput = Schema.Struct({
   ids: Schema.optionalKey(
     Schema.NonEmptyArray(EntityId).annotate({
       description: 'The ids of the entities to remove, like ["e3", "e7"].',
@@ -26,21 +23,17 @@ export const RemoveInput = Schema.Struct({
   ),
 });
 
-const RemoveEntities = Tool.make("remove_entities", {
-  ...reply,
-  description: `Removes entities, either listed by id or everything in a region. In a region without a prefab the floors and liquids stay; with a prefab, only entities of that prefab go. ${AFTER_EDIT}`,
-  parameters: RemoveInput,
-})
-  .annotate(Tool.Destructive, true)
-  .annotate(Tool.Idempotent, true)
-  .annotate(Tool.OpenWorld, false);
+/** `remove_entities`: removes entities by id or from a region. */
+export const RemoveEntities = editTool(
+  "remove_entities",
+  {
+    description: `Removes entities, either listed by id or everything in a region. In a region without a prefab the floors and liquids stay; with a prefab, only entities of that prefab go. ${AFTER_EDIT}`,
+    parameters: RemoveInput,
+  },
+  { destructive: true, idempotent: true }
+);
 
-/** The command a removal asks for, or what is wrong with it. */
-export const removeCommand = ({
-  ids,
-  region,
-  ...only
-}: typeof RemoveInput.Type) => {
+const removeCommand = ({ ids, region, ...only }: typeof RemoveInput.Type) => {
   if (ids !== undefined && region !== undefined) {
     return Result.fail(
       "Give either ids or a region, not both: ids removes those entities, region (with an optional prefab) removes what is there."
@@ -68,17 +61,8 @@ export const removeCommand = ({
   );
 };
 
-const toolkit = Toolkit.make(RemoveEntities);
-
-/** Registers `remove_entities`: removes entities by id or from a region. */
-export const removeEntities = McpServer.registerToolkit(toolkit, {
-  content: { remove_entities: textContent },
-}).pipe(
-  Effect.provide(
-    toolkit.toLayer(
-      Effect.map(editing, (edit) => ({
-        remove_entities: (input) => edit(removeCommand(input)),
-      }))
-    )
-  )
+/** The handler of `remove_entities`. */
+export const removeEntities = Effect.map(
+  editing,
+  (edit) => (input: typeof RemoveInput.Type) => edit(removeCommand(input))
 );

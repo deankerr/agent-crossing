@@ -1,5 +1,7 @@
 import * as BunFileSystem from "@effect/platform-bun/BunFileSystem";
 import * as BunRuntime from "@effect/platform-bun/BunRuntime";
+import * as McpClient from "effect/ai/McpClient";
+import * as McpProtocol from "effect/ai/McpProtocol";
 import * as Arr from "effect/Array";
 import * as Config from "effect/Config";
 import * as ConfigProvider from "effect/ConfigProvider";
@@ -7,11 +9,8 @@ import * as Console from "effect/Console";
 import * as Data from "effect/Data";
 import * as Effect from "effect/Effect";
 import * as FetchHttpClient from "effect/http/FetchHttpClient";
-import * as HttpClient from "effect/http/HttpClient";
-import * as HttpClientRequest from "effect/http/HttpClientRequest";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
-import * as Record from "effect/Record";
 import * as Result from "effect/Result";
 import * as Schema from "effect/Schema";
 import * as Str from "effect/String";
@@ -21,183 +20,25 @@ const USAGE = `Calls the Agent Crossing admin MCP server and prints the tool's t
 Usage:
   bun scripts/admin.ts <tool> ['<json arguments>']   call a tool, for example
       bun scripts/admin.ts view_map '{"x1":0,"y1":0,"x2":20,"y2":10}'
-  bun scripts/admin.ts tools                         list the tools and their arguments
+  bun scripts/admin.ts tools                         list the tools
   bun scripts/admin.ts schema <tool>                 print a tool's JSON input schema
 
 Settings, from the environment or the .env at the root of the repository:
   AGENT_CROSSING_URL  the Api, the api address alchemy deploy prints
 
-Exit status: 0 done, 1 the tool refused the edit, 2 the call itself failed.`;
+Exit status: 0 done, 1 the tool reported an error, 2 the call itself failed.`;
 
 class Failed extends Data.TaggedError("Failed")<{ readonly message: string }> {}
 
 const failed = (message: string) => Effect.fail(new Failed({ message }));
 
-const RpcError = Schema.Struct({
-  code: Schema.Int,
-  message: Schema.String,
-  data: Schema.optional(Schema.Unknown),
-});
-
-const RpcReply = Schema.Struct({
-  result: Schema.optional(Schema.Unknown),
-  error: Schema.optional(RpcError),
-});
-
-const ToolResult = Schema.Struct({
-  content: Schema.Array(
-    Schema.Struct({ type: Schema.String, text: Schema.optional(Schema.String) })
-  ),
-  isError: Schema.optional(Schema.Boolean),
-});
-
-const JsonSchemaObject = Schema.Record(Schema.String, Schema.Unknown);
-
-const Property = Schema.Struct({
-  type: Schema.optional(Schema.String),
-  enum: Schema.optional(Schema.Array(Schema.String)),
-});
-
-type Property = typeof Property.Type;
-
-const InputSchema = Schema.Struct({
-  properties: Schema.optional(Schema.Record(Schema.String, Property)),
-  required: Schema.optional(Schema.Array(Schema.String)),
-});
-
-const ToolList = Schema.Struct({
-  tools: Schema.Array(
-    Schema.Struct({
-      name: Schema.String,
-      description: Schema.optional(Schema.String),
-      inputSchema: JsonSchemaObject,
-    })
-  ),
-});
-
-type ToolInfo = (typeof ToolList.Type)["tools"][number];
-
-const decodeRpcReply = Schema.decodeUnknownEffect(
-  Schema.fromJsonString(RpcReply)
-);
-
-const decodeToolResult = Schema.decodeUnknownEffect(ToolResult);
-const decodeToolList = Schema.decodeUnknownEffect(ToolList);
-const decodeInputSchema = Schema.decodeUnknownOption(InputSchema);
-const noArguments: typeof InputSchema.Type = {};
-
-const encodeJson = (schema: typeof JsonSchemaObject.Type) =>
-  Effect.orDie(
-    Schema.encodeEffect(Schema.fromJsonString(JsonSchemaObject))(schema)
-  );
+const JsonObject = Schema.Record(Schema.String, Schema.Unknown);
 
 const decodeArguments = Schema.decodeUnknownResult(
-  Schema.fromJsonString(JsonSchemaObject)
+  Schema.fromJsonString(JsonObject)
 );
 
-const settings = Effect.gen(function* () {
-  const url = yield* Config.option(Config.String("AGENT_CROSSING_URL"));
-
-  if (Option.isNone(url)) {
-    return yield* failed(
-      "No Api: set AGENT_CROSSING_URL to the Api's address (http://localhost:1337 under alchemy dev, or the api address a deploy prints), in the environment or in the .env at the root of the repository."
-    );
-  }
-
-  return url.value;
-}).pipe(
-  Effect.catchTag("ConfigError", (issue) =>
-    failed(`The settings are not readable: ${issue.message}`)
-  )
-);
-
-const bodyJson = (body: string, contentType: string) =>
-  Str.includes("text/event-stream")(contentType)
-    ? Option.getOrElse(
-        Arr.last(
-          Arr.filterMap(Str.split(body, /\r?\n/u), (line) =>
-            Str.startsWith("data:")(line)
-              ? Result.succeed(Str.trim(Str.slice(5)(line)))
-              : Result.failVoid
-          )
-        ),
-        () => body
-      )
-    : body;
-
-const PROTOCOL_VERSION = "2026-07-28";
-
-const connect = Effect.gen(function* () {
-  const url = yield* settings;
-  const client = yield* HttpClient.HttpClient;
-  const endpoint = `${Str.endsWith("/")(url) ? Str.slice(0, -1)(url) : url}/mcp`;
-
-  return (
-    method: string,
-    params: { readonly [key: string]: Schema.Json },
-    routing: { readonly "mcp-name"?: string } = {}
-  ) =>
-    Effect.gen(function* () {
-      const response = yield* client
-        .execute(
-          HttpClientRequest.post(endpoint).pipe(
-            HttpClientRequest.setHeaders({
-              accept: "application/json, text/event-stream",
-              "mcp-method": method,
-              "mcp-protocol-version": PROTOCOL_VERSION,
-              ...routing,
-            }),
-            HttpClientRequest.bodyJsonUnsafe({
-              id: 1,
-              jsonrpc: "2.0",
-              method,
-              params: {
-                ...params,
-                _meta: {
-                  "io.modelcontextprotocol/clientCapabilities": {},
-                  "io.modelcontextprotocol/protocolVersion": PROTOCOL_VERSION,
-                },
-              },
-            })
-          )
-        )
-        .pipe(
-          Effect.catchTag("HttpClientError", (issue) =>
-            failed(
-              `Could not reach the admin MCP server at ${endpoint}: ${issue.message}. Is the stack deployed (pnpm exec alchemy deploy from the root of the repository)?`
-            )
-          )
-        );
-
-      const text = yield* response.text.pipe(
-        Effect.catchTag("HttpClientError", (issue) =>
-          failed(`The Api's reply could not be read: ${issue.message}`)
-        )
-      );
-
-      if (response.status >= 400) {
-        return yield* failed(
-          `The Api answered ${response.status}: ${Str.trim(text) || "(no body)"}`
-        );
-      }
-
-      const decoded = yield* decodeRpcReply(
-        bodyJson(text, response.headers["content-type"] ?? "")
-      ).pipe(
-        Effect.catchTag("SchemaError", () =>
-          failed(`The Api's reply to ${method} is not JSON-RPC: ${text}`)
-        )
-      );
-
-      if (decoded.error !== undefined) {
-        return yield* failed(
-          `${method} failed (JSON-RPC ${decoded.error.code}): ${decoded.error.message}`
-        );
-      }
-
-      return decoded.result;
-    });
-});
+const encodeJson = Schema.encodeEffect(Schema.fromJsonString(JsonObject));
 
 const argumentsOf = (json: string | undefined) =>
   json === undefined || Str.trim(json) === ""
@@ -210,49 +51,82 @@ const argumentsOf = (json: string | undefined) =>
         onSuccess: Effect.succeed,
       });
 
-const propertyType = (property: Property) => {
-  if (property.enum !== undefined) {
-    return Arr.join(
-      Arr.map(property.enum, (value) => `"${value}"`),
-      " | "
+const endpoint = Effect.gen(function* () {
+  const url = yield* Config.option(Config.String("AGENT_CROSSING_URL"));
+
+  if (Option.isNone(url)) {
+    return yield* failed(
+      "No Api: set AGENT_CROSSING_URL to the Api's address (http://localhost:1337 under alchemy dev, or the api address a deploy prints), in the environment or in the .env at the root of the repository."
     );
   }
 
-  if (property.type === undefined || property.type === "array") {
-    return `${property.type ?? "object"} (see schema)`;
-  }
+  return `${Str.endsWith("/")(url.value) ? Str.slice(0, -1)(url.value) : url.value}/mcp`;
+}).pipe(
+  Effect.catchTag("ConfigError", (issue) =>
+    failed(`The settings are not readable: ${issue.message}`)
+  )
+);
 
-  return property.type;
-};
-
-const toolLines = (tool: ToolInfo) => {
-  const { properties = {}, required = [] } = Option.getOrElse(
-    decodeInputSchema(tool.inputSchema),
-    () => noArguments
-  );
-
-  const args = Arr.map(
-    Record.toEntries(properties),
-    ([name, property]) =>
-      `${name}${required.includes(name) ? "" : "?"}: ${propertyType(property)}`
-  );
-
-  return [
-    `${tool.name}(${Arr.join(args, ", ")})`,
-    `  ${tool.description ?? ""}`,
-  ];
-};
-
-const listTools = (request: Effect.Success<typeof connect>) =>
-  Effect.gen(function* () {
-    const { tools } = yield* decodeToolList(yield* request("tools/list", {}));
-
-    return { tools };
-  }).pipe(
-    Effect.catchTag("SchemaError", (issue) =>
-      failed(`The tool list is not as expected: ${issue.message}`)
+const toolNamed = (name: string | undefined) =>
+  Effect.flatMap(McpClient.McpClient, (client) =>
+    Effect.flatMap(client.listTools(), (tools) =>
+      Option.match(
+        Arr.findFirst(tools, (tool) => tool.name === name),
+        {
+          onNone: () =>
+            failed(
+              `No tool called ${name ?? "(none given)"}; try: bun scripts/admin.ts tools`
+            ),
+          onSome: Effect.succeed,
+        }
+      )
     )
   );
+
+const run = (command: string, json: string | undefined) =>
+  Effect.gen(function* () {
+    const client = yield* McpClient.McpClient;
+
+    if (command === "tools") {
+      const tools = yield* client.listTools();
+      yield* Console.log(
+        Arr.join(
+          Arr.map(tools, (tool) => `${tool.name}\n  ${tool.description ?? ""}`),
+          "\n"
+        )
+      );
+
+      return 0;
+    }
+
+    if (command === "schema") {
+      const tool = yield* toolNamed(json);
+      yield* Console.log(yield* Effect.orDie(encodeJson(tool.inputSchema)));
+
+      return 0;
+    }
+
+    const args = yield* argumentsOf(json);
+    const tool = yield* toolNamed(command);
+    const result = yield* client.callTool({ arguments: args, tool });
+
+    const text = Arr.join(
+      Arr.filterMap(result.content, (part) =>
+        part.type === "text" ? Result.succeed(part.text) : Result.failVoid
+      ),
+      "\n"
+    );
+
+    if (result.isError === true) {
+      yield* Console.error(text);
+
+      return 1;
+    }
+
+    yield* Console.log(text);
+
+    return 0;
+  });
 
 const main = Effect.gen(function* () {
   const [command, json, ...rest] = process.argv.slice(2);
@@ -269,61 +143,23 @@ const main = Effect.gen(function* () {
     );
   }
 
-  const request = yield* connect;
+  const url = yield* endpoint;
 
-  if (command === "tools") {
-    const { tools } = yield* listTools(request);
-    yield* Console.log(Arr.join(Arr.flatMap(tools, toolLines), "\n"));
-
-    return 0;
-  }
-
-  if (command === "schema") {
-    const { tools } = yield* listTools(request);
-    const tool = Arr.findFirst(tools, ({ name }) => name === json);
-
-    return yield* Option.match(tool, {
-      onNone: () =>
-        failed(
-          `No tool called ${json ?? "(none given)"}; try: bun scripts/admin.ts tools`
-        ),
-      onSome: (found) =>
-        Effect.flatMap(encodeJson(found.inputSchema), (schema) =>
-          Effect.as(Console.log(schema), 0)
-        ),
-    });
-  }
-
-  const args = yield* argumentsOf(json);
-
-  const result = yield* decodeToolResult(
-    yield* request(
-      "tools/call",
-      { arguments: args, name: command },
-      { "mcp-name": command }
-    )
-  ).pipe(
-    Effect.catchTag("SchemaError", (issue) =>
-      failed(`The tool result is not as expected: ${issue.message}`)
-    )
-  );
-
-  const text = Arr.join(
-    Arr.filterMap(result.content, ({ text: part }) =>
-      part === undefined ? Result.failVoid : Result.succeed(part)
+  return yield* run(command, json).pipe(
+    Effect.provide(
+      McpClient.layerHttp({
+        name: "agent-crossing-admin-cli",
+        protocol: McpProtocol.v2026_07_28,
+        url,
+        version: "0.1.0",
+      })
     ),
-    "\n"
+    Effect.catchTag("McpClientError", (issue) =>
+      failed(
+        `The call to the admin MCP server at ${url} failed: ${issue.message}. Is the Api running?`
+      )
+    )
   );
-
-  if (result.isError === true) {
-    yield* Console.error(text);
-
-    return 1;
-  }
-
-  yield* Console.log(text);
-
-  return 0;
 }).pipe(
   Effect.catchTag("Failed", ({ message }) =>
     Effect.as(Console.error(`admin: ${message}`), 2)

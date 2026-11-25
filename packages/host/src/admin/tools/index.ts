@@ -1,47 +1,71 @@
+import * as McpServer from "effect/ai/McpServer";
+import * as Toolkit from "effect/ai/Toolkit";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
+import * as Record from "effect/Record";
 
-import { changeEntity } from "./change-entity.ts";
-import { eraseFloor } from "./erase-floor.ts";
-import { findEntities } from "./find-entities.ts";
-import { generateWorld } from "./generate-world.ts";
-import { history } from "./history.ts";
-import { inspectCell } from "./inspect-cell.ts";
-import { listPrefabs } from "./list-prefabs.ts";
-import { moveEntity } from "./move-entity.ts";
-import { paintFloor } from "./paint-floor.ts";
-import { pourLiquid } from "./pour-liquid.ts";
-import { removeEntities } from "./remove-entities.ts";
-import { scatter } from "./scatter.ts";
-import { spawn } from "./spawn.ts";
-import { viewAsAgent } from "./view-as-agent.ts";
-import { viewMap } from "./view-map.ts";
-import { worldSummary } from "./world-summary.ts";
+import { textContent } from "../tool.ts";
+import { ChangeEntity, changeEntity } from "./change-entity.ts";
+import { EraseFloor, eraseFloor } from "./erase-floor.ts";
+import { FindEntities, findEntities } from "./find-entities.ts";
+import { GenerateWorld, generateWorld } from "./generate-world.ts";
+import { History, history } from "./history.ts";
+import { InspectCell, inspectCell } from "./inspect-cell.ts";
+import { ListPrefabs, listPrefabs } from "./list-prefabs.ts";
+import { MoveEntity, moveEntity } from "./move-entity.ts";
+import { PaintFloor, paintFloor } from "./paint-floor.ts";
+import { PourLiquid, pourLiquid } from "./pour-liquid.ts";
+import { RemoveEntities, removeEntities } from "./remove-entities.ts";
+import { Scatter, scatter } from "./scatter.ts";
+import { Spawn, spawn } from "./spawn.ts";
+import { ViewAsAgent, viewAsAgent } from "./view-as-agent.ts";
+import { ViewMap, viewMap } from "./view-map.ts";
+import { WorldSummary, worldSummary } from "./world-summary.ts";
+
+const toolkit = Toolkit.make(
+  WorldSummary,
+  ViewMap,
+  ViewAsAgent,
+  InspectCell,
+  FindEntities,
+  ListPrefabs,
+  History,
+  PaintFloor,
+  PourLiquid,
+  EraseFloor,
+  Spawn,
+  Scatter,
+  MoveEntity,
+  ChangeEntity,
+  RemoveEntities,
+  GenerateWorld
+);
+
+const handlers = Effect.all({
+  world_summary: worldSummary,
+  view_map: viewMap,
+  view_as_agent: viewAsAgent,
+  inspect_cell: inspectCell,
+  find_entities: findEntities,
+  list_prefabs: listPrefabs,
+  history,
+  paint_floor: paintFloor,
+  pour_liquid: pourLiquid,
+  erase_floor: eraseFloor,
+  spawn,
+  scatter,
+  move_entity: moveEntity,
+  change_entity: changeEntity,
+  remove_entities: removeEntities,
+  generate_world: generateWorld,
+});
 
 /**
- * Every admin tool, registered one after another so that they are listed in
- * this order: the queries, then the edits.
+ * Every admin tool as one toolkit, each answering in text, listed in this
+ * order: the queries, then the edits.
  */
 export const AdminTools = Layer.effectDiscard(
-  Effect.all(
-    [
-      worldSummary,
-      viewMap,
-      viewAsAgent,
-      inspectCell,
-      findEntities,
-      listPrefabs,
-      history,
-      paintFloor,
-      pourLiquid,
-      eraseFloor,
-      spawn,
-      scatter,
-      moveEntity,
-      changeEntity,
-      removeEntities,
-      generateWorld,
-    ],
-    { discard: true }
-  )
+  McpServer.registerToolkit(toolkit, {
+    content: Record.map(toolkit.tools, () => textContent),
+  }).pipe(Effect.provide(toolkit.toLayer(handlers)))
 );

@@ -30,20 +30,10 @@ export const Y = Schema.Int.annotate({
   description: "Row. y grows south (down the map).",
 });
 
-export const Point = Schema.Struct({ x: X, y: Y });
-
-export const RectInput = Schema.Struct({
-  x1: X,
-  y1: Y,
-  x2: X,
-  y2: Y,
-}).annotate({
-  description:
-    "An inclusive rectangle between two opposite corners (x1, y1) and (x2, y2), in any order.",
-});
+const Point = Schema.Struct({ x: X, y: Y });
 
 export const RegionInput = Schema.Union([
-  Schema.Struct({ type: Schema.Literal("rect"), ...RectInput.fields }),
+  Schema.Struct({ type: Schema.Literal("rect"), x1: X, y1: Y, x2: X, y2: Y }),
   Schema.Struct({
     type: Schema.Literal("disc"),
     x: X,

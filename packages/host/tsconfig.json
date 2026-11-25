@@ -5,19 +5,16 @@
       {
         "name": "@effect/language-service",
         "diagnostics": false,
+        "allowedExperimentalApis": ["effect/ai/McpClient"],
         "allowedUnstableApis": [
           "@effect/platform-bun/BunFileSystem",
           "@effect/platform-bun/BunRuntime",
-          "@effect/vitest",
           "effect/ai/McpProtocol",
-          "effect/ai/McpSchema",
           "effect/ai/McpServer",
           "effect/ai/Tool",
           "effect/ai/Toolkit",
           "effect/ConfigProvider",
           "effect/http/FetchHttpClient",
-          "effect/http/HttpClient",
-          "effect/http/HttpClientRequest",
           "effect/http/HttpRouter",
           "effect/http/HttpServerRequest",
           "effect/http/HttpServerResponse"
@@ -25,10 +22,5 @@
       }
     ]
   },
-  "include": [
-    "src/**/*.ts",
-    "test/**/*.ts",
-    "scripts/**/*.ts",
-    "vitest.config.ts"
-  ]
+  "include": ["src/**/*.ts", "scripts/**/*.ts"]
 }

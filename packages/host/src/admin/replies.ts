@@ -12,27 +12,19 @@ import * as Str from "effect/String";
 
 import type { Verdict } from "../world-object/wire.ts";
 
-/** Edits of more events than this are told as a tally, not sentence by sentence. */
-export const SENTENCES_SHOWN = 3;
+const SENTENCES_SHOWN = 3;
 
-/** Cells of margin drawn around an edit. */
-export const EDIT_MAP_PADDING = 2;
+const EDIT_MAP_PADDING = 2;
 
-/** The largest side of the map shown after an edit. */
-export const EDIT_MAP_MAX_SIDE = 48;
+const EDIT_MAP_MAX_SIDE = 48;
 
-export interface Framed {
+interface Framed {
   readonly area: typeof Area.Type;
-  /** Whether the edit reached beyond the area shown. */
   readonly cut: boolean;
   readonly edited: Span;
 }
 
-/**
- * The area to show after an edit: its span padded by a margin, cut down from
- * the north-west corner to at most 48 × 48 cells.
- */
-export const framedEdit = (edited: Span) => {
+const framedEdit = (edited: Span) => {
   const padded: Span = {
     maxX: edited.maxX + EDIT_MAP_PADDING,
     maxY: edited.maxY + EDIT_MAP_PADDING,

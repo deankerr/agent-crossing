@@ -5,8 +5,7 @@
   "license": "MIT",
   "type": "module",
   "scripts": {
-    "admin": "bun scripts/admin.ts",
-    "test": "vitest run --passWithNoTests"
+    "admin": "bun scripts/admin.ts"
   },
   "dependencies": {
     "@agent-crossing/world": "workspace:*",
@@ -18,8 +17,6 @@
     "effect": "catalog:"
   },
   "devDependencies": {
-    "@effect/vitest": "catalog:",
-    "@types/node": "catalog:",
-    "vitest": "catalog:"
+    "@types/node": "catalog:"
   }
 }

@@ -54,10 +54,9 @@ import { FeedItem, Verdict } from "./wire.ts";
 /** The one world every caller shares. */
 export const WORLD_NAME = "world-2";
 
-export const HEARTBEAT_INTERVAL = Duration.seconds(15);
+const HEARTBEAT_INTERVAL = Duration.seconds(15);
 
-/** How long one command's transaction may take: generating a large landscape writes tens of thousands of rows. */
-export const COMMIT_TIMEOUT = Duration.minutes(5);
+const COMMIT_TIMEOUT = Duration.minutes(5);
 
 interface Happened {
   readonly seq: typeof Seq.Type;
@@ -79,7 +78,6 @@ const decodeArea = Schema.decodeUnknownEffect(Schema.NullOr(Area));
 const decodeRegion = Schema.decodeUnknownEffect(Schema.NullOr(Region));
 const decodePrefab = Schema.decodeUnknownEffect(Schema.NullOr(PrefabName));
 const decodeSeq = Schema.decodeUnknownEffect(Seq);
-const decodeCount = Schema.decodeUnknownEffect(Schema.Int);
 const decodeEventRows = Schema.decodeUnknownEffect(Schema.Array(EventRow));
 
 const encodeEventJson = Schema.encodeEffect(Schema.fromJsonString(WorldEvent));
@@ -288,14 +286,7 @@ const instance = Effect.gen(function* () {
           clampedLimit(limit, HISTORY_MAX_LIMIT)
         );
 
-        const counted = yield* run<{ total: number }>(
-          "SELECT COUNT(*) AS total FROM events"
-        );
-
-        return historyText(
-          yield* decodeEventRows(rows),
-          yield* decodeCount(counted[0]?.total ?? 0)
-        );
+        return historyText(yield* decodeEventRows(rows), yield* Ref.get(head));
       }).pipe(Effect.orDie),
     inspect: (cell: typeof Cell.Encoded) =>
       Effect.flatMap(Effect.orDie(decodeCell(cell)), (at) =>

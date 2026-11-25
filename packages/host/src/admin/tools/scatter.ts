@@ -1,7 +1,4 @@
 import { SCATTER_MAX_PREFABS } from "@agent-crossing/world/editing/command";
-import * as McpServer from "effect/ai/McpServer";
-import * as Tool from "effect/ai/Tool";
-import * as Toolkit from "effect/ai/Toolkit";
 import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
 
@@ -14,9 +11,9 @@ import {
   regionOf,
   Seed,
 } from "../inputs.ts";
-import { reply, textContent } from "../tool.ts";
+import { editTool } from "../tool.ts";
 
-export const ScatterInput = Schema.Struct({
+const ScatterInput = Schema.Struct({
   prefabs: Schema.NonEmptyArray(Prefab).annotate({
     description: `1 to ${SCATTER_MAX_PREFABS} prefabs, chosen at random for each placement.`,
   }),
@@ -29,17 +26,17 @@ export const ScatterInput = Schema.Struct({
   components: Schema.optionalKey(ComponentsInput),
 });
 
-const Scatter = Tool.make("scatter", {
-  ...reply,
-  description: `Spawns entities of the given prefabs on a random share (density) of a region's cells, skipping cells where they may not be. Good for forests, meadows and reed beds. ${AFTER_EDIT}`,
-  parameters: ScatterInput,
-})
-  .annotate(Tool.Destructive, false)
-  .annotate(Tool.Idempotent, false)
-  .annotate(Tool.OpenWorld, false);
+/** `scatter`: spawns entities over a share of a region. */
+export const Scatter = editTool(
+  "scatter",
+  {
+    description: `Spawns entities of the given prefabs on a random share (density) of a region's cells, skipping cells where they may not be. Good for forests, meadows and reed beds. ${AFTER_EDIT}`,
+    parameters: ScatterInput,
+  },
+  { destructive: false, idempotent: false }
+);
 
-/** The command a scatter asks for, with this seed unless it gives one, or what is wrong with it. */
-export const scatterCommand = (
+const scatterCommand = (
   { region, seed, ...scattered }: typeof ScatterInput.Type,
   fallbackSeed: number
 ) =>
@@ -50,20 +47,9 @@ export const scatterCommand = (
     seed: seed ?? fallbackSeed,
   });
 
-const toolkit = Toolkit.make(Scatter);
-
-/** Registers `scatter`: spawns entities over a share of a region. */
-export const scatter = McpServer.registerToolkit(toolkit, {
-  content: { scatter: textContent },
-}).pipe(
-  Effect.provide(
-    toolkit.toLayer(
-      Effect.map(editing, (edit) => ({
-        scatter: (input) =>
-          Effect.flatMap(randomSeed, (seed) =>
-            edit(scatterCommand(input, seed))
-          ),
-      }))
-    )
-  )
+/** The handler of `scatter`, with a random seed when none is given. */
+export const scatter = Effect.map(
+  editing,
+  (edit) => (input: typeof ScatterInput.Type) =>
+    Effect.flatMap(randomSeed, (seed) => edit(scatterCommand(input, seed)))
 );

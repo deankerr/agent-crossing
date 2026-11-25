@@ -30,10 +30,9 @@ export const EventRow = Schema.Struct({
   event: Schema.fromJsonString(WorldEvent),
 });
 
-/** What a statement binds: SQLite text or integers. */
-export type SqlValue = string | number;
+type SqlValue = string | number;
 
-export interface Statement {
+interface Statement {
   readonly sql: string;
   readonly bindings: readonly SqlValue[];
 }
@@ -65,15 +64,13 @@ const tables: Record<Table, TableLayout> = {
   },
 };
 
-/** One row written or deleted: the unit a `Change` amounts to in SQL. */
-export interface Write {
+interface Write {
   readonly op: "upsert" | "delete";
   readonly table: Table;
-  /** The row's columns for an upsert, its key for a delete, in table order. */
   readonly values: readonly SqlValue[];
 }
 
-export const EntityRow = Schema.Struct({
+const EntityRow = Schema.Struct({
   id: EntityId,
   prefab: PrefabName,
   x: Coordinate,
@@ -83,7 +80,7 @@ export const EntityRow = Schema.Struct({
 
 const encodeEntityRow = Schema.encodeEffect(EntityRow);
 
-export const rowOfEntity = (entity: typeof Entity.Type) =>
+const rowOfEntity = (entity: typeof Entity.Type) =>
   ({
     components: entity.components,
     id: entity.id,
@@ -92,8 +89,7 @@ export const rowOfEntity = (entity: typeof Entity.Type) =>
     y: entity.cell.y,
   }) satisfies typeof EntityRow.Type;
 
-/** The row write a change amounts to. The single SQL definition of each change. */
-export const writeOf = (change: typeof Change.Type) =>
+const writeOf = (change: typeof Change.Type) =>
   Change.match(change, {
     EntityDropped: ({ id }) =>
       Effect.succeed({
@@ -154,8 +150,7 @@ const sqlOf = (op: Write["op"], table: Table, rows: number) => {
   return `DELETE FROM ${table} WHERE ${tuple(layout.key)} IN (${keys})`;
 };
 
-/** Rows per statement; keeps bindings far below SQLite's limit. */
-export const ROWS_PER_STATEMENT = 400;
+const ROWS_PER_STATEMENT = 400;
 
 const sameTarget = (a: Write, b: Write) => a.op === b.op && a.table === b.table;
 
@@ -200,15 +195,11 @@ export const statementsOf = (changes: readonly (typeof Change.Type)[]) =>
     Arr.map(runsOf(writes), statementOfRun)
   );
 
-/** The statement that persists one change. */
-export const statementOf = (change: typeof Change.Type) =>
-  Effect.map(writeOf(change), (write) => statementOfRun([write]));
-
-export const MetaRow = Schema.Struct({
+const MetaRow = Schema.Struct({
   spawned: Schema.Int.check(Schema.isGreaterThanOrEqualTo(0)),
 });
 
-export const entityOfRow = (row: typeof EntityRow.Type) =>
+const entityOfRow = (row: typeof EntityRow.Type) =>
   ({
     cell: { x: row.x, y: row.y },
     components: row.components,
@@ -217,7 +208,7 @@ export const entityOfRow = (row: typeof EntityRow.Type) =>
   }) satisfies typeof Entity.Type;
 
 /** What the stored rows hold, before parsing. */
-export interface StoredRows {
+interface StoredRows {
   readonly entities: readonly unknown[];
   readonly meta: readonly unknown[];
 }
