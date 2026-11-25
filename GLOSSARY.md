@@ -54,7 +54,7 @@ _Avoid_: Blocking, solid, unwalkable
 
 ### Definitions
 
-**Definition**: Any authored description of the world, held as data: a prefab, a biome or the palette.
+**Definition**: Any authored description of the world, held as data: a prefab or a biome.
 
 _Avoid_: Content, catalog, config
 
@@ -86,7 +86,7 @@ _Avoid_: Mesh, piece, tinted part
 
 _Avoid_: Tint, dye, the entity's color
 
-**Palette**: Every shade the world is drawn in.
+**Palette**: Every shade the world is drawn in. It is vocabulary that definitions are written in, not a definition itself.
 
 _Avoid_: Ink, swatches, theme
 

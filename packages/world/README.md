@@ -10,15 +10,15 @@ Run the tests with `pnpm --filter @agent-crossing/world test`.
 
 | Tier | What it holds |
 | --- | --- |
-| `src/schema` | The vocabulary definitions are written in: cells, levels, components, models, prefabs |
-| `src/definitions` | The authored world, as data only: the palette, one file per prefab, one file per biome |
+| `src/schema` | The vocabulary definitions are written in: cells, levels, components, models, prefabs, the palette |
+| `src/definitions` | The authored world, as data only: one file per prefab and one file per biome |
 | `src/engine` | Everything that reads the definitions: state, rules, editing, generation, text and a feed |
 
 Imports point one way: the engine reads definitions, and definitions are written in the schema. Definitions hold no rules, no randomness and nothing that acts, so they read as a contract for the rest of the code.
 
-There is one exception. The `Shade` schema is derived from the palette's keys, so `schema/model.ts` and `schema/components.ts` import it from `definitions/palette.ts`.
+The palette sits in the schema because shades are words that models are written in, like the color words beside it.
 
-Other packages import `@agent-crossing/world/schema/*`, `/definitions/palette`, `/definitions/prefabs`, `/definitions/biomes` and `/engine/*`.
+Other packages import `@agent-crossing/world/schema/*`, `/definitions/prefabs`, `/definitions/biomes` and `/engine/*`.
 
 ## How the world is described
 
@@ -80,7 +80,7 @@ export const Oak = prefab("oak", {
 
 **A model is named parts.** Each part has one shade and one or more forms, and a form is a solid with an optional position, turn, scale and tone. An entity has no single color. Its `colors` component names a part and the shade to give it.
 
-**A shade is a palette entry** with the value the viewer paints and a plain color word, so that bark can be described to an agent as brown.
+**A shade is an entry of the palette** with the value the viewer paints and a plain color word, so that bark can be described to an agent as brown.
 
 **Related prefabs are a plain record.** `flower-patch.ts` builds seven complete prefabs from one unexported base and exports them as `FlowerPatches`. There is no "variant" concept.
 

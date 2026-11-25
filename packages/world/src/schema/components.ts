@@ -1,8 +1,8 @@
 import * as Schema from "effect/Schema";
 
-import { Shade } from "../definitions/palette.ts";
 import { Level } from "./cell.ts";
 import { Model, PartName } from "./model.ts";
+import { Shade } from "./palette.ts";
 
 export const TEXT_MAX_LENGTH = 280;
 export const NOUN_MAX_LENGTH = 40;

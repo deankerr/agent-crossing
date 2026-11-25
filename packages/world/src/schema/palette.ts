@@ -1,7 +1,7 @@
 import * as Record from "effect/Record";
 import * as Schema from "effect/Schema";
 
-import type { ColorWord } from "../schema/color.ts";
+import type { ColorWord } from "./color.ts";
 
 /** A shade as the viewer paints it, and the plain word an agent reads. */
 export interface ShadeValue {

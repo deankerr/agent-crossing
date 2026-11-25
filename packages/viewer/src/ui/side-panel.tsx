@@ -1,4 +1,3 @@
-import { palette } from "@agent-crossing/world/definitions/palette";
 import {
   componentsOf,
   nounOf,
@@ -21,6 +20,7 @@ import type { World } from "@agent-crossing/world/engine/state/world";
 import { agentViewText } from "@agent-crossing/world/engine/text/agent-view";
 import { formatCell } from "@agent-crossing/world/schema/cell";
 import type { Cell } from "@agent-crossing/world/schema/cell";
+import { palette } from "@agent-crossing/world/schema/palette";
 import * as Arr from "effect/Array";
 import * as DateTime from "effect/DateTime";
 import * as Option from "effect/Option";

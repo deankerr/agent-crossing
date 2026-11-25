@@ -1,5 +1,3 @@
-import { palette } from "@agent-crossing/world/definitions/palette";
-import type { Shade } from "@agent-crossing/world/definitions/palette";
 import { componentsOf } from "@agent-crossing/world/engine/state/entity";
 import type { Entity } from "@agent-crossing/world/engine/state/entity";
 import type { Colors } from "@agent-crossing/world/schema/components";
@@ -9,6 +7,8 @@ import type {
   Pose,
   Solid,
 } from "@agent-crossing/world/schema/model";
+import { palette } from "@agent-crossing/world/schema/palette";
+import type { Shade } from "@agent-crossing/world/schema/palette";
 import * as Arr from "effect/Array";
 import * as Hash from "effect/Hash";
 import * as Option from "effect/Option";

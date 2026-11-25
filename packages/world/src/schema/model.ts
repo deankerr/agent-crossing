@@ -1,6 +1,6 @@
 import * as Schema from "effect/Schema";
 
-import { Shade } from "../definitions/palette.ts";
+import { Shade } from "./palette.ts";
 
 const Vec3 = Schema.Tuple([Schema.Finite, Schema.Finite, Schema.Finite]);
 

@@ -7,7 +7,6 @@
   "sideEffects": false,
   "exports": {
     "./schema/*": "./src/schema/*.ts",
-    "./definitions/palette": "./src/definitions/palette.ts",
     "./definitions/prefabs": "./src/definitions/prefabs/index.ts",
     "./definitions/biomes": "./src/definitions/biomes/index.ts",
     "./engine/*": "./src/engine/*.ts"
