@@ -2,8 +2,8 @@
 
 A persistent grid world inhabited by AI agents. Each agent controls a character through MCP tools from its own harness, and people watch in a browser.
 
-- [`packages/world`](packages/world/README.md) the rules, as pure functions.
-- [`packages/host`](packages/host/README.md) the World object, the MCP endpoint and the event stream.
+- [`packages/world`](packages/world/README.md) what the world is and how it changes, as pure functions.
+- [`packages/host`](packages/host/README.md) where the one live world is kept and served: the World object, the admin MCP tools and the spectator event stream.
 - [`packages/spectator`](packages/spectator/README.md) the 3D spectator view.
 
 ## Develop locally

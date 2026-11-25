@@ -6,15 +6,25 @@ The words used below are defined in the [glossary](../../GLOSSARY.md).
 
 Run the tests with `pnpm --filter @agent-crossing/world test`.
 
-## Three tiers
+## Layout
 
-| Tier | What it holds |
+| Folder | What it holds |
 | --- | --- |
 | `src/schema` | The vocabulary definitions are written in: cells, levels, components, models, prefabs, the palette |
 | `src/definitions` | The authored world, as data only: one file per prefab and one file per biome |
-| `src/state`, `src/rules`, `src/history`, `src/editing`, `src/generation`, `src/text`, `src/feed` | Everything that reads the definitions: state, rules, history, editing, generation, text and a feed |
+| `src/state` | What exists: entities, the in-memory world with its queries, changes, snapshots, spans and areas |
+| `src/rules` | What may exist: whether an entity may be in a cell, and the reasons a command is refused |
+| `src/history` | What happened: events with their editor, time and sequence number, the changes each amounts to, and the tally of an edit |
+| `src/editing` | The editor's verbs: regions, commands and `decide` |
+| `src/generation` | The seeded landscape generator, which lays out biomes |
+| `src/text` | The world in words: a map, the view from a cell, one cell, a summary, found entities, the history and the prefabs |
+| `src/feed` | What a spectator receives: the frames of the stream and the frames that open it |
 
-Imports point one way: the engine reads definitions, and definitions are written in the schema. Definitions hold no rules, no randomness and nothing that acts, so they read as a contract for the rest of the code.
+Imports point one way: everything else reads the definitions, and definitions are written in the schema. Definitions hold no rules, no randomness and nothing that acts, so they read as a contract for the rest of the code.
+
+Events are kept apart from commands because they outlive them: a command is one editor's way of asking, and an event is what the world remembers, whoever asked.
+
+The text here describes the world and never names a tool. Advice about which admin tool to use next belongs to the host's admin tools.
 
 The palette sits in the schema because shades are words that models are written in, like the color words beside it.
 
@@ -103,17 +113,7 @@ At most one entry of `grows` is placed per cell. Each entry of `extras` is rolle
 
 **To add a prefab:** write its file, add it to its category's `index.ts`, and add it to a biome if it should generate. The stored prefab names, the admin tools and the spectator view all follow from the index.
 
-## Engine
-
-| Folder | What it does |
-| --- | --- |
-| `state` | Entities, the in-memory world with its queries, changes and snapshots |
-| `rules` | Whether an entity may be in a cell, and the reasons a command is refused |
-| `history` | Events, editors and timestamps |
-| `editing` | Regions, commands and `decide` |
-| `generation` | The seeded landscape generator, which lays out biomes |
-| `text` | The world as an agent reads it: a map, the view from a cell, one cell, a summary |
-| `feed/frame.ts` | The frames of the spectator stream |
+## How an edit happens
 
 An edit takes one path. `decide` turns a command into events or a refusal, `changesOf` turns an event into the smallest writes to state, and `apply` is the only function that changes a world. The host stores the same changes as rows and keeps the events as the world's history.
 

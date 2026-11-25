@@ -1,6 +1,6 @@
 # @agent-crossing/host
 
-The shell around `@agent-crossing/world`: one `World` Rivet Durable Object that holds the world in memory and in SQLite, and a Cloudflare Worker in front of it with the admin MCP server and the spectator event stream. The stack also serves the spectator view. The World object's nodes run on the local Docker swarm under `alchemy dev` and on Rivet Cloud when deployed.
+Where the one live world is kept and served: one `World` Rivet Durable Object that holds the world of `@agent-crossing/world` in memory and in SQLite, and a Cloudflare Worker in front of it with a door for each role, the admin MCP server for editors and the event stream for spectators. The stack also serves the spectator view. The World object's nodes run on the local Docker swarm under `alchemy dev` and on Rivet Cloud when deployed.
 
 Running and deploying are described in the [root README](../../README.md#develop-locally).
 
@@ -67,13 +67,13 @@ bun scripts/admin.ts view_map '{"x1":0,"y1":0,"x2":40,"y2":20}'
 bun scripts/admin.ts spawn '{"prefab":"sign","x":4,"y":3,"components":{"text":"Welcome"}}'
 ```
 
-`pnpm admin <tool> '<json>'` does the same. It reads `AGENT_CROSSING_URL`, the Api's address (`http://localhost:1337` under `alchemy dev`, or the `api` address a deploy prints), and the token from the environment or from the `.env` at the root of the repository: `AGENT_CROSSING_ADMIN_TOKEN`, or else the pair in `AGENT_CROSSING_ADMIN_TOKENS` named by `AGENT_CROSSING_EDITOR` (default the first pair). It exits 0 when the tool answered, 1 when the tool refused the edit (the reason is on stderr) and 2 when the call itself failed: unreachable server, bad token, arguments that are not a JSON object, or invalid parameters.
+`pnpm admin <tool> '<json>'` does the same. It reads `AGENT_CROSSING_URL`, the Api's address (`http://localhost:1337` under `alchemy dev`, or the `api` address a deploy prints), and the token from the environment or from the `.env` at the root of the repository: `AGENT_CROSSING_ADMIN_TOKEN`, or else the pair in `AGENT_CROSSING_ADMIN_TOKENS` named by `AGENT_CROSSING_EDITOR` (default the first pair). It exits 0 when the tool answered, 1 when the tool refused the edit (the reason is on stderr) and 2 when the call itself failed: unreachable Api, bad token, arguments that are not a JSON object, or invalid parameters.
 
 ## How the World object works
 
 The whole world lives in memory as a `World` from `@agent-crossing/world/state/world`. SQLite holds it as rows: `entities (id, prefab, x, y, components JSON)`, one per entity with floors and liquids among them (each storing its `level` in its components), `meta (spawned)` and the history `events (seq, at, by, event JSON)`. The Api addresses the object by the instance name `WORLD_NAME`; changing it starts a fresh world with empty tables. On wake the rows are parsed with Schema into a snapshot and the world is rebuilt from it.
 
-Commands run one at a time. `decide` turns a command into events; for each event, inside one transaction for the whole command, the event row is inserted, `changesOf` gives its `Change`s, `statementsOf` (in `src/world-object/rows.ts`, the only SQL writer) turns them into upserts and deletes, and `apply` updates the in-memory world. The events are then published to the live feed. Read tools answer from memory; only `history` reads SQL.
+Commands run one at a time. `decide` turns a command into events; for each event, inside one transaction for the whole command, the event row is inserted, `changesOf` gives its `Change`s, `statementsOf` (in `src/world-object/rows.ts`, the only SQL writer) turns them into upserts and deletes, and `apply` updates the in-memory world. The events are then published to the live feed. Read tools answer from memory; only `history` reads SQL. The object writes its answers with `@agent-crossing/world/text`, because the world is in its memory and too large to send to the Worker.
 
 ## Notes on the stack
 
@@ -82,11 +82,18 @@ Commands run one at a time. `decide` turns a command into events; for each event
 
 ## Layout
 
-- `src/api.ts` the Worker: MCP, `/events`, authentication; `src/cluster.ts` the Rivet cluster and pool.
-- `src/world-object/world-object.ts` the Durable Object: the world in memory, commits, queries and the feed.
-- `src/world-object/rows.ts` the tables, `Change` to SQL statements, and parsing rows back.
-- `src/admin/tools.ts` the MCP tools; `src/admin/inputs.ts` their inputs and the commands they become.
-- `src/admin/queries.ts`, `src/admin/replies.ts`, `src/admin/refusal.ts` the text the tools answer with.
-- `src/admin/affected.ts` the area an edit touched; `src/admin/tokens.ts`; `src/admin/instructions.ts`.
-- `src/world-object/wire.ts` what crosses RPC and the opening frames; `src/spectate/sse.ts` the frames as server-sent events.
+Imports point one way: `world-object` reads only the world package, `admin` and `spectate` read `world-object`, and `api.ts` reads all three.
+
+- `src/api.ts` the Worker, which only routes: `/mcp` to the admin handler and `/events` to the spectator stream.
+- `src/cluster.ts` where the World object runs: the local Docker swarm under `alchemy dev`, a Rivet Cloud cluster when deployed.
+- `src/world-object/` keeping the world:
+  - `world-object.ts` the Durable Object: the world in memory, commits, reads and the feed.
+  - `rows.ts` the tables, `Change` to SQL statements, and parsing rows back.
+  - `wire.ts` what crosses its calls: the verdict on a command and the items of the feed.
+  - `client.ts` the object as typed calls, which is all that `admin` and `spectate` see of it.
+- `src/admin/` the editor's door:
+  - `server.ts` the MCP endpoint and its bearer tokens (`tokens.ts`), with the tools' `instructions.ts`.
+  - `tools.ts` the MCP tools; `inputs.ts` their inputs and the commands they become.
+  - `replies.ts` and `refusal.ts` the sentences that are the admin's own: what an edit did, and what to try after a refusal.
+- `src/spectate/` the spectator's door: `stream.ts` the `/events` response and `sse.ts` the frames as server-sent events.
 - `scripts/admin.ts` the command-line client.
