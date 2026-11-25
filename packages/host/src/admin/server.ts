@@ -9,6 +9,7 @@ import * as HttpServerResponse from "effect/http/HttpServerResponse";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import * as Redacted from "effect/Redacted";
+import * as Schema from "effect/Schema";
 
 import { INSTRUCTIONS } from "./instructions.ts";
 import { editorFor, parseEditors, TOKENS_VARIABLE } from "./tokens.ts";
@@ -20,6 +21,63 @@ const unauthorized = HttpServerResponse.text(
   "A valid Authorization: Bearer <token> header is required. Tokens are configured in AGENT_CROSSING_ADMIN_TOKENS.",
   { headers: { "www-authenticate": "Bearer" }, status: 401 }
 );
+
+const SPOKEN = McpProtocol.v2026_07_28;
+
+const decodeVersionHeader = Schema.decodeUnknownOption(
+  Schema.Struct({ "mcp-protocol-version": Schema.String })
+);
+
+const decodeRpcRequest = Schema.decodeUnknownOption(
+  Schema.fromJsonString(
+    Schema.Struct({
+      id: Schema.optionalKey(Schema.Union([Schema.String, Schema.Finite])),
+      params: Schema.optionalKey(
+        Schema.Struct({ protocolVersion: Schema.optionalKey(Schema.String) })
+      ),
+    })
+  )
+);
+
+const refusalMessage = (requested: Option.Option<string>) =>
+  Option.match(requested, {
+    onNone: () =>
+      `This server speaks only MCP revision ${SPOKEN.protocolVersion}, but the request named no revision.`,
+    onSome: (version) =>
+      `This server speaks only MCP revision ${SPOKEN.protocolVersion}, but the request asked for revision ${version}.`,
+  });
+
+const unsupportedRevision = (
+  request: HttpServerRequest.HttpServerRequest,
+  fromHeader: Option.Option<string>
+) =>
+  Effect.map(Effect.option(request.text), (body) => {
+    const parsedBody = Option.flatMap(body, decodeRpcRequest);
+
+    const requested = Option.orElse(fromHeader, () =>
+      Option.flatMap(parsedBody, ({ params }) =>
+        Option.fromUndefinedOr(params?.protocolVersion)
+      )
+    );
+
+    return HttpServerResponse.jsonUnsafe(
+      {
+        error: {
+          code: McpSchema.UNSUPPORTED_PROTOCOL_VERSION_ERROR_CODE,
+          data: {
+            requested: Option.getOrNull(requested),
+            supported: [SPOKEN.protocolVersion],
+          },
+          message: refusalMessage(requested),
+        },
+        id: Option.getOrNull(
+          Option.flatMap(parsedBody, ({ id }) => Option.fromUndefinedOr(id))
+        ),
+        jsonrpc: "2.0",
+      },
+      { status: 400 }
+    );
+  });
 
 const authenticated = (editors: Editors) =>
   McpServer.middleware<{ provides: Caller }>()((effect, { headers }) =>
@@ -48,17 +106,11 @@ export const adminHandler = Effect.gen(function* () {
     AdminTools.pipe(
       Layer.provide(authenticated(editors).layer),
       Layer.provide(
-        McpServer.layerHttp({
+        McpServer.layerHttpRequestScoped({
           instructions: INSTRUCTIONS,
           name: "agent-crossing-admin",
           path: "/mcp",
-          protocols: [
-            McpProtocol.v2026_07_28,
-            McpProtocol.v2025_11_25,
-            McpProtocol.v2025_06_18,
-            McpProtocol.v2025_03_26,
-            McpProtocol.v2024_11_05,
-          ],
+          protocols: [SPOKEN],
           version: "0.2.0",
         })
       )
@@ -71,6 +123,15 @@ export const adminHandler = Effect.gen(function* () {
   Effect.map(({ editors, mcp }) =>
     Effect.gen(function* () {
       const request = yield* HttpServerRequest.HttpServerRequest;
+
+      const fromHeader = Option.map(
+        decodeVersionHeader(request.headers),
+        (headers) => headers["mcp-protocol-version"]
+      );
+
+      if (!Option.contains(fromHeader, SPOKEN.protocolVersion)) {
+        return yield* unsupportedRevision(request, fromHeader);
+      }
 
       return Option.isSome(editorFor(editors, request.headers.authorization))
         ? yield* mcp

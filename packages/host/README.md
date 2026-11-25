@@ -19,7 +19,7 @@ Running and deploying are described in the [root README](../../README.md#develop
 
 No event is lost or repeated between the snapshot and the live events. A reconnect simply gets a new `Reset` and snapshot.
 
-**`POST /mcp`** The admin MCP server `agent-crossing-admin` over Streamable HTTP, protocol revisions 2024-11-05 to 2026-07-28. Send `Authorization: Bearer <token>`; anything else gets `401`.
+**`POST /mcp`** The admin MCP server `agent-crossing-admin` over Streamable HTTP, protocol revision 2026-07-28 only, served statelessly with each request its own. A request in any older revision, which would need a session kept in one Worker isolate's memory, is refused with `400` and a JSON-RPC error naming the supported revision and the one it asked for. Send `Authorization: Bearer <token>`; anything else gets `401`.
 
 ## Tools
 
@@ -35,7 +35,7 @@ Queries:
 - `list_prefabs` every prefab with its glyph, name, label, layer and habitat.
 - `history {limit?}` the latest events with sequence number, time and editor; default 20, at most 200.
 
-Edits, each answered with what happened and a map of the affected area (its bounding box plus 2 cells, at most 48 × 48, saying when it cuts). A refused edit is a tool error saying why and what would work; malformed arguments are a JSON-RPC invalid-params error naming the field.
+Edits, each answered with what happened and a map of the affected area (its bounding box plus 2 cells, at most 48 × 48, saying when it cuts). A refused edit is a tool error saying why and what would work, and so are malformed arguments, which name the field.
 
 - `paint_floor {region, floor?, level?}` lays or changes floors
 - `pour_liquid {region, liquid, bed?}` turns land into water, sinking the floor one level
@@ -67,7 +67,7 @@ bun scripts/admin.ts view_map '{"x1":0,"y1":0,"x2":40,"y2":20}'
 bun scripts/admin.ts spawn '{"prefab":"sign","x":4,"y":3,"components":{"text":"Welcome"}}'
 ```
 
-`pnpm admin <tool> '<json>'` does the same. It reads `AGENT_CROSSING_URL`, the Api's address (`http://localhost:1337` under `alchemy dev`, or the `api` address a deploy prints), and the token from the environment or from the `.env` at the root of the repository: `AGENT_CROSSING_ADMIN_TOKEN`, or else the pair in `AGENT_CROSSING_ADMIN_TOKENS` named by `AGENT_CROSSING_EDITOR` (default the first pair). It exits 0 when the tool answered, 1 when the tool refused the edit (the reason is on stderr) and 2 when the call itself failed: unreachable Api, bad token, arguments that are not a JSON object, or invalid parameters.
+`pnpm admin <tool> '<json>'` does the same. It reads `AGENT_CROSSING_URL`, the Api's address (`http://localhost:1337` under `alchemy dev`, or the `api` address a deploy prints), and the token from the environment or from the `.env` at the root of the repository: `AGENT_CROSSING_ADMIN_TOKEN`, or else the pair in `AGENT_CROSSING_ADMIN_TOKENS` named by `AGENT_CROSSING_EDITOR` (default the first pair). It exits 0 when the tool answered, 1 when the tool reported an error, which is a refused edit or arguments the tool does not accept (the reason is on stderr), and 2 when the call itself failed: unreachable Api, bad token, or arguments that are not a JSON object.
 
 ## How the World object works
 
