@@ -1,6 +1,6 @@
 # @agent-crossing/server
 
-The shell around `@agent-crossing/world`: one `World` Rivet Durable Object that holds the world in memory and in SQLite, and a Bun HTTP service in front of it with the admin MCP server and the spectator event stream. Both run on the local Docker swarm.
+The shell around `@agent-crossing/world`: one `World` Rivet Durable Object that holds the world in memory and in SQLite, and a Bun HTTP service in front of it with the admin MCP server and the spectator event stream. The service runs on the local Docker swarm; the World object's nodes run on Rivet Cloud.
 
 ## Run it locally
 
@@ -8,10 +8,11 @@ The shell around `@agent-crossing/world`: one `World` Rivet Durable Object that 
 docker swarm init --advertise-addr 127.0.0.1 --listen-addr 127.0.0.1:2377   # once per machine
 cd packages/server
 cp .env.example .env            # then put real tokens in it
+pnpm exec alchemy profile edit --add RivetCloud   # once: sign in to Rivet Cloud
 pnpm exec alchemy deploy --no-input --yes
 ```
 
-The service listens on `http://localhost:3000`. The Rivet engine runs on `localhost:6420` and the World object on a pool node, all as swarm services. `pnpm exec alchemy destroy` removes them.
+The service listens on `http://localhost:3000` as a swarm service. The World object runs on a node in Rivet Cloud: the `persistent` stage deploys to the `agent-crossing` cluster and every other stage to `agent-crossing-dev`. Deploying still needs Docker, which builds the node image that is uploaded to Rivet Cloud. `pnpm exec alchemy destroy` removes the stage's resources but leaves the clusters.
 
 A deploy rebuilds the Api image when `src/api.ts` changes. A change only in a module it imports may plan nothing for it; force it with `pnpm exec alchemy deploy --no-input --yes --force --include Api`. The World object runs in the `DefaultNodes` image, which `--include Api` does not rebuild; after changing `src/storage/world-object.ts` or anything it imports, deploy with `--force` alone. Alchemy keeps its state in `.alchemy/` (git-ignored) next to this file: deploy from the checkout that holds it, or copy it across.
 
@@ -89,7 +90,7 @@ Commands run one at a time. `decide` turns a command into events; for each event
 ## Notes on the stack
 
 - `@alchemy.run/docker@2.0.0-beta.87` is patched in `patches/`. Unpatched, it records an empty driver for a new swarm network and then tries to replace the in-use network on every later deploy ([alchemy-run/alchemy#3679](https://github.com/alchemy-run/alchemy/issues/3679)). Drop the patch once a release fixes it.
-- The service and the pool node run in `oven/bun` containers. `@effect/platform-bun` is a dependency so that it is bundled; without it Bun downloads it from npm each time a container starts.
+- The service runs in an `oven/bun` container. `@effect/platform-bun` is a dependency so that it is bundled; without it Bun downloads it from npm each time a container starts.
 - After a node restart or a deploy that changes the World object, the first call can hang for about 45 seconds before Rivet reschedules the object. Open streams close and reconnect.
 
 ## Layout
