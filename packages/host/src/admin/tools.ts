@@ -1,10 +1,18 @@
 import { PrefabName } from "@agent-crossing/world/definitions/prefabs";
 import type { Command } from "@agent-crossing/world/editing/command";
-import type { Region } from "@agent-crossing/world/editing/region";
 import type { Editor } from "@agent-crossing/world/history/edit";
 import { cellAt, COORDINATE_LIMIT } from "@agent-crossing/world/schema/cell";
-import type { Cell } from "@agent-crossing/world/schema/cell";
+import { Area } from "@agent-crossing/world/state/area";
 import { VIEW_MAX_RADIUS } from "@agent-crossing/world/text/agent-view";
+import {
+  FIND_DEFAULT_LIMIT,
+  FIND_MAX_LIMIT,
+} from "@agent-crossing/world/text/find";
+import {
+  HISTORY_DEFAULT_LIMIT,
+  HISTORY_MAX_LIMIT,
+} from "@agent-crossing/world/text/history";
+import { prefabsText } from "@agent-crossing/world/text/prefabs";
 import * as Tool from "effect/ai/Tool";
 import * as Toolkit from "effect/ai/Toolkit";
 import * as Context from "effect/Context";
@@ -14,8 +22,8 @@ import * as Random from "effect/Random";
 import * as Result from "effect/Result";
 import * as Schema from "effect/Schema";
 
+import type { WorldClient } from "../world-object/client.ts";
 import type { Verdict } from "../world-object/wire.ts";
-import { Area } from "./affected.ts";
 import {
   ChangeInput,
   changeCommand,
@@ -40,13 +48,6 @@ import {
   X,
   Y,
 } from "./inputs.ts";
-import {
-  FIND_DEFAULT_LIMIT,
-  FIND_MAX_LIMIT,
-  HISTORY_DEFAULT_LIMIT,
-  HISTORY_MAX_LIMIT,
-  prefabsText,
-} from "./queries.ts";
 import { rejectionText } from "./refusal.ts";
 import { editText, framedOf } from "./replies.ts";
 
@@ -61,29 +62,6 @@ export class Refused extends Schema.TaggedError<
   Refused,
   { readonly brand: unique symbol }
 >()("Refused", { message: Schema.String }) {}
-
-/** The World object, as the tools see it: decoded values in and out. */
-export interface WorldClient {
-  readonly act: (
-    command: typeof Command.Type,
-    by: typeof Editor.Type
-  ) => Effect.Effect<typeof Verdict.Type>;
-  readonly summary: Effect.Effect<string>;
-  readonly map: (
-    area: Option.Option<typeof Area.Type>
-  ) => Effect.Effect<string>;
-  readonly agentView: (
-    cell: typeof Cell.Type,
-    radius: number
-  ) => Effect.Effect<string>;
-  readonly inspect: (cell: typeof Cell.Type) => Effect.Effect<string>;
-  readonly find: (
-    region: Option.Option<typeof Region.Type>,
-    prefab: Option.Option<typeof PrefabName.Type>,
-    limit: number
-  ) => Effect.Effect<string>;
-  readonly history: (limit: number) => Effect.Effect<string>;
-}
 
 const reply = {
   dependencies: [Caller],
@@ -252,6 +230,9 @@ const areaFor = (input: {
   );
 };
 
+const EMPTY_WORLD =
+  "The world is empty: no cell has a floor. Start with generate_world or paint_floor.";
+
 const randomSeed = Random.nextIntBetween(0, 2_147_483_647);
 
 export const toolHandlers = (world: WorldClient) => {
@@ -262,8 +243,9 @@ export const toolHandlers = (world: WorldClient) => {
           Option.match(framedOf(verdict), {
             onNone: () => Effect.succeedNone,
             onSome: (framed) =>
-              Effect.map(world.map(Option.some(framed.area)), (map) =>
-                Option.some({ framed, map })
+              Effect.map(
+                world.map(Option.some(framed.area)),
+                Option.map((map) => ({ framed, map }))
               ),
           }),
           (shown) => editText(verdict, shown)
@@ -313,7 +295,11 @@ export const toolHandlers = (world: WorldClient) => {
       Effect.flatMap(cellFor(x, y), (cell) =>
         world.agentView(cell, radius ?? 8)
       ),
-    view_map: (input) => Effect.flatMap(areaFor(input), world.map),
+    view_map: (input) =>
+      Effect.map(
+        Effect.flatMap(areaFor(input), world.map),
+        Option.getOrElse(() => EMPTY_WORLD)
+      ),
     world_summary: () => world.summary,
   });
 };

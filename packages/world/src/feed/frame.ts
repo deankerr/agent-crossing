@@ -1,10 +1,7 @@
 import * as Schema from "effect/Schema";
 
-import { WorldEvent } from "../history/event.ts";
+import { Seq, WorldEvent } from "../history/event.ts";
 import { Change } from "../state/change.ts";
-
-/** The position of an event in the world's history. */
-export const Seq = Schema.Int.check(Schema.isGreaterThanOrEqualTo(0));
 
 /**
  * Frames of the spectator stream. A spectator starts from the empty world on

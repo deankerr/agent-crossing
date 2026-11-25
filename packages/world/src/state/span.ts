@@ -1,4 +1,5 @@
 import * as Arr from "effect/Array";
+import * as Option from "effect/Option";
 
 import { cellAt } from "../schema/cell.ts";
 import type { Cell } from "../schema/cell.ts";
@@ -30,3 +31,37 @@ export const cellsOfSpan = (span: Span) =>
       Arr.map(Arr.range(span.minX, span.maxX), (x) => cellAt(x, y))
     )
   );
+
+const spanOfCell = (cell: typeof Cell.Type) =>
+  ({ maxX: cell.x, maxY: cell.y, minX: cell.x, minY: cell.y }) satisfies Span;
+
+const union = (a: Span, b: Span) =>
+  ({
+    maxX: Math.max(a.maxX, b.maxX),
+    maxY: Math.max(a.maxY, b.maxY),
+    minX: Math.min(a.minX, b.minX),
+    minY: Math.min(a.minY, b.minY),
+  }) satisfies Span;
+
+/** The smallest span holding every cell, if there are any. */
+export const spanOfCells = (cells: Iterable<typeof Cell.Type>) =>
+  Arr.reduce(Arr.fromIterable(cells), Option.none<Span>(), (sofar, cell) =>
+    Option.some(
+      Option.match(sofar, {
+        onNone: () => spanOfCell(cell),
+        onSome: (span) => union(span, spanOfCell(cell)),
+      })
+    )
+  );
+
+export const widen = (a: Option.Option<Span>, b: Option.Option<Span>) =>
+  Option.match(a, {
+    onNone: () => b,
+    onSome: (left) =>
+      Option.some(
+        Option.match(b, {
+          onNone: () => left,
+          onSome: (right) => union(left, right),
+        })
+      ),
+  });

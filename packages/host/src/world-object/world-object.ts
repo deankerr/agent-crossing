@@ -2,21 +2,37 @@ import { PrefabName } from "@agent-crossing/world/definitions/prefabs";
 import { Command } from "@agent-crossing/world/editing/command";
 import { decide } from "@agent-crossing/world/editing/decide";
 import { Region } from "@agent-crossing/world/editing/region";
-import { FeedFrame, Seq } from "@agent-crossing/world/feed/frame";
+import { FeedFrame } from "@agent-crossing/world/feed/frame";
+import { openingFrames } from "@agent-crossing/world/feed/opening";
 import { Editor } from "@agent-crossing/world/history/edit";
-import { changesOf, WorldEvent } from "@agent-crossing/world/history/event";
+import {
+  changesOf,
+  Seq,
+  WorldEvent,
+} from "@agent-crossing/world/history/event";
+import { noTally, tallied } from "@agent-crossing/world/history/tally";
+import type { Tally } from "@agent-crossing/world/history/tally";
 import { Cell } from "@agent-crossing/world/schema/cell";
+import { Area, areaOfSpan } from "@agent-crossing/world/state/area";
 import { fromSnapshot } from "@agent-crossing/world/state/snapshot";
+import { spanOfCells, widen } from "@agent-crossing/world/state/span";
 import type { Span } from "@agent-crossing/world/state/span";
 import {
   applyAll,
   cellCount,
   entityCount,
+  touchedBy,
 } from "@agent-crossing/world/state/world";
 import type { World } from "@agent-crossing/world/state/world";
 import { agentViewText } from "@agent-crossing/world/text/agent-view";
 import { eventText } from "@agent-crossing/world/text/event";
+import { findText } from "@agent-crossing/world/text/find";
+import {
+  HISTORY_MAX_LIMIT,
+  historyText,
+} from "@agent-crossing/world/text/history";
 import { inspectText } from "@agent-crossing/world/text/inspect";
+import { mapIfAny } from "@agent-crossing/world/text/map";
 import { summaryText } from "@agent-crossing/world/text/summary";
 import * as Rivet from "@alchemy.run/rivet";
 import * as Arr from "effect/Array";
@@ -31,24 +47,9 @@ import * as Schema from "effect/Schema";
 import * as Semaphore from "effect/Semaphore";
 import * as Stream from "effect/Stream";
 
-import {
-  Area,
-  areaOfSpan,
-  spanOfCells,
-  touchedBy,
-  widen,
-} from "../admin/affected.ts";
-import {
-  EventRow,
-  findText,
-  HISTORY_MAX_LIMIT,
-  historyText,
-  mapOf,
-} from "../admin/queries.ts";
 import { Default } from "../cluster.ts";
-import { SCHEMA, snapshotOfRows, statementsOf } from "./rows.ts";
-import { FeedItem, noTally, openingFrames, tallied, Verdict } from "./wire.ts";
-import type { Tally } from "./wire.ts";
+import { EventRow, SCHEMA, snapshotOfRows, statementsOf } from "./rows.ts";
+import { FeedItem, Verdict } from "./wire.ts";
 
 /** The one world every caller shares. */
 export const WORLD_NAME = "world-2";
@@ -302,7 +303,9 @@ const instance = Effect.gen(function* () {
       ),
     map: (area: typeof Area.Encoded | null) =>
       Effect.flatMap(Effect.orDie(decodeArea(area)), (shown) =>
-        reading((current) => mapOf(current, Option.fromNullishOr(shown)))
+        reading((current) =>
+          Option.getOrNull(mapIfAny(current, Option.fromNullishOr(shown)))
+        )
       ),
     summary: () =>
       Effect.gen(function* () {

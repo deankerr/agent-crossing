@@ -26,7 +26,7 @@ export const DEMO_SIZE = 64;
 /** The demo stops editing after this many scripted edits. */
 export const DEMO_EDITS = 80;
 
-/** No more changes than this go in one `Changes` frame, as from a server. */
+/** No more changes than this go in one `Changes` frame, as from the Api. */
 export const CHANGES_PER_FRAME = 1000;
 
 const decodeGenerate = Schema.decodeUnknownOption(Command.cases.Generate);
@@ -117,7 +117,7 @@ const outcome = (
 export const demoWorld = (generate: Generate, now = 0) =>
   evolveAll(emptyWorld, outcome(emptyWorld, generate, now, painter));
 
-/** What a server would send a new spectator of `world`: a whole snapshot. */
+/** What the Api would send a new spectator of `world`: a whole snapshot. */
 export const snapshotFrames = (world: World, cursor: number) => {
   const frames: readonly (typeof FeedFrame.Type)[] = [
     FeedFrame.cases.Reset.make({}),

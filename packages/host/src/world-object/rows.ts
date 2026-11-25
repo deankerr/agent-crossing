@@ -1,4 +1,6 @@
 import { PrefabName } from "@agent-crossing/world/definitions/prefabs";
+import { Editor, Timestamp } from "@agent-crossing/world/history/edit";
+import { Seq, WorldEvent } from "@agent-crossing/world/history/event";
 import { Coordinate } from "@agent-crossing/world/schema/cell";
 import { Components } from "@agent-crossing/world/schema/components";
 import { Change } from "@agent-crossing/world/state/change";
@@ -19,6 +21,14 @@ export const SCHEMA = [
   "CREATE TABLE IF NOT EXISTS events (seq INTEGER PRIMARY KEY AUTOINCREMENT, at INTEGER NOT NULL, by TEXT NOT NULL, event TEXT NOT NULL)",
   "CREATE TABLE IF NOT EXISTS meta (id INTEGER PRIMARY KEY CHECK (id = 1), spawned INTEGER NOT NULL)",
 ] as const;
+
+/** A stored event, as `history` reads it back. */
+export const EventRow = Schema.Struct({
+  seq: Seq,
+  at: Timestamp,
+  by: Editor,
+  event: Schema.fromJsonString(WorldEvent),
+});
 
 /** What a statement binds: SQLite text or integers. */
 export type SqlValue = string | number;

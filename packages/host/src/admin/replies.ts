@@ -1,15 +1,61 @@
-import { spanOf } from "@agent-crossing/world/state/span";
+import { areaOfSpan } from "@agent-crossing/world/state/area";
+import type { Area } from "@agent-crossing/world/state/area";
+import {
+  spanHeight,
+  spanOf,
+  spanWidth,
+} from "@agent-crossing/world/state/span";
 import type { Span } from "@agent-crossing/world/state/span";
 import * as Arr from "effect/Array";
 import * as Option from "effect/Option";
 import * as Str from "effect/String";
 
 import type { Verdict } from "../world-object/wire.ts";
-import { EDIT_MAP_MAX_SIDE, framedEdit } from "./affected.ts";
-import type { Area, Framed } from "./affected.ts";
 
 /** Edits of more events than this are told as a tally, not sentence by sentence. */
 export const SENTENCES_SHOWN = 3;
+
+/** Cells of margin drawn around an edit. */
+export const EDIT_MAP_PADDING = 2;
+
+/** The largest side of the map shown after an edit. */
+export const EDIT_MAP_MAX_SIDE = 48;
+
+export interface Framed {
+  readonly area: typeof Area.Type;
+  /** Whether the edit reached beyond the area shown. */
+  readonly cut: boolean;
+  readonly edited: Span;
+}
+
+/**
+ * The area to show after an edit: its span padded by a margin, cut down from
+ * the north-west corner to at most 48 × 48 cells.
+ */
+export const framedEdit = (edited: Span) => {
+  const padded: Span = {
+    maxX: edited.maxX + EDIT_MAP_PADDING,
+    maxY: edited.maxY + EDIT_MAP_PADDING,
+    minX: edited.minX - EDIT_MAP_PADDING,
+    minY: edited.minY - EDIT_MAP_PADDING,
+  };
+
+  const cut =
+    spanWidth(padded) > EDIT_MAP_MAX_SIDE ||
+    spanHeight(padded) > EDIT_MAP_MAX_SIDE;
+
+  const framed: Framed = {
+    area: areaOfSpan({
+      ...padded,
+      maxX: Math.min(padded.maxX, padded.minX + EDIT_MAP_MAX_SIDE - 1),
+      maxY: Math.min(padded.maxY, padded.minY + EDIT_MAP_MAX_SIDE - 1),
+    }),
+    cut,
+    edited,
+  };
+
+  return framed;
+};
 
 type Accepted = Extract<typeof Verdict.Type, { readonly _tag: "Accepted" }>;
 

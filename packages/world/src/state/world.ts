@@ -230,3 +230,17 @@ export const countsBy = (
     )
   );
 };
+
+const oldCell = (world: World, id: Id) =>
+  Arr.fromOption(Option.map(entityOf(world, id), (entity) => entity.cell));
+
+/** The cells a change touches, given the world it applies to: where entities were and where they are now. */
+export const touchedBy = (world: World, change: typeof Change.Type) => {
+  const cells: readonly (typeof Cell.Type)[] = Change.match(change, {
+    EntityDropped: ({ id }) => oldCell(world, id),
+    EntityPut: ({ entity }) => [entity.cell, ...oldCell(world, entity.id)],
+    SpawnCounted: () => [],
+  });
+
+  return cells;
+};

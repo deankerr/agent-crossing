@@ -11,7 +11,7 @@ import type { WorldFeed } from "./live-feed.ts";
 const EDIT_EVERY = "3500 millis";
 
 /**
- * A feed with no server: the generated landscape as a snapshot, then a
+ * A feed with no Api: the generated landscape as a snapshot, then a
  * scripted edit every few seconds until {@link DEMO_EDITS} have been made.
  */
 export const demoFeed = (generate: Generate, clock: () => number) => {

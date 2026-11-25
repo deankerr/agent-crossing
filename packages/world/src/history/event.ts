@@ -10,6 +10,9 @@ import { applyAll, entityOf } from "../state/world.ts";
 import type { World } from "../state/world.ts";
 import { Editor, Timestamp } from "./edit.ts";
 
+/** The position of an event in the world's history. */
+export const Seq = Schema.Int.check(Schema.isGreaterThanOrEqualTo(0));
+
 /** No event carries more entities than this; `decide` splits bigger edits. */
 export const EVENT_MAX_ITEMS = 1000;
 

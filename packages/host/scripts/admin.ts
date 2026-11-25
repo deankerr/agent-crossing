@@ -28,7 +28,7 @@ Usage:
   bun scripts/admin.ts schema <tool>                 print a tool's JSON input schema
 
 Settings, from the environment or the .env at the root of the repository:
-  AGENT_CROSSING_URL          the server, the api address alchemy deploy prints
+  AGENT_CROSSING_URL          the Api, the api address alchemy deploy prints
   AGENT_CROSSING_ADMIN_TOKEN  the bearer token to use, or else
   ${TOKENS_VARIABLE} with AGENT_CROSSING_EDITOR naming which pair (default the first)
 
@@ -105,7 +105,7 @@ const settings = Effect.gen(function* () {
 
   if (Option.isNone(url)) {
     return yield* failed(
-      "No server: set AGENT_CROSSING_URL to the Api's address (http://localhost:1337 under alchemy dev, or the api address a deploy prints), in the environment or in the .env at the root of the repository."
+      "No Api: set AGENT_CROSSING_URL to the Api's address (http://localhost:1337 under alchemy dev, or the api address a deploy prints), in the environment or in the .env at the root of the repository."
     );
   }
 
@@ -221,19 +221,19 @@ const connect = Effect.gen(function* () {
 
       const text = yield* response.text.pipe(
         Effect.catchTag("HttpClientError", (issue) =>
-          failed(`The server's reply could not be read: ${issue.message}`)
+          failed(`The Api's reply could not be read: ${issue.message}`)
         )
       );
 
       if (response.status === 401) {
         return yield* failed(
-          `The server refused the token (401). Check it against ${TOKENS_VARIABLE} in the deployed service's .env.`
+          `The Api refused the token (401). Check it against ${TOKENS_VARIABLE} in the deployed service's .env.`
         );
       }
 
       if (response.status >= 400) {
         return yield* failed(
-          `The server answered ${response.status}: ${Str.trim(text) || "(no body)"}`
+          `The Api answered ${response.status}: ${Str.trim(text) || "(no body)"}`
         );
       }
 
@@ -241,7 +241,7 @@ const connect = Effect.gen(function* () {
         bodyJson(text, response.headers["content-type"] ?? "")
       ).pipe(
         Effect.catchTag("SchemaError", () =>
-          failed(`The server's reply to ${method} is not JSON-RPC: ${text}`)
+          failed(`The Api's reply to ${method} is not JSON-RPC: ${text}`)
         )
       );
 

@@ -4,7 +4,7 @@ import { Entity, EntityId } from "./entity.ts";
 
 /**
  * The smallest writes to world state. `apply` in `world` is the only function
- * that modifies a world, and the server persists the same changes as rows, so
+ * that modifies a world, and the host persists the same changes as rows, so
  * this union is the single definition of what state is.
  */
 export const Change = Schema.TaggedUnion({

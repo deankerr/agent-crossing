@@ -74,7 +74,7 @@ export interface LiveFeedOptions {
 }
 
 /**
- * The server's event stream. The browser retries a dropped stream on its
+ * The Api's event stream. The browser retries a dropped stream on its
  * own; when it gives up, a new stream is opened after a growing delay. Every
  * new stream starts with `Reset`, so nothing needs resuming.
  */

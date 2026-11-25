@@ -30,7 +30,7 @@ const stageNotice = (state: FeedState) =>
     onNone: () =>
       Option.some(
         statusOf(state) === "reconnecting"
-          ? "Looking for the world… it will appear once the server answers."
+          ? "Looking for the world… it will appear once the Api answers."
           : "Loading the world…"
       ),
     onSome: ({ world }) =>

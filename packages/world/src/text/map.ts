@@ -8,11 +8,12 @@ import type { Rect } from "../editing/region.ts";
 import { cellAt, sameCell } from "../schema/cell.ts";
 import type { Cell } from "../schema/cell.ts";
 import type { Layer } from "../schema/components.ts";
+import type { Area } from "../state/area.ts";
 import { componentsOf, labelOf, storedLevel } from "../state/entity.ts";
 import type { Entity } from "../state/entity.ts";
 import { spanOf } from "../state/span.ts";
 import type { Span } from "../state/span.ts";
-import { entitiesAt, floorAt, liquidAt } from "../state/world.ts";
+import { bounds, entitiesAt, floorAt, liquidAt } from "../state/world.ts";
 import type { World } from "../state/world.ts";
 import { listed, spanText } from "./words.ts";
 
@@ -233,3 +234,20 @@ export const mapText = (
     "\n"
   );
 };
+
+/**
+ * A map of the area, or of the whole world when none is given; none when
+ * no area is given and no cell has a floor.
+ */
+export const mapIfAny = (world: World, area: Option.Option<typeof Area.Type>) =>
+  Option.map(
+    Option.orElse(area, () =>
+      Option.flatMap(bounds(world), (span) =>
+        Option.all({
+          from: cellAt(span.minX, span.minY),
+          to: cellAt(span.maxX, span.maxY),
+        })
+      )
+    ),
+    (rect) => mapText(world, rect)
+  );
