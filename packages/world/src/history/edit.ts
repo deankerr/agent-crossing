@@ -1,6 +1,6 @@
 import * as Schema from "effect/Schema";
 
-export const EDITOR_MAX_LENGTH = 24;
+const EDITOR_MAX_LENGTH = 24;
 
 /** Who made an edit: a human or an AI painting the world. */
 export const Editor = Schema.Trim.check(

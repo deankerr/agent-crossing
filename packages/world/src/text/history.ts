@@ -12,8 +12,7 @@ import { eventText } from "./event.ts";
 export const HISTORY_MAX_LIMIT = 200;
 export const HISTORY_DEFAULT_LIMIT = 20;
 
-/** An event as the history keeps it: its position and when it was recorded. */
-export const HistoryEntry = Schema.Struct({
+const HistoryEntry = Schema.Struct({
   seq: Seq,
   at: Timestamp,
   event: WorldEvent,

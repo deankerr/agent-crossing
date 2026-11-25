@@ -7,7 +7,7 @@ import * as Result from "effect/Result";
 import { PrefabName } from "../src/definitions/prefabs/index.ts";
 import { Command, LiquidName } from "../src/editing/command.ts";
 import { decide } from "../src/editing/decide.ts";
-import { Region, rect } from "../src/editing/region.ts";
+import { Region } from "../src/editing/region.ts";
 import { seededRandom } from "../src/generation/random.ts";
 import type { SeededRandom } from "../src/generation/random.ts";
 import { Editor } from "../src/history/edit.ts";
@@ -49,7 +49,7 @@ const anyCell = (random: SeededRandom) =>
 
 const anyRegion = (random: SeededRandom) =>
   random.chance(0.5)
-    ? rect(anyCell(random), anyCell(random))
+    ? Region.cases.Rect.make({ from: anyCell(random), to: anyCell(random) })
     : Region.cases.Disc.make({
         center: anyCell(random),
         radius: random.integer(4),

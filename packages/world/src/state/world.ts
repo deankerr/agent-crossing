@@ -122,8 +122,7 @@ export const entitiesAt = (world: World, cell: At) =>
       ),
   });
 
-/** The entity filling `layer` of the cell, if any. */
-export const occupantOf = (world: World, cell: At, layer: typeof Layer.Type) =>
+const occupantOf = (world: World, cell: At, layer: typeof Layer.Type) =>
   Arr.findFirst(
     entitiesAt(world, cell),
     (entity) => componentsOf(entity).layer === layer
@@ -134,10 +133,6 @@ export const floorAt = (world: World, cell: At) =>
 
 export const liquidAt = (world: World, cell: At) =>
   occupantOf(world, cell, "liquid");
-
-/** A cell is in the world when it has a floor. */
-export const isInWorld = (world: World, cell: At) =>
-  Option.isSome(floorAt(world, cell));
 
 /** Land when the cell has a floor and no liquid, water with both, none without a floor. */
 export const placeAt = (world: World, cell: At) =>
@@ -174,9 +169,7 @@ export const isFloor = (entity: typeof Entity.Type) =>
 export const isLiquid = (entity: typeof Entity.Type) =>
   componentsOf(entity).layer === "liquid";
 
-/** Every floor, oldest first. */
-export const allFloors = (world: World) =>
-  Arr.filter(allEntities(world), isFloor);
+const allFloors = (world: World) => Arr.filter(allEntities(world), isFloor);
 
 /** How many cells are in the world. */
 export const cellCount = (world: World) => allFloors(world).length;

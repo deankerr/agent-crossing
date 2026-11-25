@@ -6,8 +6,6 @@ import { Made } from "./made/index.ts";
 import { Nature } from "./nature/index.ts";
 import { Terrain } from "./terrain/index.ts";
 
-export { Made } from "./made/index.ts";
-
 export { Nature } from "./nature/index.ts";
 
 export { Terrain } from "./terrain/index.ts";

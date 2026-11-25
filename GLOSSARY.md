@@ -90,7 +90,7 @@ _Avoid_: Tint, dye, the entity's color
 
 _Avoid_: Ink, swatches, theme
 
-**Shade**: A named color in the palette, with the value the spectator view paints and the plain color word it belongs to. Bark is a shade of brown.
+**Shade**: A named color in the palette, with the value the spectator view paints.
 
 _Avoid_: Ink, hex, hue
 

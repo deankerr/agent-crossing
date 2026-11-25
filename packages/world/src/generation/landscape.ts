@@ -19,7 +19,7 @@ export interface NewEntity {
   readonly components: typeof Components.Type;
 }
 
-export interface LandscapeSpec {
+interface LandscapeSpec {
   readonly seed: number;
   readonly width: number;
   readonly height: number;

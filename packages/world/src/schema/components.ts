@@ -4,20 +4,17 @@ import { Level } from "./cell.ts";
 import { Model, PartName } from "./model.ts";
 import { Shade } from "./palette.ts";
 
-export const TEXT_MAX_LENGTH = 280;
-export const NOUN_MAX_LENGTH = 40;
+const TEXT_MAX_LENGTH = 280;
+const NOUN_MAX_LENGTH = 40;
 
 const trimmedText = (maximum: number) =>
   Schema.Trim.check(Schema.isMinLength(1), Schema.isMaxLength(maximum));
 
-/** Writing on a sign and the like. */
-export const Text = trimmedText(TEXT_MAX_LENGTH);
+const Text = trimmedText(TEXT_MAX_LENGTH);
 
-/** What an agent calls an entity, in the singular: "oak tree". */
-export const Noun = trimmedText(NOUN_MAX_LENGTH);
+const Noun = trimmedText(NOUN_MAX_LENGTH);
 
-/** One printable ASCII character drawn on an agent's map. */
-export const Glyph = Schema.String.check(Schema.isPattern(/^[!-~]$/u));
+const Glyph = Schema.String.check(Schema.isPattern(/^[!-~]$/u));
 
 /** How an agent reads an entity: "a birch tree", drawn as `I`. */
 export const Label = Schema.Struct({
@@ -35,8 +32,7 @@ export const Layer = Schema.Literals(["floor", "liquid", "cover", "object"]);
 /** A place an entity can be: land is a floor with no liquid over it. */
 export const Place = Schema.Literals(["land", "water"]);
 
-/** A component that matters by being present. */
-export const Marker = Schema.Literal(true);
+const Marker = Schema.Literal(true);
 
 /** The shades an entity gives to named parts of its model. */
 export const Colors = Schema.Record(PartName, Shade);

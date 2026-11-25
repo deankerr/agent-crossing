@@ -17,8 +17,7 @@ import { bounds, entitiesAt, floorAt, liquidAt } from "../state/world.ts";
 import type { World } from "../state/world.ts";
 import { listed, spanText } from "./words.ts";
 
-/** Maps wider or taller than this are cut down, and the text says so. */
-export const MAP_MAX_SIDE = 128;
+const MAP_MAX_SIDE = 128;
 
 const BLANK = " ";
 
@@ -206,15 +205,7 @@ const clamped = (span: Span) =>
     minY: span.minY,
   }) satisfies Span;
 
-/**
- * A character map of the rectangle, a level map of the same cells and a
- * legend of the glyphs that appear. Larger than 128 × 128 is cut down from
- * the north-west corner, and the text says so.
- */
-export const mapText = (
-  world: World,
-  rect: Pick<typeof Rect.Type, "from" | "to">
-) => {
+const mapText = (world: World, rect: Pick<typeof Rect.Type, "from" | "to">) => {
   const asked = spanOf(rect.from, rect.to);
   const span = clamped(asked);
 

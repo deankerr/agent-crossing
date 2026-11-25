@@ -76,7 +76,7 @@ export const partHex = (
 ) => {
   const shade: typeof Shade.Type = colors?.[part.name] ?? part.shade;
 
-  return palette[shade].hex;
+  return palette[shade];
 };
 
 const byPart = Order.mapInput(

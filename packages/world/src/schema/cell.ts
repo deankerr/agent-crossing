@@ -1,4 +1,3 @@
-import * as Arr from "effect/Array";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 
@@ -38,19 +37,5 @@ export const cellKey = (cell: typeof Cell.Type) =>
 
 export const sameCell = (a: typeof Cell.Type, b: typeof Cell.Type) =>
   a.x === b.x && a.y === b.y;
-
-const STEPS = [
-  [0, -1],
-  [1, 0],
-  [0, 1],
-  [-1, 0],
-] as const;
-
-/** The four cells sharing an edge with `cell`: north, east, south, west. */
-export const neighbors = (cell: typeof Cell.Type) =>
-  Arr.getSomes(Arr.map(STEPS, ([dx, dy]) => cellAt(cell.x + dx, cell.y + dy)));
-
-export const chebyshevDistance = (a: typeof Cell.Type, b: typeof Cell.Type) =>
-  Math.max(Math.abs(a.x - b.x), Math.abs(a.y - b.y));
 
 export const formatCell = (cell: typeof Cell.Type) => `${cell.x},${cell.y}`;

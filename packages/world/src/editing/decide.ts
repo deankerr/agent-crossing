@@ -51,7 +51,7 @@ type Bag = typeof Components.Type;
 
 type Name = typeof PrefabName.Type;
 
-export type Decision = Result.Result<readonly Event[], typeof Rejection.Type>;
+type Decision = Result.Result<readonly Event[], typeof Rejection.Type>;
 
 interface Edit {
   readonly at: typeof Timestamp.Type;

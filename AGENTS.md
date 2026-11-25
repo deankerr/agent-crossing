@@ -42,6 +42,6 @@ One world, kept in one place, with a door for each role: a spectator watches and
 
 - `packages/world` What the world is and how it changes, as pure functions: `schema` (the vocabulary definitions are written in), `definitions` (prefabs and biomes, as data only), `state` and `rules` (what exists and what may), `history` (events), `editing` (the editor's commands), `generation`, `text` (the world in words) and `feed` (the frames spectators receive)
 - `packages/host` Where the one live world is kept and served: the World Durable Object that orders commands and stores rows (`world-object`), the admin MCP tools (`admin`) and the spectator event stream (`spectate`), routed by a Cloudflare Worker (`api.ts`)
-- `packages/spectator` The read-only 3D spectator view of the world, drawn from each prefab's model (`feed`, `scene`, `ui`), with an in-browser demo at `?demo`
+- `packages/spectator` The read-only 3D spectator view of the world, drawn from each prefab's model (`feed`, `scene`, `ui`)
 
 Imports point one way: `world` ← `host/world-object` ← `host/admin` and `host/spectate` ← `host/api.ts`. The world package holds no sentence that names an admin tool.

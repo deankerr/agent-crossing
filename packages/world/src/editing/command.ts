@@ -135,5 +135,3 @@ export const Command = Schema.Union([
   RemoveIn,
   Generate,
 ]).pipe(Schema.toTaggedUnion("_tag"));
-
-export const decodeCommand = Schema.decodeUnknownResult(Command);

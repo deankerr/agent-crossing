@@ -12,7 +12,7 @@ export const WorldSnapshot = Schema.Struct({
   spawned: Schema.Int.check(Schema.isGreaterThanOrEqualTo(0)),
 });
 
-export const toSnapshot = (world: World) =>
+const toSnapshot = (world: World) =>
   ({
     entities: allEntities(world),
     spawned: world.spawned,

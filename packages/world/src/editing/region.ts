@@ -33,20 +33,13 @@ export const Disc = Schema.TaggedStruct("Disc", {
   ),
 });
 
-/** A list of cells; repeats count once. */
-export const Cells = Schema.TaggedStruct("Cells", {
+const Cells = Schema.TaggedStruct("Cells", {
   cells: Schema.NonEmptyArray(Cell).check(Schema.isMaxLength(REGION_MAX_AREA)),
 });
 
 export const Region = Schema.Union([Rect, Disc, Cells]).pipe(
   Schema.toTaggedUnion("_tag")
 );
-
-export const rect = (from: typeof Cell.Type, to: typeof Cell.Type) => {
-  const region: typeof Region.Type = Rect.make({ from, to });
-
-  return region;
-};
 
 const discCells = ({ center, radius }: typeof Disc.Type) =>
   Arr.filter(

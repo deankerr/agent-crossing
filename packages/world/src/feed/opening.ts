@@ -4,8 +4,7 @@ import { changesFor } from "../state/snapshot.ts";
 import type { World } from "../state/world.ts";
 import { FeedFrame } from "./frame.ts";
 
-/** No `Changes` frame carries more changes than this. */
-export const FRAME_MAX_CHANGES = 1000;
+const FRAME_MAX_CHANGES = 1000;
 
 /**
  * The frames that open a feed: `Reset`, the world as batches of changes from

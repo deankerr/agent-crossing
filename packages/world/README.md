@@ -26,9 +26,9 @@ Events are kept apart from commands because they outlive them: a command is one 
 
 The text here describes the world and never names a tool. Advice about which admin tool to use next belongs to the host's admin tools.
 
-The palette sits in the schema because shades are words that models are written in, like the color words beside it.
+The palette sits in the schema because shades are words that models are written in.
 
-Other packages import `@agent-crossing/world/schema/*`, `/definitions/prefabs`, `/definitions/biomes`, `/state/*`, `/rules/*`, `/history/*`, `/editing/*`, `/generation/*`, `/text/*` and `/feed/*`.
+Other packages import `@agent-crossing/world/schema/*`, `/definitions/prefabs`, `/state/*`, `/rules/*`, `/history/*`, `/editing/*`, `/text/*` and `/feed/*`.
 
 ## How the world is described
 
@@ -90,7 +90,7 @@ export const Oak = prefab("oak", {
 
 **A model is named parts.** Each part has one shade and one or more forms, and a form is a solid with an optional position, turn, scale and tone. An entity has no single color. Its `colors` component names a part and the shade to give it.
 
-**A shade is an entry of the palette** with the value the spectator view paints and a plain color word, so that bark can be described to an agent as brown.
+**A shade is an entry of the palette** with the value the spectator view paints.
 
 **Related prefabs are a plain record.** `flower-patch.ts` builds seven complete prefabs from one unexported base and exports them as `FlowerPatches`. There is no "variant" concept.
 
@@ -109,7 +109,7 @@ export const Meadow = biome({
 });
 ```
 
-At most one entry of `grows` is placed per cell. Each entry of `extras` is rolled on its own and may share the cell. An entry is a prefab or a choice between prefabs, made with `weighted` or `anyOf`.
+At most one entry of `grows` is placed per cell. Each entry of `extras` is rolled on its own and may share the cell. An entry is a prefab or a choice between prefabs, made with `weighted`.
 
 **To add a prefab:** write its file, add it to its category's `index.ts`, and add it to a biome if it should generate. The stored prefab names, the admin tools and the spectator view all follow from the index.
 
@@ -145,7 +145,7 @@ These came up while designing the package and were set aside on purpose.
 | Flying and floating, and leaving the edge of the world | An entity resting on nothing may store its own level; nothing is built |
 | Fish, plants on a pond bed, water depth | Today's model is enough for a simple pond |
 | Obstacle as more than yes or no | Kept binary, known to be too simple |
-| Appearance described to agents | The data is in place; no text is produced from it |
+| Appearance described to agents | Nothing is in place yet |
 | A name on any entity, shown as a floating badge | There is no name component yet |
 | Who may change which component | Belongs with commands and actions |
 | Prefabs defined as stored data, without a code change | Prefabs stay in code for now |

@@ -79,8 +79,7 @@ export const ensurePlaceable = (
     }
   });
 
-/** Whether an entity already in the world may stay where it is. */
-export const fits = (world: World, entity: typeof Entity.Type) =>
+const fits = (world: World, entity: typeof Entity.Type) =>
   Result.isSuccess(
     ensurePlaceable(
       world,
