@@ -37,6 +37,9 @@ const encodeArea = Schema.encodeEffect(Schema.NullOr(Area));
 const encodeRegion = Schema.encodeEffect(Schema.NullOr(Region));
 const encodePrefab = Schema.encodeEffect(Schema.NullOr(PrefabName));
 
+/** Where `alchemy dev` serves the Api on this machine. */
+export const DEV_PORT = 1337;
+
 const TEXT_CONTENT = (text: string) => [{ text, type: "text" as const }];
 
 const SSE_HEADERS = {
@@ -64,7 +67,7 @@ const authenticated = (editors: Editors) =>
 
 export default class Api extends Cloudflare.Worker<Api>()(
   "Api",
-  { main: import.meta.url },
+  { dev: { port: DEV_PORT, strictPort: true }, main: import.meta.url },
   Effect.gen(function* () {
     const editors = yield* Config.Redacted(TOKENS_VARIABLE).pipe(
       Effect.flatMap((tokens) =>

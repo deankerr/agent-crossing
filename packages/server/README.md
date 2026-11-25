@@ -1,12 +1,12 @@
 # @agent-crossing/server
 
-The shell around `@agent-crossing/world`: one `World` Rivet Durable Object that holds the world in memory and in SQLite, and a Cloudflare Worker in front of it with the admin MCP server and the spectator event stream. The stack also deploys the viewer as a Cloudflare site. The World object's nodes run on Rivet Cloud.
+The shell around `@agent-crossing/world`: one `World` Rivet Durable Object that holds the world in memory and in SQLite, and a Cloudflare Worker in front of it with the admin MCP server and the spectator event stream. The stack also serves the viewer. The World object's nodes run on the local Docker swarm under `alchemy dev` and on Rivet Cloud when deployed.
 
-Deploying is described in the [root README](../../README.md#deploy-a-stage).
+Running and deploying are described in the [root README](../../README.md#develop-locally).
 
 ## Admin tokens
 
-`AGENT_CROSSING_ADMIN_TOKENS` lists who may edit the world as comma-separated `name:token` pairs, for example `dean:<token>,claude:<token>`. Names are 1-24 characters and must differ ignoring case; the name is recorded as the editor of every event made with that token. Tokens are at least 16 characters of letters, digits, `_ . ~ -`; make one with `openssl rand -hex 24`. Alchemy reads the variable from the `.env` (git-ignored) at the root of the repository or the environment at deploy time and binds it to the Api Worker as a secret. A malformed value fails the deploy and the Worker with a message saying what is wrong.
+`AGENT_CROSSING_ADMIN_TOKENS` lists who may edit the world as comma-separated `name:token` pairs, for example `dean:<token>,claude:<token>`. Names are 1-24 characters and must differ ignoring case; the name is recorded as the editor of every event made with that token. Tokens are at least 16 characters of letters, digits, `_ . ~ -`; make one with `openssl rand -hex 24`. Alchemy reads the variable from the `.env` (git-ignored) at the root of the repository or the environment and binds it to the Api Worker as a secret. A malformed value fails the deploy and the Worker with a message saying what is wrong.
 
 ## Endpoints
 
@@ -67,7 +67,7 @@ bun scripts/admin.ts view_map '{"x1":0,"y1":0,"x2":40,"y2":20}'
 bun scripts/admin.ts spawn '{"prefab":"sign","x":4,"y":3,"components":{"text":"Welcome"}}'
 ```
 
-`pnpm admin <tool> '<json>'` does the same. It reads `AGENT_CROSSING_URL`, the `api` address the deploy prints, and the token from the environment or from the `.env` at the root of the repository: `AGENT_CROSSING_ADMIN_TOKEN`, or else the pair in `AGENT_CROSSING_ADMIN_TOKENS` named by `AGENT_CROSSING_EDITOR` (default the first pair). It exits 0 when the tool answered, 1 when the tool refused the edit (the reason is on stderr) and 2 when the call itself failed: unreachable server, bad token, arguments that are not a JSON object, or invalid parameters.
+`pnpm admin <tool> '<json>'` does the same. It reads `AGENT_CROSSING_URL`, the Api's address (`http://localhost:1337` under `alchemy dev`, or the `api` address a deploy prints), and the token from the environment or from the `.env` at the root of the repository: `AGENT_CROSSING_ADMIN_TOKEN`, or else the pair in `AGENT_CROSSING_ADMIN_TOKENS` named by `AGENT_CROSSING_EDITOR` (default the first pair). It exits 0 when the tool answered, 1 when the tool refused the edit (the reason is on stderr) and 2 when the call itself failed: unreachable server, bad token, arguments that are not a JSON object, or invalid parameters.
 
 ## How the World object works
 

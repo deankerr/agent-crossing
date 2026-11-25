@@ -11,6 +11,7 @@
   },
   "devDependencies": {
     "@alchemy.run/cloudflare": "catalog:",
+    "@alchemy.run/docker": "catalog:",
     "@alchemy.run/rivet": "catalog:",
     "@effect/tsgo": "0.73.2",
     "@interfere/landmines": "^0.1.1",

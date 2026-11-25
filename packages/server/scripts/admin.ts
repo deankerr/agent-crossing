@@ -105,7 +105,7 @@ const settings = Effect.gen(function* () {
 
   if (Option.isNone(url)) {
     return yield* failed(
-      "No server: set AGENT_CROSSING_URL to the api address that alchemy deploy prints, in the environment or in the .env at the root of the repository."
+      "No server: set AGENT_CROSSING_URL to the Api's address (http://localhost:1337 under alchemy dev, or the api address a deploy prints), in the environment or in the .env at the root of the repository."
     );
   }
 

@@ -25,9 +25,12 @@
 
 Turn a lint rule off in `oxlint.config.ts` only when it conflicts with idiomatic Effect or Alchemy code.
 
-## Deploy
+## Run and deploy
 
-The one Alchemy stack is `alchemy.run.ts` at the root; preview with `pnpm exec alchemy plan` and deploy with `pnpm exec alchemy deploy`, from the root.
+The one Alchemy stack is `alchemy.run.ts` at the root, and its commands run from the root.
+
+- **Develop**: `pnpm exec alchemy dev` runs everything on this machine, with Rivet on the local Docker swarm
+- **Deploy the persistent world**: `pnpm exec alchemy deploy --stage persistent`, to Rivet Cloud and Cloudflare; preview with `pnpm exec alchemy plan --stage persistent`
 
 ## Packages
 

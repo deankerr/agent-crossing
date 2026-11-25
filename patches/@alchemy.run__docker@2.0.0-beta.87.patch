@@ -1,0 +1,60 @@
+diff --git a/lib/Network.js b/lib/Network.js
+index 99ad990959e091c03d4f335f80bf233e2ef8346f..d407b7996fe909ff67e3807c3fb77f37ce23f52f 100644
+--- a/lib/Network.js
++++ b/lib/Network.js
+@@ -8,6 +8,7 @@ import * as Effect from "effect/Effect";
+ import * as Equal from "effect/Equal";
+ import * as Net from "effect/net";
+ import * as Result from "effect/Result";
++import * as Schedule from "effect/Schedule";
+ import * as Schema from "effect/Schema";
+ import { Docker, dockerEngineContextName, dockerPhysicalName } from "./Docker.js";
+ /**
+@@ -221,7 +222,14 @@ export const NetworkProvider = () => Provider.effect(Network, Effect.gen(functio
+                 label: { ...args.label, ...internalTags },
+                 context,
+             });
+-            return toNetworkAttributes(yield* docker.network.inspect(createdId, context));
++            // Swarm allocates an overlay network after `network create` returns, and
++            // until then `inspect` reports an empty driver. Recording that makes the
++            // next deploy see a driver change and replace the in-use network.
++            return toNetworkAttributes(yield* docker.network.inspect(createdId, context).pipe(Effect.repeat({
++                until: (info) => info.Driver !== "",
++                schedule: Schedule.spaced("50 millis"),
++                times: 100,
++            })));
+         }),
+         delete: Effect.fn(({ olds, output }) => docker.network
+             .remove(output.id, dockerEngineContextName(olds?.context))
+diff --git a/src/Network.ts b/src/Network.ts
+index 203e8ec03c06352b702ce5055e4f95c34b41dfd4..b2a11a9740af690f9821efd715626b20a5eca3bc 100644
+--- a/src/Network.ts
++++ b/src/Network.ts
+@@ -8,6 +8,7 @@ import * as Effect from "effect/Effect";
+ import * as Equal from "effect/Equal";
+ import * as Net from "effect/net";
+ import * as Result from "effect/Result";
++import * as Schedule from "effect/Schedule";
+ import * as Schema from "effect/Schema";
+ import { Docker, dockerEngineContextName, dockerPhysicalName } from "./Docker.ts";
+ import type { Providers } from "./Providers.ts";
+@@ -345,7 +346,18 @@ export const NetworkProvider = () =>
+             label: { ...args.label, ...internalTags },
+             context,
+           });
+-          return toNetworkAttributes(yield* docker.network.inspect(createdId, context));
++          // Swarm allocates an overlay network after `network create` returns, and
++          // until then `inspect` reports an empty driver. Recording that makes the
++          // next deploy see a driver change and replace the in-use network.
++          return toNetworkAttributes(
++            yield* docker.network.inspect(createdId, context).pipe(
++              Effect.repeat({
++                until: (info) => info.Driver !== "",
++                schedule: Schedule.spaced("50 millis"),
++                times: 100,
++              }),
++            ),
++          );
+         }),
+         delete: Effect.fn(({ olds, output }) =>
+           docker.network
