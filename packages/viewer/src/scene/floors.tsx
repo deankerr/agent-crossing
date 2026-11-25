@@ -58,6 +58,25 @@ const materialOf = (group: ColumnGroup) => {
   return material;
 };
 
+const DEPTH_FIRST = -2;
+const BLEND_SECOND = -1;
+
+const depthMaterials = new Map<string, Material>();
+
+const depthMaterialOf = (group: ColumnGroup) => {
+  const cached = depthMaterials.get(group.key);
+
+  if (cached !== undefined) {
+    return cached;
+  }
+
+  const material = materialOf(group).clone();
+  material.colorWrite = false;
+  depthMaterials.set(group.key, material);
+
+  return material;
+};
+
 const placeColumn: Place<Column> = (column, matrix) => {
   matrix.compose(
     position.set(
@@ -80,7 +99,13 @@ export interface CellPicking {
   readonly onSelect: (cell: typeof Cell.Type) => void;
 }
 
-/** Every floor and liquid as cell-filling boxes, one instanced mesh per material. */
+/**
+ * Every floor and liquid as cell-filling boxes, one instanced mesh per
+ * material. A translucent group is drawn twice, depth alone and then color,
+ * so that only its nearest face blends: without that, the wall between two
+ * neighboring water cells shows through whichever of them happens to be
+ * drawn second.
+ */
 export const Floors = ({
   onHover,
   onLeave,
@@ -104,6 +129,20 @@ export const Floors = ({
 
   return (
     <group>
+      {Arr.map(
+        Arr.filter(groups, (group) => group.opacity < 1),
+        (group) => (
+          <Instances
+            geometry={unitBox}
+            items={group.columns}
+            key={group.key}
+            material={depthMaterialOf(group)}
+            paint={paintColumn}
+            place={placeColumn}
+            renderOrder={DEPTH_FIRST}
+          />
+        )
+      )}
       {Arr.map(groups, (group) => (
         <Instances
           castShadow={!group.liquid}
@@ -117,6 +156,7 @@ export const Floors = ({
           paint={paintColumn}
           place={placeColumn}
           receiveShadow
+          renderOrder={group.opacity < 1 ? BLEND_SECOND : 0}
         />
       ))}
     </group>

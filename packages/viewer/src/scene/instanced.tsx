@@ -26,6 +26,8 @@ export interface InstancesProps<A> {
   readonly paint: Paint<A>;
   readonly castShadow?: boolean;
   readonly receiveShadow?: boolean;
+  /** Draw order among meshes of the same pass: lower is earlier. */
+  readonly renderOrder?: number;
   readonly onPick?: (item: A, event: ThreeEvent<PointerEvent>) => void;
   readonly onPickClick?: (item: A, event: ThreeEvent<MouseEvent>) => void;
   readonly onLeave?: () => void;
@@ -49,6 +51,7 @@ export const Instances = <A,>({
   paint,
   place,
   receiveShadow = false,
+  renderOrder = 0,
 }: InstancesProps<A>) => {
   const mesh = useRef<InstancedMesh>(null);
   const capacity = capacityFor(items.length);
@@ -118,6 +121,7 @@ export const Instances = <A,>({
       key={capacity}
       receiveShadow={receiveShadow}
       ref={mesh}
+      renderOrder={renderOrder}
       {...picking}
     />
   );
