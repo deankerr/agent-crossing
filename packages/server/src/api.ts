@@ -1,7 +1,7 @@
-import { Cell } from "@agent-crossing/world/cell";
-import { Command } from "@agent-crossing/world/command";
-import { KindName } from "@agent-crossing/world/kind";
-import { Region } from "@agent-crossing/world/region";
+import { PrefabName } from "@agent-crossing/world/definitions/prefabs";
+import { Command } from "@agent-crossing/world/engine/editing/command";
+import { Region } from "@agent-crossing/world/engine/editing/region";
+import { Cell } from "@agent-crossing/world/schema/cell";
 import * as Docker from "@alchemy.run/docker";
 import * as Rivet from "@alchemy.run/rivet";
 import * as McpProtocol from "effect/ai/McpProtocol";
@@ -18,16 +18,16 @@ import * as Redacted from "effect/Redacted";
 import * as Schema from "effect/Schema";
 import * as Stream from "effect/Stream";
 
-import { Area } from "./affected.ts";
+import { Area } from "./admin/affected.ts";
+import { INSTRUCTIONS } from "./admin/instructions.ts";
+import { editorFor, parseEditors, TOKENS_VARIABLE } from "./admin/tokens.ts";
+import type { Editors } from "./admin/tokens.ts";
+import { Caller, Tools, toolHandlers } from "./admin/tools.ts";
+import type { WorldClient } from "./admin/tools.ts";
 import { Cluster } from "./cluster.ts";
-import { INSTRUCTIONS } from "./instructions.ts";
-import { sseComment, sseFrame } from "./sse.ts";
-import { editorFor, parseEditors, TOKENS_VARIABLE } from "./tokens.ts";
-import type { Editors } from "./tokens.ts";
-import { Caller, Tools, toolHandlers } from "./tools.ts";
-import type { WorldClient } from "./tools.ts";
-import { FeedItem, Verdict } from "./wire.ts";
-import WorldObject, { WORLD_NAME } from "./world-object.ts";
+import { sseComment, sseFrame } from "./feed/sse.ts";
+import { FeedItem, Verdict } from "./feed/wire.ts";
+import WorldObject, { WORLD_NAME } from "./storage/world-object.ts";
 
 const decodeVerdict = Schema.decodeUnknownEffect(Verdict);
 const decodeFeedItem = Schema.decodeUnknownEffect(FeedItem);
@@ -37,7 +37,7 @@ const encodeCommand = Schema.encodeEffect(Command);
 const encodeCell = Schema.encodeEffect(Cell);
 const encodeArea = Schema.encodeEffect(Schema.NullOr(Area));
 const encodeRegion = Schema.encodeEffect(Schema.NullOr(Region));
-const encodeKind = Schema.encodeEffect(Schema.NullOr(KindName));
+const encodePrefab = Schema.encodeEffect(Schema.NullOr(PrefabName));
 
 const TEXT_CONTENT = (text: string) => [{ text, type: "text" as const }];
 
@@ -110,11 +110,11 @@ export default class Api extends Docker.Service<Api>()(
         text(
           Effect.flatMap(encodeCell(cell), (at) => world.agentView(at, radius))
         ),
-      find: (region, kind, limit) =>
+      find: (region, prefab, limit) =>
         text(
           Effect.gen(function* () {
             const within = yield* encodeRegion(Option.getOrNull(region));
-            const only = yield* encodeKind(Option.getOrNull(kind));
+            const only = yield* encodePrefab(Option.getOrNull(prefab));
 
             return yield* world.find(within, only, limit);
           })
@@ -135,14 +135,15 @@ export default class Api extends Docker.Service<Api>()(
       McpServer.toolkit(Tools, {
         content: {
           change_entity: TEXT_CONTENT,
-          erase_ground: TEXT_CONTENT,
+          erase_floor: TEXT_CONTENT,
           find_entities: TEXT_CONTENT,
           generate_world: TEXT_CONTENT,
           history: TEXT_CONTENT,
           inspect_cell: TEXT_CONTENT,
-          list_kinds: TEXT_CONTENT,
+          list_prefabs: TEXT_CONTENT,
           move_entity: TEXT_CONTENT,
-          paint_ground: TEXT_CONTENT,
+          paint_floor: TEXT_CONTENT,
+          pour_liquid: TEXT_CONTENT,
           remove_entities: TEXT_CONTENT,
           scatter: TEXT_CONTENT,
           spawn: TEXT_CONTENT,

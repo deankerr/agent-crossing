@@ -13,7 +13,7 @@ pnpm exec alchemy deploy --no-input --yes
 
 The service listens on `http://localhost:3000`. The Rivet engine runs on `localhost:6420` and the World object on a pool node, all as swarm services. `pnpm exec alchemy destroy` removes them.
 
-A deploy rebuilds the Api image when `src/api.ts` changes. A change only in a module it imports may plan nothing for it; force it with `pnpm exec alchemy deploy --no-input --yes --force --include Api`. The World object runs in the `DefaultNodes` image, which `--include Api` does not rebuild; after changing `src/world-object.ts` or anything it imports, deploy with `--force` alone. Alchemy keeps its state in `.alchemy/` (git-ignored) next to this file: deploy from the checkout that holds it, or copy it across.
+A deploy rebuilds the Api image when `src/api.ts` changes. A change only in a module it imports may plan nothing for it; force it with `pnpm exec alchemy deploy --no-input --yes --force --include Api`. The World object runs in the `DefaultNodes` image, which `--include Api` does not rebuild; after changing `src/storage/world-object.ts` or anything it imports, deploy with `--force` alone. Alchemy keeps its state in `.alchemy/` (git-ignored) next to this file: deploy from the checkout that holds it, or copy it across.
 
 ## Admin tokens
 
@@ -21,12 +21,12 @@ A deploy rebuilds the Api image when `src/api.ts` changes. A change only in a mo
 
 ## Endpoints
 
-**`GET /events`** The spectator stream, unauthenticated, as server-sent events with `Access-Control-Allow-Origin: *` and a `: keep-alive` comment every 15 s. Each event is an unnamed `message` whose `data` is one `FeedFrame` of `@agent-crossing/world/feed` as JSON:
+**`GET /events`** The spectator stream, unauthenticated, as server-sent events with `Access-Control-Allow-Origin: *` and a `: keep-alive` comment every 15 s. Each event is an unnamed `message` whose `data` is one `FeedFrame` of `@agent-crossing/world/engine/feed` as JSON:
 
 1. `{"_tag":"Reset"}`: start from the empty world.
-2. `{"_tag":"Changes","changes":[...]}`: the current world as `Change`s, at most 1000 per frame, ground row by row, then entities, then the spawn count. Apply them in order.
+2. `{"_tag":"Changes","changes":[...]}`: the current world as `Change`s, at most 1000 per frame, entities oldest first (floors and liquids among them), then the spawn count. Apply them in order.
 3. `{"_tag":"Ready","cursor":<seq>}`: the world so far is complete; it includes every event up to `cursor`.
-4. `{"_tag":"Happened","seq":<seq>,"event":<WorldEvent>}` for every later edit, with `id: <seq>`. Evolve the world with `changesOf`/`evolve`.
+4. `{"_tag":"Happened","seq":<seq>,"event":<WorldEvent>}` for every later edit, with `id: <seq>`. Evolve the world with `changesOf`/`evolve` from `@agent-crossing/world/engine/editing/event`.
 
 No event is lost or repeated between the snapshot and the live events. A reconnect simply gets a new `Reset` and snapshot.
 
@@ -38,23 +38,24 @@ Coordinates are plain integers: x grows east, y grows south. A region is `{"type
 
 Queries:
 
-- `world_summary` the extent, ground and entity counts, and the number of events.
-- `view_map {x1?, y1?, x2?, y2?}` a glyph map, a height map and a legend; the whole world when no rectangle is given; at most 128 × 128 cells, and it says when it cuts.
+- `world_summary` the extent, floor, water and entity counts, and the number of events.
+- `view_map {x1?, y1?, x2?, y2?}` a glyph map, a level map and a legend; the whole world when no rectangle is given; at most 128 × 128 cells, and it says when it cuts.
 - `view_as_agent {x, y, radius?}` what an agent standing there would be told.
-- `inspect_cell {x, y}` the ground and every entity on a cell, with ids and effective components.
-- `find_entities {region?, kind?, limit?}` entities with ids, kinds and cells, oldest first; default 100, at most 500, and it says how many there are in all.
-- `list_kinds` every ground kind and entity kind with glyphs, traits and default components.
+- `inspect_cell {x, y}` the floor, any liquid and every other entity on a cell, with ids, levels and effective components.
+- `find_entities {region?, prefab?, limit?}` entities with ids, prefabs and cells, oldest first; every entity but floors and liquids unless a prefab is given; default 100, at most 500, and it says how many there are in all.
+- `list_prefabs` every prefab with its glyph, name, label, layer and habitat.
 - `history {limit?}` the latest events with sequence number, time and editor; default 20, at most 200.
 
 Edits, each answered with what happened and a map of the affected area (its bounding box plus 2 cells, at most 48 × 48, saying when it cuts). A refused edit is a tool error saying why and what would work; malformed arguments are a JSON-RPC invalid-params error naming the field.
 
-- `paint_ground {region, kind?, height?}`
-- `erase_ground {region}`
-- `spawn {kind, x, y, components?}`, for example `{"kind":"sign","x":4,"y":3,"components":{"text":"Welcome"}}`
-- `scatter {kinds, region, density, seed?, components?}`
+- `paint_floor {region, floor?, level?}` lays or changes floors
+- `pour_liquid {region, liquid, bed?}` turns land into water, sinking the floor one level
+- `erase_floor {region}` removes everything there, floors included
+- `spawn {prefab, x, y, components?}`, for example `{"prefab":"sign","x":4,"y":3,"components":{"text":"Welcome"}}`
+- `scatter {prefabs, region, density, seed?, components?}`
 - `move_entity {id, x, y}`
 - `change_entity {id, components}` replaces the entity's own components
-- `remove_entities {ids}` or `{region, kind?}`
+- `remove_entities {ids}` or `{region, prefab?}`; without a prefab the floors and liquids stay
 - `generate_world {width, height, x?, y?, seed?}` 8 to 256 cells a side, from the north-west corner `(x, y)`, default `(0, 0)`
 
 ## Connect Claude Code
@@ -74,16 +75,16 @@ bun scripts/admin.ts tools                      # every tool and its arguments
 bun scripts/admin.ts schema spawn               # one tool's JSON input schema
 bun scripts/admin.ts world_summary
 bun scripts/admin.ts view_map '{"x1":0,"y1":0,"x2":40,"y2":20}'
-bun scripts/admin.ts spawn '{"kind":"sign","x":4,"y":3,"components":{"text":"Welcome"}}'
+bun scripts/admin.ts spawn '{"prefab":"sign","x":4,"y":3,"components":{"text":"Welcome"}}'
 ```
 
 `pnpm admin <tool> '<json>'` does the same. It reads `AGENT_CROSSING_URL` (default `http://localhost:3000`) and the token from the environment or from `packages/server/.env`: `AGENT_CROSSING_ADMIN_TOKEN`, or else the pair in `AGENT_CROSSING_ADMIN_TOKENS` named by `AGENT_CROSSING_EDITOR` (default the first pair). It exits 0 when the tool answered, 1 when the tool refused the edit (the reason is on stderr) and 2 when the call itself failed: unreachable server, bad token, arguments that are not a JSON object, or invalid parameters.
 
 ## How the World object works
 
-The whole world lives in memory as a `World` from `@agent-crossing/world`. SQLite holds it as rows: `ground (x, y, kind, height)`, `entities (id, kind, x, y, components JSON)`, `meta (spawned)` and the history `events (seq, at, by, event JSON)`. On wake the rows are parsed with Schema into a snapshot and the world is rebuilt from it.
+The whole world lives in memory as a `World` from `@agent-crossing/world/engine/state/world`. SQLite holds it as rows: `entities (id, prefab, x, y, components JSON)`, one per entity with floors and liquids among them (each storing its `level` in its components), `meta (spawned)` and the history `events (seq, at, by, event JSON)`. The Api addresses the object by the instance name `WORLD_NAME`; changing it starts a fresh world with empty tables. On wake the rows are parsed with Schema into a snapshot and the world is rebuilt from it.
 
-Commands run one at a time. `decide` turns a command into events; for each event, inside one transaction for the whole command, the event row is inserted, `changesOf` gives its `Change`s, `statementsOf` (in `src/rows.ts`, the only SQL writer) turns them into upserts and deletes, and `apply` updates the in-memory world. The events are then published to the live feed. Read tools answer from memory; only `history` reads SQL.
+Commands run one at a time. `decide` turns a command into events; for each event, inside one transaction for the whole command, the event row is inserted, `changesOf` gives its `Change`s, `statementsOf` (in `src/storage/rows.ts`, the only SQL writer) turns them into upserts and deletes, and `apply` updates the in-memory world. The events are then published to the live feed. Read tools answer from memory; only `history` reads SQL.
 
 ## Notes on the stack
 
@@ -93,10 +94,11 @@ Commands run one at a time. `decide` turns a command into events; for each event
 
 ## Layout
 
-- `src/world-object.ts` the Durable Object: the world in memory, commits, queries and the feed.
-- `src/rows.ts` the tables, `Change` to SQL statements, and parsing rows back.
-- `src/api.ts` the HTTP service: MCP, `/events`, authentication.
-- `src/tools.ts` the MCP tools; `src/inputs.ts` their inputs and the commands they become.
-- `src/queries.ts`, `src/replies.ts`, `src/refusal.ts` the text the tools answer with.
-- `src/affected.ts` the area an edit touched; `src/wire.ts` what crosses RPC and the opening frames; `src/sse.ts`; `src/tokens.ts`; `src/instructions.ts`.
+- `src/api.ts` the HTTP service: MCP, `/events`, authentication; `src/cluster.ts` the Rivet cluster and pool.
+- `src/storage/world-object.ts` the Durable Object: the world in memory, commits, queries and the feed.
+- `src/storage/rows.ts` the tables, `Change` to SQL statements, and parsing rows back.
+- `src/admin/tools.ts` the MCP tools; `src/admin/inputs.ts` their inputs and the commands they become.
+- `src/admin/queries.ts`, `src/admin/replies.ts`, `src/admin/refusal.ts` the text the tools answer with.
+- `src/admin/affected.ts` the area an edit touched; `src/admin/tokens.ts`; `src/admin/instructions.ts`.
+- `src/feed/wire.ts` what crosses RPC and the opening frames; `src/feed/sse.ts` the frames as server-sent events.
 - `scripts/admin.ts` the command-line client.

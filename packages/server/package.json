@@ -8,7 +8,7 @@
     "admin": "bun scripts/admin.ts",
     "deploy": "alchemy deploy",
     "destroy": "alchemy destroy",
-    "test": "vitest run"
+    "test": "vitest run --passWithNoTests"
   },
   "dependencies": {
     "@agent-crossing/world": "workspace:*",

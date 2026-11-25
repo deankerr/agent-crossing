@@ -1,20 +1,20 @@
-import { sameCell } from "@agent-crossing/world/cell";
-import type { Cell } from "@agent-crossing/world/cell";
-import type { Span } from "@agent-crossing/world/region";
-import { bounds, emptyWorld } from "@agent-crossing/world/world";
-import type { World } from "@agent-crossing/world/world";
+import type { Span } from "@agent-crossing/world/engine/state/span";
+import { bounds, emptyWorld } from "@agent-crossing/world/engine/state/world";
+import type { World } from "@agent-crossing/world/engine/state/world";
+import { sameCell } from "@agent-crossing/world/schema/cell";
+import type { Cell } from "@agent-crossing/world/schema/cell";
 import { useCursor } from "@react-three/drei";
 import * as Option from "effect/Option";
 import { useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Object3D } from "three";
 import type { DirectionalLight } from "three";
 
-import { centreOf, diagonalOf } from "../layout.ts";
 import { CameraRig } from "./camera-rig.tsx";
 import type { FocusRequest } from "./camera-rig.tsx";
 import { CellMarker } from "./cell-marker.tsx";
 import { Entities } from "./entities.tsx";
-import { Terrain } from "./terrain.tsx";
+import { Floors } from "./floors.tsx";
+import { centerOf, diagonalOf } from "./layout.ts";
 
 const SUN_DIRECTION = [-0.11, 0.88, 0.47] as const;
 const SHADOW_MARGIN = 4;
@@ -23,7 +23,7 @@ const SHADOW_MAP = 2048;
 const Lights = ({ span }: { readonly span: Span }) => {
   const sun = useRef<DirectionalLight>(null);
   const target = useMemo(() => new Object3D(), []);
-  const { x, z } = centreOf(span);
+  const { x, z } = centerOf(span);
   const reach = diagonalOf(span) / 2 + SHADOW_MARGIN;
   const distance = reach * 2 + 20;
   const [dx, dy, dz] = SUN_DIRECTION;
@@ -74,16 +74,20 @@ export const WorldScene = ({
 }: {
   readonly world: World;
   readonly focus: Option.Option<FocusRequest>;
-  readonly selected: Option.Option<Cell>;
-  readonly onSelect: (cell: Cell) => void;
+  readonly selected: Option.Option<typeof Cell.Type>;
+  readonly onSelect: (cell: typeof Cell.Type) => void;
 }) => {
-  const [hovered, setHovered] = useState(Option.none<Cell>());
-  const { ground } = world;
-  const span = useMemo(() => bounds({ ...emptyWorld, ground }), [ground]);
+  const [hovered, setHovered] = useState(Option.none<typeof Cell.Type>());
+  const { entities, entitiesByCell } = world;
+
+  const span = useMemo(
+    () => bounds({ ...emptyWorld, entities, entitiesByCell }),
+    [entities, entitiesByCell]
+  );
 
   useCursor(Option.isSome(hovered));
 
-  const hover = (cell: Cell) => {
+  const hover = (cell: typeof Cell.Type) => {
     setHovered((previous) =>
       Option.exists(previous, (seen) => sameCell(seen, cell))
         ? previous
@@ -99,7 +103,7 @@ export const WorldScene = ({
   return (
     <>
       <Lights span={Option.getOrElse(span, () => ORIGIN_SPAN)} />
-      <Terrain
+      <Floors
         onHover={hover}
         onLeave={() => {
           setHovered(Option.none());

@@ -1,4 +1,4 @@
-import type { World } from "@agent-crossing/world/world";
+import type { World } from "@agent-crossing/world/engine/state/world";
 import * as Arr from "effect/Array";
 import * as Option from "effect/Option";
 import { useMemo } from "react";
@@ -9,9 +9,8 @@ import {
   Vector3,
 } from "three";
 
-import { entityInstances } from "../entity-instances.ts";
-import type { EntityInstance } from "../entity-instances.ts";
-import { palette } from "../palette.ts";
+import { entityInstances } from "./entity-instances.ts";
+import type { EntityInstance, ModelGroup } from "./entity-instances.ts";
 import { Instances } from "./instanced.tsx";
 import type { Paint, Place } from "./instanced.tsx";
 import { modelGeometry } from "./model-geometry.ts";
@@ -36,47 +35,26 @@ const placeEntity: Place<EntityInstance> = (instance, matrix) => {
   );
 };
 
-const shadeEntity: Paint<EntityInstance> = (instance, colour) => {
-  colour.setScalar(instance.shade);
+const shadeEntity: Paint<EntityInstance> = (instance, color) => {
+  color.setScalar(instance.shade);
 };
 
-const tintEntity: Paint<EntityInstance> = (instance, colour) => {
-  colour.set(palette[instance.tint]).multiplyScalar(instance.shade);
+const unshaded: Paint<EntityInstance> = (_instance, color) => {
+  color.setScalar(1);
 };
 
-const unshaded: Paint<EntityInstance> = (_instance, colour) => {
-  colour.setScalar(1);
-};
-
-const ModelInstances = ({
-  instances,
-  model,
-}: {
-  readonly model: string;
-  readonly instances: readonly EntityInstance[];
-}) => {
-  const geometry = modelGeometry(model);
+const ModelInstances = ({ group }: { readonly group: ModelGroup }) => {
+  const geometry = modelGeometry(group.model);
 
   return (
     <>
-      {Option.isSome(geometry.fixed) ? (
+      {Option.isSome(geometry.lit) ? (
         <Instances
           castShadow
-          geometry={geometry.fixed.value}
-          items={instances}
+          geometry={geometry.lit.value}
+          items={group.instances}
           material={lit}
           paint={shadeEntity}
-          place={placeEntity}
-          receiveShadow
-        />
-      ) : null}
-      {Option.isSome(geometry.tinted) ? (
-        <Instances
-          castShadow
-          geometry={geometry.tinted.value}
-          items={instances}
-          material={lit}
-          paint={tintEntity}
           place={placeEntity}
           receiveShadow
         />
@@ -84,7 +62,7 @@ const ModelInstances = ({
       {Option.isSome(geometry.glowing) ? (
         <Instances
           geometry={geometry.glowing.value}
-          items={instances}
+          items={group.instances}
           material={glowing}
           paint={unshaded}
           place={placeEntity}
@@ -95,22 +73,18 @@ const ModelInstances = ({
 };
 
 /**
- * Every entity, drawn with one instanced mesh per model and way of colouring
- * rather than one component per entity. Rebuilt only when entities or
- * ground change.
+ * Every entity but the floors and liquids, drawn with one instanced mesh per
+ * painted model and material rather than one component per entity. Rebuilt
+ * only when the entities change.
  */
 export const Entities = ({ world }: { readonly world: World }) => {
-  const { entities, ground } = world;
-
-  const groups = useMemo(
-    () => entityInstances({ entities, ground }),
-    [entities, ground]
-  );
+  const { entities } = world;
+  const groups = useMemo(() => entityInstances({ entities }), [entities]);
 
   return (
     <group>
-      {Arr.map([...groups], ([model, instances]) => (
-        <ModelInstances instances={instances} key={model} model={model} />
+      {Arr.map(groups, (group) => (
+        <ModelInstances group={group} key={group.model.key} />
       ))}
     </group>
   );

@@ -1,4 +1,4 @@
-import type { Span } from "@agent-crossing/world/region";
+import type { Span } from "@agent-crossing/world/engine/state/span";
 import { MapControls } from "@react-three/drei";
 import { useFrame, useThree } from "@react-three/fiber";
 import * as Option from "effect/Option";
@@ -6,7 +6,7 @@ import { useEffect, useLayoutEffect, useRef } from "react";
 import type { ComponentRef } from "react";
 import { MOUSE, OrthographicCamera, TOUCH, Vector3 } from "three";
 
-import { centreOf, diagonalOf, landSurface } from "../layout.ts";
+import { centerOf, diagonalOf, levelSurface } from "./layout.ts";
 
 /** The default view: from the south, looking down at about 53 degrees. */
 export const VIEW_DIRECTION = new Vector3(0, 21, 28).normalize();
@@ -21,7 +21,7 @@ const GLIDE_RATE = 5;
 const SETTLED = 0.01;
 const MARGIN = 2;
 const DEPTH_SHARE = 0.62;
-const TALLEST = landSurface(7);
+const TALLEST = levelSurface(7);
 
 export interface FocusRequest {
   readonly point: readonly [number, number, number];
@@ -82,8 +82,8 @@ export const CameraRig = ({
     }
 
     const { object: camera, target } = rig;
-    const { x, z } = centreOf(start.current.span);
-    target.set(x, landSurface(1), z);
+    const { x, z } = centerOf(start.current.span);
+    target.set(x, levelSurface(1), z);
     camera.position
       .copy(target)
       .addScaledVector(VIEW_DIRECTION, start.current.distance);

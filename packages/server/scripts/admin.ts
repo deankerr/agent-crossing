@@ -18,7 +18,7 @@ import * as Result from "effect/Result";
 import * as Schema from "effect/Schema";
 import * as Str from "effect/String";
 
-import { parseEditors, TOKENS_VARIABLE } from "../src/tokens.ts";
+import { parseEditors, TOKENS_VARIABLE } from "../src/admin/tokens.ts";
 
 const USAGE = `Calls the Agent Crossing admin MCP server and prints the tool's text.
 

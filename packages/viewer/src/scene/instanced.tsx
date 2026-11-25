@@ -15,7 +15,7 @@ export const capacityFor = (count: number) =>
 
 export type Place<A> = (item: A, matrix: Matrix4) => void;
 
-export type Paint<A> = (item: A, colour: Color) => void;
+export type Paint<A> = (item: A, color: Color) => void;
 
 export interface InstancesProps<A> {
   readonly items: readonly A[];
@@ -32,7 +32,7 @@ export interface InstancesProps<A> {
 }
 
 const matrix = new Matrix4();
-const colour = new Color();
+const color = new Color();
 
 /**
  * One instanced mesh drawing every item. The buffers are refilled only when
@@ -64,8 +64,8 @@ export const Instances = <A,>({
     for (const [index, item] of items.entries()) {
       place(item, matrix);
       instanced.setMatrixAt(index, matrix);
-      paint(item, colour);
-      instanced.setColorAt(index, colour);
+      paint(item, color);
+      instanced.setColorAt(index, color);
     }
 
     instanced.count = items.length;

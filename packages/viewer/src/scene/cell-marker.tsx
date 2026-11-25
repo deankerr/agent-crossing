@@ -1,17 +1,25 @@
-import type { Cell } from "@agent-crossing/world/cell";
-import { formatCell } from "@agent-crossing/world/cell";
-import { componentsOf } from "@agent-crossing/world/entity";
-import { traitsOf } from "@agent-crossing/world/ground";
-import { entitiesAt, groundAt } from "@agent-crossing/world/world";
-import type { World } from "@agent-crossing/world/world";
+import {
+  componentsOf,
+  nounOf,
+} from "@agent-crossing/world/engine/state/entity";
+import {
+  entitiesAt,
+  floorAt,
+  isFloor,
+  isLiquid,
+  liquidAt,
+} from "@agent-crossing/world/engine/state/world";
+import type { World } from "@agent-crossing/world/engine/state/world";
+import { formatCell } from "@agent-crossing/world/schema/cell";
+import type { Cell } from "@agent-crossing/world/schema/cell";
 import { Edges } from "@react-three/drei";
 import * as Arr from "effect/Array";
 import { constVoid } from "effect/Function";
 import * as Option from "effect/Option";
 import { BoxGeometry, MeshBasicMaterial } from "three";
 
-import { landSurface, surfaceOf } from "../layout.ts";
-import { modelNameOf, modelSpecOf } from "../models.ts";
+import { levelSurface, standingSurfaceAt } from "./layout.ts";
+import { modelGeometry, paintedModelOf } from "./model-geometry.ts";
 import { Overlay } from "./overlay.tsx";
 
 export type MarkerTone = "hover" | "selected";
@@ -47,26 +55,31 @@ const tones: Readonly<
   },
 };
 
-const cellLabel = (world: World, cell: Cell) => {
-  const entities = entitiesAt(world, cell);
-  const ground = groundAt(world, cell);
+const cellLabel = (world: World, cell: typeof Cell.Type) => {
+  const entities = Arr.filter(
+    entitiesAt(world, cell),
+    (entity) => !isFloor(entity) && !isLiquid(entity)
+  );
 
   return {
-    noun: Option.match(ground, {
-      onNone: () => "no ground",
-      onSome: (found) => traitsOf(found.kind).noun,
-    }),
-    surface: Option.match(ground, {
-      onNone: () => landSurface(0),
-      onSome: surfaceOf,
-    }),
+    noun: Arr.join(
+      [
+        Option.match(floorAt(world, cell), {
+          onNone: () => "no floor",
+          onSome: nounOf,
+        }),
+        ...Arr.map(Arr.fromOption(liquidAt(world, cell)), nounOf),
+      ],
+      " · "
+    ),
+    surface: Option.getOrElse(standingSurfaceAt(world, cell), () =>
+      levelSurface(0)
+    ),
     tallest: Math.max(
       0,
       ...Arr.map(
         entities,
-        (entity) =>
-          modelSpecOf(modelNameOf(componentsOf(entity).appearance?.model))
-            .height
+        (entity) => modelGeometry(paintedModelOf(entity)).height
       )
     ),
     writing: Arr.getSomes(
@@ -83,7 +96,7 @@ export const CellMarker = ({
   tone,
   world,
 }: {
-  readonly cell: Cell;
+  readonly cell: typeof Cell.Type;
   readonly tone: MarkerTone;
   readonly world: World;
 }) => {

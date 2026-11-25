@@ -4,13 +4,13 @@ import * as Option from "effect/Option";
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 
-import { App } from "./app.tsx";
-import { demoFeed } from "./demo-feed.ts";
-import { demoCommand } from "./demo.ts";
-import { DEFAULT_WORLD_URL, eventsUrl, liveFeed } from "./live-feed.ts";
-import { startViewer, ViewerContext } from "./store.ts";
+import { demoFeed } from "./feed/demo-feed.ts";
+import { demoCommand } from "./feed/demo.ts";
+import { DEFAULT_WORLD_URL, eventsUrl, liveFeed } from "./feed/live-feed.ts";
+import { App } from "./ui/app.tsx";
+import { startViewer, ViewerContext } from "./ui/store.ts";
 
-import "./styles.css";
+import "./ui/styles.css";
 
 const search = new URLSearchParams(window.location.search);
 
