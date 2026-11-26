@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "check": "ultracite check",
-    "dev": "alchemy dev",
+    "dev": "portless run --tailscale --app-port 1338 alchemy dev",
     "fix": "ultracite fix",
     "prepare": "effect-tsgo patch --typescript --oxlint",
     "test": "pnpm --recursive --if-present test"

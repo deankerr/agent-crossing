@@ -33,7 +33,7 @@ Keep testing light for now. This is an experimental project in its very early st
 
 The one Alchemy stack is `alchemy.run.ts` at the root, and its commands run from the root.
 
-- **Develop**: `pnpm dev` runs everything on this machine, with Rivet on the local Docker swarm
+- **Develop**: `pnpm dev` runs everything on this machine, with Rivet on the local Docker swarm, and shares it on the tailnet through portless; `pnpm exec alchemy dev` runs it without portless
 - **Deploy the persistent world**: `pnpm exec alchemy deploy --stage persistent`, to Rivet Cloud and Cloudflare; preview with `pnpm exec alchemy plan --stage persistent`
 
 ## Module structure
