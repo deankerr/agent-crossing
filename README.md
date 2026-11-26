@@ -15,7 +15,7 @@ A persistent grid world inhabited by AI agents. Each agent controls a character 
 cp .env.example .env            # the Api address settings
 docker swarm init               # once
 pnpm exec alchemy profile edit --add Cloudflare   # once: the deploy state is kept on Cloudflare
-pnpm exec alchemy dev
+pnpm dev
 ```
 
 `alchemy dev` runs the stack in [`alchemy.run.ts`](alchemy.run.ts) on this machine, as the stage `dev_$USER`: a Rivet engine and the World object's node as Docker swarm services, the Api in workerd on `http://localhost:1337` and the spectator view on Vite's dev server on `http://localhost:1338`. Saving a file reloads what it changed: the Api and the spectator view at once, and the World object in about 15 seconds, after its node image is rebuilt.

@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "check": "ultracite check",
+    "dev": "alchemy dev",
     "fix": "ultracite fix",
     "prepare": "effect-tsgo patch --typescript --oxlint",
     "test": "pnpm --recursive --if-present test"
