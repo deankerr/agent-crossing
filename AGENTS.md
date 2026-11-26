@@ -36,6 +36,15 @@ The one Alchemy stack is `alchemy.run.ts` at the root, and its commands run from
 - **Develop**: `pnpm exec alchemy dev` runs everything on this machine, with Rivet on the local Docker swarm
 - **Deploy the persistent world**: `pnpm exec alchemy deploy --stage persistent`, to Rivet Cloud and Cloudflare; preview with `pnpm exec alchemy plan --stage persistent`
 
+## Module structure
+
+- **Module**: one file named for the one noun it is about, in PascalCase (`World.ts`, `Command.ts`). Import it as a namespace, as Effect's modules are: `import * as Command from "@agent-crossing/world/Command"`. Names inside stay short and read with their noun at the call site (`World.apply`, `Region.cells`), and the module's main shape shares its name (`Cell.Cell`).
+- **Public modules**: each package names them one by one in its `package.json` `exports`. Everything else is internal to its package and lives under `internal/`. A new `exports` entry is a design decision, so say why in the commit.
+- **Names**: a name read without its module says what it is. A command or an event is a verb and a glossary noun (`PlaceEntity`, `EntityMoved`), and an MCP tool takes its command's name in snake case.
+- **Composition files** (the World object, the MCP tools, the Worker route) wire: decode the input, call one module, map the answer. Rules and wording live in the modules they call.
+
+These are guidelines. An exception is fine when the commit says why.
+
 ## Packages
 
 One world, kept in one place, with a door for each role: a spectator watches and an editor shapes it.
