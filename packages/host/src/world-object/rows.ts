@@ -1,5 +1,4 @@
 import { PrefabName } from "@agent-crossing/world/definitions/prefabs";
-import { Editor, Timestamp } from "@agent-crossing/world/history/edit";
 import { Seq, WorldEvent } from "@agent-crossing/world/history/event";
 import { Coordinate } from "@agent-crossing/world/schema/cell";
 import { Components } from "@agent-crossing/world/schema/components";
@@ -18,15 +17,13 @@ import * as Schema from "effect/Schema";
  */
 export const SCHEMA = [
   "CREATE TABLE IF NOT EXISTS entities (id TEXT PRIMARY KEY NOT NULL, prefab TEXT NOT NULL, x INTEGER NOT NULL, y INTEGER NOT NULL, components TEXT NOT NULL) WITHOUT ROWID",
-  "CREATE TABLE IF NOT EXISTS events (seq INTEGER PRIMARY KEY AUTOINCREMENT, at INTEGER NOT NULL, by TEXT NOT NULL, event TEXT NOT NULL)",
+  "CREATE TABLE IF NOT EXISTS events (seq INTEGER PRIMARY KEY AUTOINCREMENT, event TEXT NOT NULL)",
   "CREATE TABLE IF NOT EXISTS meta (id INTEGER PRIMARY KEY CHECK (id = 1), spawned INTEGER NOT NULL)",
 ] as const;
 
 /** A stored event, as `history` reads it back. */
 export const EventRow = Schema.Struct({
   seq: Seq,
-  at: Timestamp,
-  by: Editor,
   event: Schema.fromJsonString(WorldEvent),
 });
 
@@ -41,7 +38,6 @@ type Table = "entities" | "meta";
 
 interface TableLayout {
   readonly columns: readonly string[];
-  readonly key: readonly string[];
   readonly merge: string;
 }
 
@@ -54,12 +50,10 @@ const replacing = (columns: readonly string[]) =>
 const tables: Record<Table, TableLayout> = {
   entities: {
     columns: ["id", "prefab", "x", "y", "components"],
-    key: ["id"],
     merge: replacing(["prefab", "x", "y", "components"]),
   },
   meta: {
     columns: ["id", "spawned"],
-    key: ["id"],
     merge: "spawned = MAX(spawned, excluded.spawned)",
   },
 };
@@ -121,9 +115,6 @@ const placeholders = (count: number) =>
     ", "
   )})`;
 
-const tuple = (columns: readonly string[]) =>
-  columns.length === 1 ? (columns[0] ?? "") : `(${Arr.join(columns, ", ")})`;
-
 const sqlOf = (op: Write["op"], table: Table, rows: number) => {
   const layout = tables[table];
 
@@ -133,21 +124,15 @@ const sqlOf = (op: Write["op"], table: Table, rows: number) => {
       ", "
     );
 
-    return `INSERT INTO ${table} (${Arr.join(layout.columns, ", ")}) VALUES ${values} ON CONFLICT (${Arr.join(layout.key, ", ")}) DO UPDATE SET ${layout.merge}`;
+    return `INSERT INTO ${table} (${Arr.join(layout.columns, ", ")}) VALUES ${values} ON CONFLICT (id) DO UPDATE SET ${layout.merge}`;
   }
 
-  const keys =
-    layout.key.length === 1
-      ? Arr.join(
-          Arr.makeBy(rows, () => "?"),
-          ", "
-        )
-      : `VALUES ${Arr.join(
-          Arr.makeBy(rows, () => placeholders(layout.key.length)),
-          ", "
-        )}`;
+  const keys = Arr.join(
+    Arr.makeBy(rows, () => "?"),
+    ", "
+  );
 
-  return `DELETE FROM ${table} WHERE ${tuple(layout.key)} IN (${keys})`;
+  return `DELETE FROM ${table} WHERE id IN (${keys})`;
 };
 
 const ROWS_PER_STATEMENT = 400;

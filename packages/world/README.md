@@ -1,6 +1,6 @@
 # @agent-crossing/world
 
-What the world is made of and the rules it follows. Everything here is pure and deterministic: no I/O, no clock, no unseeded randomness. Time and editor names arrive as arguments, and every type that crosses a boundary is an Effect `Schema` that encodes to JSON.
+What the world is made of and the rules it follows. Everything here is pure and deterministic: no I/O, no clock, no unseeded randomness. Time arrives as an argument, and every type that crosses a boundary is an Effect `Schema` that encodes to JSON.
 
 The words used below are defined in the [glossary](../../GLOSSARY.md).
 
@@ -14,7 +14,7 @@ Run the tests with `pnpm --filter @agent-crossing/world test`.
 | `src/definitions` | The authored world, as data only: one file per prefab and one file per biome |
 | `src/state` | What exists: entities, the in-memory world with its queries, changes, snapshots, spans and areas |
 | `src/rules` | What may exist: whether an entity may be in a cell, and the reasons a command is refused |
-| `src/history` | What happened: events with their editor, time and sequence number, the changes each amounts to, and the tally of an edit |
+| `src/history` | What happened: events with their time and sequence number, the changes each amounts to, and the tally of an edit |
 | `src/editing` | The editor's verbs: regions, commands and `decide` |
 | `src/generation` | The seeded landscape generator, which lays out biomes |
 | `src/text` | The world in words: a map, the view from a cell, one cell, a summary, found entities, the history and the prefabs |
@@ -22,7 +22,7 @@ Run the tests with `pnpm --filter @agent-crossing/world test`.
 
 Imports point one way: everything else reads the definitions, and definitions are written in the schema. Definitions hold no rules, no randomness and nothing that acts, so they read as a contract for the rest of the code.
 
-Events are kept apart from commands because they outlive them: a command is one editor's way of asking, and an event is what the world remembers, whoever asked.
+Events are kept apart from commands because they outlive them: a command is a way of asking, and an event is what the world remembers.
 
 The text here describes the world and never names a tool. Advice about which admin tool to use next belongs to the host's admin tools.
 
@@ -115,7 +115,7 @@ At most one entry of `grows` is placed per cell. Each entry of `extras` is rolle
 
 ## How an edit happens
 
-An edit takes one path. `decide` turns a command into events or a refusal, `changesOf` turns an event into the smallest writes to state, and `apply` is the only function that changes a world. The host stores the same changes as rows and keeps the events as the world's history.
+An edit takes one path. `decide(world, command, now)` turns a command into events stamped with `now`, or a refusal; `changesOf` turns an event into the smallest writes to state, and `apply` is the only function that changes a world. The host stores the same changes as rows and keeps the events as the world's history.
 
 After any edit, `decide` also removes the entities that no longer fit where they are, such as an oak whose floor was erased.
 

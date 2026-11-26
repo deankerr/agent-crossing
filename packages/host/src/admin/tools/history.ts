@@ -14,7 +14,7 @@ const HistoryInput = Schema.Struct({
 
 /** `history`: the latest edits to the world. */
 export const History = queryTool("history", {
-  description: `The latest edits to the world, one line each with its sequence number, time and editor. Default ${HISTORY_DEFAULT_LIMIT}, at most ${HISTORY_MAX_LIMIT}.`,
+  description: `The latest edits to the world, one line each with its sequence number and time. Default ${HISTORY_DEFAULT_LIMIT}, at most ${HISTORY_MAX_LIMIT}.`,
   parameters: HistoryInput,
 });
 

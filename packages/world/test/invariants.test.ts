@@ -10,7 +10,6 @@ import { decide } from "../src/editing/decide.ts";
 import { Region } from "../src/editing/region.ts";
 import { seededRandom } from "../src/generation/random.ts";
 import type { SeededRandom } from "../src/generation/random.ts";
-import { Editor } from "../src/history/edit.ts";
 import { evolveAll } from "../src/history/event.ts";
 import { habitatOf } from "../src/rules/placement.ts";
 import { Cell, Coordinate, formatCell } from "../src/schema/cell.ts";
@@ -167,12 +166,7 @@ describe("evolving the decisions of random commands", () => {
       let world = emptyWorld;
 
       for (let step = 0; step < 50; step += 1) {
-        const decision = decide(
-          world,
-          anyCommand(random),
-          step,
-          Editor.make("dean")
-        );
+        const decision = decide(world, anyCommand(random), step);
 
         if (Result.isSuccess(decision)) {
           world = evolveAll(world, decision.success);

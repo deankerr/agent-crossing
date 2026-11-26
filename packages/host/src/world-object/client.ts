@@ -1,7 +1,6 @@
 import { PrefabName } from "@agent-crossing/world/definitions/prefabs";
 import { Command } from "@agent-crossing/world/editing/command";
 import { Region } from "@agent-crossing/world/editing/region";
-import type { Editor } from "@agent-crossing/world/history/edit";
 import { Cell } from "@agent-crossing/world/schema/cell";
 import { Area } from "@agent-crossing/world/state/area";
 import * as Context from "effect/Context";
@@ -33,8 +32,7 @@ export class WorldClient extends Context.Service<
   WorldClient,
   {
     readonly act: (
-      command: typeof Command.Type,
-      by: typeof Editor.Type
+      command: typeof Command.Type
     ) => Effect.Effect<typeof Verdict.Type>;
     readonly summary: Effect.Effect<string>;
     /** The map of the area, or of the whole world; none when no area is given and the world is empty. */
@@ -68,10 +66,10 @@ export class WorldClient extends Context.Service<
       decoded(Effect.flatMap(answer, decodeText));
 
     return {
-      act: (command, by) =>
+      act: (command) =>
         decoded(
           encodeCommand(command).pipe(
-            Effect.flatMap((encoded) => world.act(encoded, by)),
+            Effect.flatMap((encoded) => world.act(encoded)),
             Effect.flatMap(decodeVerdict)
           )
         ),

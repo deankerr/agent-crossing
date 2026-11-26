@@ -6,7 +6,7 @@ import type { PrefabName } from "../definitions/prefabs/index.ts";
 import { generateLandscape } from "../generation/landscape.ts";
 import type { NewEntity } from "../generation/landscape.ts";
 import { seededRandom } from "../generation/random.ts";
-import type { Editor, Timestamp } from "../history/edit.ts";
+import type { Timestamp } from "../history/event.ts";
 import { EVENT_MAX_ITEMS, evolveAll, WorldEvent } from "../history/event.ts";
 import { ensurePlaceable, misfitsIn } from "../rules/placement.ts";
 import { UnknownEntity } from "../rules/rejection.ts";
@@ -55,7 +55,6 @@ type Decision = Result.Result<readonly Event[], typeof Rejection.Type>;
 
 interface Edit {
   readonly at: typeof Timestamp.Type;
-  readonly by: typeof Editor.Type;
 }
 
 interface Outcome {
@@ -335,15 +334,14 @@ const settled = (world: World, edit: Edit, { dropped, events }: Outcome) => {
 
 /**
  * Decides what an admin command does to the world: the events to record, or
- * why nothing happens. Every event of one decision shares `now` and `by`.
+ * why nothing happens. Every event of one decision happens at `now`.
  */
 export const decide = (
   world: World,
   command: typeof Command.Type,
-  now: typeof Timestamp.Type,
-  by: typeof Editor.Type
+  now: typeof Timestamp.Type
 ) => {
-  const edit: Edit = { at: now, by };
+  const edit: Edit = { at: now };
 
   const decided: Result.Result<Outcome, typeof Rejection.Type> = Command.match(
     command,

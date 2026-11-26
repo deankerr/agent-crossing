@@ -8,7 +8,9 @@ import { Change } from "../state/change.ts";
 import { Entity, EntityId, entitySerial } from "../state/entity.ts";
 import { applyAll, entityOf } from "../state/world.ts";
 import type { World } from "../state/world.ts";
-import { Editor, Timestamp } from "./edit.ts";
+
+/** Epoch milliseconds, always passed in, never read from a clock. */
+export const Timestamp = Schema.Int;
 
 /** The position of an event in the world's history. */
 export const Seq = Schema.Int.check(Schema.isGreaterThanOrEqualTo(0));
@@ -19,7 +21,7 @@ export const EVENT_MAX_ITEMS = 1000;
 const upToLimit = <S extends Schema.Top>(item: S) =>
   Schema.NonEmptyArray(item).check(Schema.isMaxLength(EVENT_MAX_ITEMS));
 
-const edit = { at: Timestamp, by: Editor };
+const edit = { at: Timestamp };
 
 /** What happened to the world, kept as its history. */
 export const WorldEvent = Schema.TaggedUnion({

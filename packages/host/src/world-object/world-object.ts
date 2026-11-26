@@ -4,7 +4,6 @@ import { decide } from "@agent-crossing/world/editing/decide";
 import { Region } from "@agent-crossing/world/editing/region";
 import { FeedFrame } from "@agent-crossing/world/feed/frame";
 import { openingFrames } from "@agent-crossing/world/feed/opening";
-import { Editor } from "@agent-crossing/world/history/edit";
 import {
   changesOf,
   Seq,
@@ -52,7 +51,7 @@ import { EventRow, SCHEMA, snapshotOfRows, statementsOf } from "./rows.ts";
 import { FeedItem, Verdict } from "./wire.ts";
 
 /** The one world every caller shares. */
-export const WORLD_NAME = "world-2";
+export const WORLD_NAME = "world-4";
 
 const HEARTBEAT_INTERVAL = Duration.seconds(15);
 
@@ -72,7 +71,6 @@ interface Recorded {
 }
 
 const decodeCommand = Schema.decodeUnknownEffect(Command);
-const decodeEditor = Schema.decodeUnknownEffect(Editor);
 const decodeCell = Schema.decodeUnknownEffect(Cell);
 const decodeArea = Schema.decodeUnknownEffect(Schema.NullOr(Area));
 const decodeRegion = Schema.decodeUnknownEffect(Schema.NullOr(Region));
@@ -132,9 +130,7 @@ const instance = Effect.gen(function* () {
   const step = (sofar: Recorded, event: typeof WorldEvent.Type) =>
     Effect.gen(function* () {
       const rows = yield* run<{ seq: number }>(
-        "INSERT INTO events (at, by, event) VALUES (?, ?, ?) RETURNING seq",
-        event.at,
-        event.by,
+        "INSERT INTO events (event) VALUES (?) RETURNING seq",
         yield* encodeEventJson(event)
       );
 
@@ -180,12 +176,12 @@ const instance = Effect.gen(function* () {
       { timeout: COMMIT_TIMEOUT }
     );
 
-  const commit = (command: typeof Command.Type, by: typeof Editor.Type) =>
+  const commit = (command: typeof Command.Type) =>
     serialised(
       Effect.gen(function* () {
         const now = yield* Clock.currentTimeMillis;
         const before = yield* Ref.get(world);
-        const decision = decide(before, command, now, by);
+        const decision = decide(before, command, now);
 
         if (Result.isFailure(decision)) {
           return Verdict.cases.Rejected.make({ rejection: decision.failure });
@@ -216,12 +212,9 @@ const instance = Effect.gen(function* () {
     Effect.map(Ref.get(world), read);
 
   return {
-    act: (command: typeof Command.Encoded, by: string) =>
+    act: (command: typeof Command.Encoded) =>
       Effect.gen(function* () {
-        const verdict = yield* commit(
-          yield* decodeCommand(command),
-          yield* decodeEditor(by)
-        );
+        const verdict = yield* commit(yield* decodeCommand(command));
 
         return yield* encodeVerdict(verdict);
       }).pipe(Effect.orDie),
@@ -282,7 +275,7 @@ const instance = Effect.gen(function* () {
     history: (limit: number) =>
       Effect.gen(function* () {
         const rows = yield* run(
-          "SELECT seq, at, by, event FROM (SELECT seq, at, by, event FROM events ORDER BY seq DESC LIMIT ?) ORDER BY seq",
+          "SELECT seq, event FROM (SELECT seq, event FROM events ORDER BY seq DESC LIMIT ?) ORDER BY seq",
           clampedLimit(limit, HISTORY_MAX_LIMIT)
         );
 

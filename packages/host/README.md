@@ -29,7 +29,7 @@ Queries:
 - `inspect_cell {x, y}` the floor, any liquid and every other entity on a cell, with ids, levels and effective components.
 - `find_entities {region?, prefab?, limit?}` entities with ids, prefabs and cells, oldest first; every entity but floors and liquids unless a prefab is given; default 100, at most 500, and it says how many there are in all.
 - `list_prefabs` every prefab with its glyph, name, label, layer and habitat.
-- `history {limit?}` the latest events with sequence number, time and editor; default 20, at most 200.
+- `history {limit?}` the latest events with sequence number and time; default 20, at most 200.
 
 Edits, each answered with what happened and a map of the affected area (its bounding box plus 2 cells, at most 48 × 48, saying when it cuts). A refused edit is a tool error saying why and what would work, and so are malformed arguments, which name the field.
 
@@ -66,9 +66,9 @@ bun scripts/admin.ts spawn '{"prefab":"sign","x":4,"y":3,"components":{"text":"W
 
 ## How the World object works
 
-The whole world lives in memory as a `World` from `@agent-crossing/world/state/world`. SQLite holds it as rows: `entities (id, prefab, x, y, components JSON)`, one per entity with floors and liquids among them (each storing its `level` in its components), `meta (spawned)` and the history `events (seq, at, by, event JSON)`. The Api addresses the object by the instance name `WORLD_NAME`; changing it starts a fresh world with empty tables. On wake the rows are parsed with Schema into a snapshot and the world is rebuilt from it.
+The whole world lives in memory as a `World` from `@agent-crossing/world/state/world`. SQLite holds it as rows: `entities (id, prefab, x, y, components JSON)`, one per entity with floors and liquids among them (each storing its `level` in its components), `meta (spawned)` and the history `events (seq, event JSON)`, each event carrying its own time. The Api addresses the object by the instance name `WORLD_NAME`; changing it starts a fresh world with empty tables. On wake the rows are parsed with Schema into a snapshot and the world is rebuilt from it.
 
-Commands run one at a time. `decide` turns a command into events; for each event, inside one transaction for the whole command, the event row is inserted, `changesOf` gives its `Change`s, `statementsOf` (in `src/world-object/rows.ts`, the only SQL writer) turns them into upserts and deletes, and `apply` updates the in-memory world. The events are then published to the live feed. Read tools answer from memory; only `history` reads SQL. The object writes its answers with `@agent-crossing/world/text`, because the world is in its memory and too large to send to the Worker.
+Commands run one at a time. `decide(world, command, now)` turns a command into events; for each event, inside one transaction for the whole command, the event row is inserted, `changesOf` gives its `Change`s, `statementsOf` (in `src/world-object/rows.ts`, the only SQL writer) turns them into upserts and deletes, and `apply` updates the in-memory world. The events are then published to the live feed. Read tools answer from memory; only `history` reads SQL. The object writes its answers with `@agent-crossing/world/text`, because the world is in its memory and too large to send to the Worker.
 
 ## Notes on the stack
 

@@ -4,7 +4,6 @@ import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 import * as Str from "effect/String";
 
-import { Timestamp } from "../history/edit.ts";
 import { Seq, WorldEvent } from "../history/event.ts";
 import { eventText } from "./event.ts";
 
@@ -14,7 +13,6 @@ export const HISTORY_DEFAULT_LIMIT = 20;
 
 const HistoryEntry = Schema.Struct({
   seq: Seq,
-  at: Timestamp,
   event: WorldEvent,
 });
 
@@ -36,7 +34,8 @@ export const historyText = (
           `The last ${entries.length} of ${total} events, oldest first (UTC):`,
           ...Arr.map(
             entries,
-            ({ at, event, seq }) => `#${seq} ${timeOf(at)} ${eventText(event)}`
+            ({ event, seq }) =>
+              `#${seq} ${timeOf(event.at)} ${eventText(event)}`
           ),
         ],
         "\n"

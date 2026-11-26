@@ -1,5 +1,4 @@
 import type { Command } from "@agent-crossing/world/editing/command";
-import { Editor } from "@agent-crossing/world/history/edit";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as Random from "effect/Random";
@@ -15,15 +14,12 @@ import { parsed, refused } from "./tool.ts";
 export const AFTER_EDIT =
   "The result says what happened and shows a map of the affected area.";
 
-const ADMIN = Editor.make("admin");
-
 /** A seed for an edit that was given none. */
 export const randomSeed = Random.nextIntBetween(0, 2_147_483_647);
 
 /**
- * The common path of every edit tool: the parsed command is acted on as made
- * by `admin`, and the verdict told in words with a map of what it touched, or
- * refused.
+ * The common path of every edit tool: the parsed command is acted on, and the
+ * verdict told in words with a map of what it touched, or refused.
  */
 export const editing = Effect.map(WorldClient, (world) => {
   const answered = (verdict: typeof Verdict.Type) =>
@@ -43,6 +39,6 @@ export const editing = Effect.map(WorldClient, (world) => {
 
   return (command: Result.Result<typeof Command.Type, string>) =>
     Effect.flatMap(parsed(command), (parsedCommand) =>
-      Effect.flatMap(world.act(parsedCommand, ADMIN), answered)
+      Effect.flatMap(world.act(parsedCommand), answered)
     );
 });
