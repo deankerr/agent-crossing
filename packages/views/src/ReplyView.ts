@@ -1,13 +1,13 @@
 import * as Event from "@agent-crossing/world/Event";
-import * as Span from "@agent-crossing/world/Span";
+import * as Region from "@agent-crossing/world/Region";
 import type * as World from "@agent-crossing/world/World";
 import * as Arr from "effect/Array";
 import * as Option from "effect/Option";
 
 import * as EventText from "./EventText.ts";
+import * as MapView from "./internal/map-view.ts";
 import { totals } from "./internal/tally.ts";
-import { plural, spanText } from "./internal/words.ts";
-import * as MapView from "./MapView.ts";
+import { plural, rectText } from "./internal/words.ts";
 
 const SENTENCES_SHOWN = 3;
 
@@ -31,36 +31,24 @@ const happened = (events: readonly (typeof Event.Event.Type)[]) => {
   );
 };
 
-const framed = (world: World.World, touched: Span.Span) => {
-  const padded: Span.Span = {
-    maxX: touched.maxX + PADDING,
-    maxY: touched.maxY + PADDING,
-    minX: touched.minX - PADDING,
-    minY: touched.minY - PADDING,
-  };
-
-  const shown: Span.Span = {
-    ...padded,
-    maxX: Math.min(padded.maxX, padded.minX + MAX_SIDE - 1),
-    maxY: Math.min(padded.maxY, padded.minY + MAX_SIDE - 1),
-  };
-
-  const cut = shown.maxX !== padded.maxX || shown.maxY !== padded.maxY;
+const framed = (world: World.World, touched: typeof Region.Rect.Type) => {
+  const padded = Region.padded(touched, PADDING);
+  const shown = Region.cut(padded, MAX_SIDE);
 
   return [
     "",
-    cut
-      ? `The events touched ${spanText(touched)}. The map below shows at most ${MAX_SIDE} × ${MAX_SIDE} cells, from the north-west corner, so it leaves some of them out.`
-      : `The events touched ${spanText(touched)}.`,
+    Region.same(shown, padded)
+      ? `The events touched ${rectText(touched)}.`
+      : `The events touched ${rectText(touched)}. The map below shows at most ${MAX_SIDE} × ${MAX_SIDE} cells, from the north-west corner, so it leaves some of them out.`,
     "",
-    MapView.text(world, Span.toArea(shown)),
+    MapView.text(world, shown),
   ];
 };
 
 /**
  * The reply to an accepted command: what its events did, in a few sentences
  * or in totals when there are many, the cells they touched, and the map of
- * that area in the world after them.
+ * that rectangle in the world after them.
  */
 export const text = (
   events: readonly (typeof Event.Event.Type)[],
@@ -69,7 +57,7 @@ export const text = (
   Arr.join(
     [
       happened(events),
-      ...Option.match(Span.ofCells(Arr.flatMap(events, Event.cells)), {
+      ...Option.match(Region.bounding(Arr.flatMap(events, Event.cells)), {
         onNone: () => [],
         onSome: (touched) => framed(world, touched),
       }),

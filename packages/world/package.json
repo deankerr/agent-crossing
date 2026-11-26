@@ -12,7 +12,6 @@
     "./Event": "./src/Event.ts",
     "./Refusal": "./src/Refusal.ts",
     "./Region": "./src/Region.ts",
-    "./Span": "./src/Span.ts",
     "./World": "./src/World.ts"
   },
   "scripts": {

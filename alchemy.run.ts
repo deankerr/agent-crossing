@@ -10,8 +10,8 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 
-import Api, { DEV_PORT } from "./packages/server/src/api.ts";
-import { local } from "./packages/server/src/cluster.ts";
+import Api, { DEV_PORT } from "./packages/server/src/Api.ts";
+import * as Cluster from "./packages/server/src/Cluster.ts";
 
 const DEV_API_AS_BROWSERS_REACH_IT = "AGENT_CROSSING_DEV_API_URL";
 const PERSISTENT_STAGE = "persistent";
@@ -33,7 +33,7 @@ export default Alchemy.Stack(
     state: Cloudflare.state(),
   },
   Effect.gen(function* () {
-    const here = yield* local;
+    const here = yield* Cluster.local;
     const { stage } = yield* Stack;
 
     if (!here && stage !== PERSISTENT_STAGE) {

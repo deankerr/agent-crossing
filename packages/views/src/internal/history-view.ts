@@ -5,7 +5,7 @@ import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 import * as Str from "effect/String";
 
-import * as EventText from "./EventText.ts";
+import * as EventText from "../EventText.ts";
 
 /** {@link text} shows at most this many events. */
 export const MAX_LIMIT = 200;

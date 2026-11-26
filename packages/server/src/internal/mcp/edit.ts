@@ -2,7 +2,7 @@ import type * as Command from "@agent-crossing/world/Command";
 import * as Effect from "effect/Effect";
 import type * as Result from "effect/Result";
 
-import { WorldClient } from "../world-object/client.ts";
+import * as WorldClient from "../../WorldClient.ts";
 import type { Verdict } from "../world-object/wire.ts";
 import { refusalText } from "./refusal.ts";
 import { parsed, refused } from "./tool.ts";
@@ -21,7 +21,7 @@ const answered = (verdict: typeof Verdict.Type) =>
  * the World object's reply passed on, or its refusal told in words.
  */
 export const editing = Effect.map(
-  WorldClient,
+  WorldClient.WorldClient,
   (world) => (command: Result.Result<typeof Command.Command.Type, string>) =>
     Effect.flatMap(parsed(command), (parsedCommand) =>
       Effect.flatMap(world.act(parsedCommand), answered)

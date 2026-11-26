@@ -6,8 +6,8 @@ import * as Layer from "effect/Layer";
 import * as Schema from "effect/Schema";
 import * as Stream from "effect/Stream";
 
-import { StreamItem, Verdict } from "./wire.ts";
-import WorldObject, { WORLD_NAME } from "./world-object.ts";
+import { StreamItem, Verdict } from "./internal/world-object/wire.ts";
+import WorldObject, { WORLD_NAME } from "./WorldObject.ts";
 
 const decodeVerdict = Schema.decodeUnknownEffect(Verdict);
 const decodeStreamItem = Schema.decodeUnknownEffect(StreamItem);

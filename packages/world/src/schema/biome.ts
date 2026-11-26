@@ -13,11 +13,11 @@ export const weighted = (options: readonly WeightedPrefab[]) =>
 
 type Growth = readonly [Prefab.Prefab | Choice, number];
 
-/** A recipe for generating an area. It is not stored in the world. */
+/** A recipe for generating a region. It is not stored in the world. */
 export interface Biome {
   readonly name: string;
   readonly floor: Prefab.Prefab;
-  /** A liquid over the floor, making the area water. */
+  /** A liquid over the floor, making the region water. */
   readonly liquid?: Prefab.Prefab;
   /**
    * At most one of these is placed per cell. The chances are slices of a

@@ -2,9 +2,9 @@ import * as Effect from "effect/Effect";
 import * as HttpServerResponse from "effect/http/HttpServerResponse";
 import * as Stream from "effect/Stream";
 
-import { WorldClient } from "../world-object/client.ts";
-import { StreamItem } from "../world-object/wire.ts";
-import { sseComment, sseFrame } from "./sse.ts";
+import { sseComment, sseFrame } from "./internal/event-stream/sse.ts";
+import { StreamItem } from "./internal/world-object/wire.ts";
+import * as WorldClient from "./WorldClient.ts";
 
 const SSE_HEADERS = {
   "access-control-allow-origin": "*",
@@ -29,8 +29,8 @@ export const preflight = () =>
  * comment asks the reader to reconnect. Yield it from the Worker's
  * construction effect; each call of what it gives answers one request.
  */
-export const stream = Effect.map(
-  WorldClient,
+export const handler = Effect.map(
+  WorldClient.WorldClient,
   (world) => () =>
     HttpServerResponse.stream(
       Stream.encodeText(

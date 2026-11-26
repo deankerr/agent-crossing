@@ -1,5 +1,5 @@
 import * as Cell from "@agent-crossing/world/Cell";
-import type * as Span from "@agent-crossing/world/Span";
+import * as Region from "@agent-crossing/world/Region";
 import * as World from "@agent-crossing/world/World";
 import { useCursor } from "@react-three/drei";
 import * as Option from "effect/Option";
@@ -18,11 +18,11 @@ const SUN_DIRECTION = [-0.11, 0.88, 0.47] as const;
 const SHADOW_MARGIN = 4;
 const SHADOW_MAP = 2048;
 
-const Lights = ({ span }: { readonly span: Span.Span }) => {
+const Lights = ({ bounds }: { readonly bounds: typeof Region.Rect.Type }) => {
   const sun = useRef<DirectionalLight>(null);
   const target = useMemo(() => new Object3D(), []);
-  const { x, z } = centerOf(span);
-  const reach = diagonalOf(span) / 2 + SHADOW_MARGIN;
+  const { x, z } = centerOf(bounds);
+  const reach = diagonalOf(bounds) / 2 + SHADOW_MARGIN;
   const distance = reach * 2 + 20;
   const [dx, dy, dz] = SUN_DIRECTION;
 
@@ -62,7 +62,11 @@ const Lights = ({ span }: { readonly span: Span.Span }) => {
   );
 };
 
-const ORIGIN_SPAN: Span.Span = { maxX: 0, maxY: 0, minX: 0, minY: 0 };
+const ORIGIN_BOUNDS = Region.sized(
+  { x: Cell.Coordinate.make(0), y: Cell.Coordinate.make(0) },
+  1,
+  1
+);
 
 export const WorldScene = ({
   focus,
@@ -78,7 +82,7 @@ export const WorldScene = ({
   const [hovered, setHovered] = useState(Option.none<typeof Cell.Cell.Type>());
   const { entities, entitiesByCell } = world;
 
-  const span = useMemo(
+  const bounds = useMemo(
     () => World.bounds({ ...World.empty, entities, entitiesByCell }),
     [entities, entitiesByCell]
   );
@@ -100,7 +104,7 @@ export const WorldScene = ({
 
   return (
     <>
-      <Lights span={Option.getOrElse(span, () => ORIGIN_SPAN)} />
+      <Lights bounds={Option.getOrElse(bounds, () => ORIGIN_BOUNDS)} />
       <Floors
         onHover={hover}
         onLeave={() => {
@@ -116,8 +120,8 @@ export const WorldScene = ({
       {Option.isSome(selected) ? (
         <CellMarker cell={selected.value} tone="selected" world={world} />
       ) : null}
-      {Option.isSome(span) ? (
-        <CameraRig focus={focus} span={span.value} />
+      {Option.isSome(bounds) ? (
+        <CameraRig bounds={bounds.value} focus={focus} />
       ) : null}
     </>
   );

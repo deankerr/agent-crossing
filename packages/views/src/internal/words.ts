@@ -1,6 +1,6 @@
 import type * as Components from "@agent-crossing/definitions/Components";
 import * as Entity from "@agent-crossing/world/Entity";
-import type * as Span from "@agent-crossing/world/Span";
+import * as Region from "@agent-crossing/world/Region";
 import * as Arr from "effect/Array";
 import * as Order from "effect/Order";
 import * as Str from "effect/String";
@@ -28,8 +28,11 @@ export const joined = (parts: readonly string[]) =>
     ? Arr.join(parts, "")
     : `${Arr.join(Arr.dropRight(parts, 1), ", ")} and ${parts.at(-1) ?? ""}`;
 
-export const spanText = (span: Span.Span) =>
-  `x ${span.minX} to ${span.maxX}, y ${span.minY} to ${span.maxY}`;
+export const rectText = (given: typeof Region.Rect.Type) => {
+  const { from, to } = Region.rect(given.from, given.to);
+
+  return `x ${from.x} to ${to.x}, y ${from.y} to ${to.y}`;
+};
 
 export const quoted = (text: string) => `"${Str.replaceAll('"', "'")(text)}"`;
 

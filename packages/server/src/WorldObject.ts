@@ -16,10 +16,15 @@ import * as Schema from "effect/Schema";
 import * as Semaphore from "effect/Semaphore";
 import * as Stream from "effect/Stream";
 
-import { Default } from "../cluster.ts";
-import * as StreamFrame from "../StreamFrame.ts";
-import { EventRow, SCHEMA, statementsOf, worldOfRows } from "./rows.ts";
-import { StreamItem, Verdict } from "./wire.ts";
+import * as Cluster from "./Cluster.ts";
+import {
+  EventRow,
+  SCHEMA,
+  statementsOf,
+  worldOfRows,
+} from "./internal/world-object/rows.ts";
+import { StreamItem, Verdict } from "./internal/world-object/wire.ts";
+import * as StreamFrame from "./StreamFrame.ts";
 
 /** The one world every caller shares. */
 export const WORLD_NAME = "world-5";
@@ -198,5 +203,5 @@ const instance = Effect.gen(function* () {
 export default class WorldObject extends Rivet.DurableObject<WorldObject>()(
   "World",
   { main: import.meta.url },
-  Effect.succeed(instance).pipe(Effect.provide(Default))
+  Effect.succeed(instance).pipe(Effect.provide(Cluster.Default))
 ) {}

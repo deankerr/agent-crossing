@@ -7,11 +7,7 @@
   "sideEffects": false,
   "exports": {
     "./CellView": "./src/CellView.ts",
-    "./EntityListView": "./src/EntityListView.ts",
     "./EventText": "./src/EventText.ts",
-    "./HistoryView": "./src/HistoryView.ts",
-    "./MapView": "./src/MapView.ts",
-    "./PrefabListView": "./src/PrefabListView.ts",
     "./ReplyView": "./src/ReplyView.ts",
     "./SummaryView": "./src/SummaryView.ts",
     "./View": "./src/View.ts"

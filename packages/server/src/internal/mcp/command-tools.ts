@@ -4,9 +4,9 @@ import * as Arr from "effect/Array";
 import * as Effect from "effect/Effect";
 import * as Record from "effect/Record";
 
-import { AFTER_EDIT, editing } from "../edit.ts";
-import type { Arguments } from "../tool.ts";
-import { editTool, parsedAs, asTool } from "../tool.ts";
+import { AFTER_EDIT, editing } from "./edit.ts";
+import type { Arguments } from "./tool.ts";
+import { editTool, parsedAs, asTool } from "./tool.ts";
 
 type Member = (typeof Command.Command.members)[number];
 

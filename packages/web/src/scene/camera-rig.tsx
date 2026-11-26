@@ -1,4 +1,4 @@
-import type * as Span from "@agent-crossing/world/Span";
+import * as Region from "@agent-crossing/world/Region";
 import { MapControls } from "@react-three/drei";
 import { useFrame, useThree } from "@react-three/fiber";
 import * as Option from "effect/Option";
@@ -33,16 +33,16 @@ interface Size {
   readonly height: number;
 }
 
-const fittingZoom = (span: Span.Span, size: Size) => {
-  const wide = span.maxX - span.minX + 1 + MARGIN * 2;
+const fittingZoom = (bounds: typeof Region.Rect.Type, size: Size) => {
+  const wide = Region.width(bounds) + MARGIN * 2;
 
-  const deep = (span.maxY - span.minY + 1) * DEPTH_SHARE + TALLEST + MARGIN * 2;
+  const deep = Region.height(bounds) * DEPTH_SHARE + TALLEST + MARGIN * 2;
 
   return Math.max(0.5, Math.min(size.width / wide, size.height / deep));
 };
 
-const cameraDistance = (span: Span.Span) =>
-  Math.max(MIN_DISTANCE, diagonalOf(span) * DISTANCE_PER_DIAGONAL);
+const cameraDistance = (bounds: typeof Region.Rect.Type) =>
+  Math.max(MIN_DISTANCE, diagonalOf(bounds) * DISTANCE_PER_DIAGONAL);
 
 interface Rig {
   readonly target: Vector3;
@@ -60,17 +60,17 @@ const shiftBy = (rig: Rig, shift: Vector3) => {
  */
 export const CameraRig = ({
   focus,
-  span,
+  bounds,
 }: {
-  readonly span: Span.Span;
+  readonly bounds: typeof Region.Rect.Type;
   readonly focus: Option.Option<FocusRequest>;
 }) => {
   const controls = useRef<ComponentRef<typeof MapControls>>(null);
   const goal = useRef(Option.none<Vector3>());
   const size = useThree((state) => state.size);
-  const fit = fittingZoom(span, size);
-  const distance = cameraDistance(span);
-  const start = useRef({ distance, span, zoom: fit });
+  const fit = fittingZoom(bounds, size);
+  const distance = cameraDistance(bounds);
+  const start = useRef({ bounds, distance, zoom: fit });
 
   useLayoutEffect(() => {
     const rig = controls.current;
@@ -80,7 +80,7 @@ export const CameraRig = ({
     }
 
     const { object: camera, target } = rig;
-    const { x, z } = centerOf(start.current.span);
+    const { x, z } = centerOf(start.current.bounds);
     target.set(x, levelSurface(1), z);
     camera.position
       .copy(target)
@@ -99,10 +99,10 @@ export const CameraRig = ({
 
     if (rig !== null && rig.object instanceof OrthographicCamera) {
       rig.object.near = 0.1;
-      rig.object.far = distance * 2 + diagonalOf(span);
+      rig.object.far = distance * 2 + diagonalOf(bounds);
       rig.object.updateProjectionMatrix();
     }
-  }, [distance, span]);
+  }, [distance, bounds]);
 
   useEffect(() => {
     goal.current = Option.map(
@@ -119,8 +119,8 @@ export const CameraRig = ({
       return;
     }
 
-    const lowest = new Vector3(span.minX - 0.5, 0, span.minY - 0.5);
-    const highest = new Vector3(span.maxX + 0.5, TALLEST, span.maxY + 0.5);
+    const lowest = new Vector3(bounds.from.x - 0.5, 0, bounds.from.y - 0.5);
+    const highest = new Vector3(bounds.to.x + 0.5, TALLEST, bounds.to.y + 0.5);
 
     const keepOverWorld = () => {
       shiftBy(rig, rig.target.clone().clamp(lowest, highest).sub(rig.target));
@@ -131,7 +131,7 @@ export const CameraRig = ({
     return () => {
       rig.removeEventListener("change", keepOverWorld);
     };
-  }, [span]);
+  }, [bounds]);
 
   useFrame((_, delta) => {
     const rig = controls.current;

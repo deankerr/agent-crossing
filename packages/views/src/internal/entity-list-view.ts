@@ -7,7 +7,7 @@ import * as Arr from "effect/Array";
 import * as Option from "effect/Option";
 import * as Record from "effect/Record";
 
-import { nounOf, quoted } from "./internal/words.ts";
+import { nounOf, quoted } from "./words.ts";
 
 /** {@link text} lists at most this many entities. */
 export const MAX_LIMIT = 500;

@@ -1,7 +1,7 @@
 import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
 
-import * as StreamFrame from "../StreamFrame.ts";
+import * as StreamFrame from "../../StreamFrame.ts";
 
 const encodeFrameJson = Schema.encodeEffect(
   Schema.fromJsonString(StreamFrame.StreamFrame)

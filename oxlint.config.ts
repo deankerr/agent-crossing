@@ -1,5 +1,4 @@
 import { effectNative, strict } from "@effect/tsgo/oxlint-presets";
-import * as Arr from "effect/Array";
 import * as Record from "effect/Record";
 import { defineConfig } from "oxlint";
 import type { OxlintConfig } from "oxlint";
@@ -43,22 +42,6 @@ const noInternals = {
     "Only the modules a package lists in its exports are public; internal/ is for the package itself.",
   regex: "^@agent-crossing/[^/]+/internal/",
 };
-
-const importsPointOneWay = (doors: readonly string[], message: string) =>
-  ({
-    "no-restricted-imports": [
-      "error",
-      {
-        patterns: [
-          noInternals,
-          {
-            message,
-            regex: `^(\\.\\./)+(${Arr.join(doors, "|")})/|^(\\.\\./)+api(\\.ts)?$`,
-          },
-        ],
-      },
-    ],
-  }) satisfies Rules;
 
 export default defineConfig({
   env: core.env,
@@ -122,30 +105,31 @@ export default defineConfig({
       },
     },
     {
-      files: ["packages/server/src/world-object/**"],
-      rules: importsPointOneWay(
-        ["mcp", "stream"],
-        "world-object reads only the world and views packages; mcp, stream and api.ts read world-object, never the other way."
-      ),
-    },
-    {
-      files: ["packages/server/src/mcp/**"],
-      rules: importsPointOneWay(
-        ["stream"],
-        "mcp reads world-object only; stream is a separate door, and api.ts reads mcp, never the other way."
-      ),
-    },
-    {
-      files: ["packages/server/src/stream/**"],
-      rules: importsPointOneWay(
-        ["mcp"],
-        "stream reads world-object only; mcp is a separate door, and api.ts reads stream, never the other way."
-      ),
+      files: [
+        "packages/server/src/WorldObject.ts",
+        "packages/server/src/internal/world-object/**",
+      ],
+      rules: {
+        "no-restricted-imports": [
+          "error",
+          {
+            patterns: [
+              noInternals,
+              {
+                message:
+                  "The World object reads only the world and views packages; McpServer, EventStream and Api read it, never the other way.",
+                regex:
+                  "(^|/)(McpServer|EventStream|Api)(\\.ts)?$|/internal/(mcp|event-stream)/|^\\.\\./(mcp|event-stream)/",
+              },
+            ],
+          },
+        ],
+      },
     },
     {
       files: [
         "packages/definitions/src/*.ts",
-        "packages/server/src/StreamFrame.ts",
+        "packages/server/src/*.ts",
         "packages/views/src/*.ts",
         "packages/world/src/*.ts",
       ],

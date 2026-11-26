@@ -6,10 +6,10 @@ import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 
 import * as CellView from "./CellView.ts";
-import * as EntityListView from "./EntityListView.ts";
-import * as HistoryView from "./HistoryView.ts";
-import * as MapView from "./MapView.ts";
-import * as PrefabListView from "./PrefabListView.ts";
+import * as EntityListView from "./internal/entity-list-view.ts";
+import * as HistoryView from "./internal/history-view.ts";
+import * as MapView from "./internal/map-view.ts";
+import * as PrefabListView from "./internal/prefab-list-view.ts";
 import * as SummaryView from "./SummaryView.ts";
 
 export const ViewSummary = Schema.TaggedStruct("ViewSummary", {}).annotate({

@@ -14,7 +14,6 @@ import type { NewEntity } from "../generation/landscape.ts";
 import { seededRandom } from "../generation/random.ts";
 import * as Refusal from "../Refusal.ts";
 import * as Region from "../Region.ts";
-import * as Span from "../Span.ts";
 import * as World from "../World.ts";
 import { ensurePlaceable, misfitsIn } from "./placement.ts";
 
@@ -323,12 +322,9 @@ export const generate = (
   edit: Edit,
   command: typeof Command.GenerateWorld.Type
 ) => {
-  const cells = Span.cells({
-    maxX: command.origin.x + command.width - 1,
-    maxY: command.origin.y + command.height - 1,
-    minX: command.origin.x,
-    minY: command.origin.y,
-  });
+  const cells = Region.cells(
+    Region.sized(command.origin, command.width, command.height)
+  );
 
   return outcome(
     entitiesIn(world, cells),

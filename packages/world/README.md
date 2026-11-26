@@ -13,13 +13,12 @@ Each public module is one file named for its noun, imported as a namespace: `imp
 | Module | What it holds |
 | --- | --- |
 | `Cell` | Cells, coordinates and cell keys |
-| `Region` | Rectangles, discs and lists of cells, and the distinct cells of each |
+| `Region` | Rectangles, discs and lists of cells, the distinct cells of each, and a rectangle's size, bounds, padding and cut |
 | `Entity` | Entities and their ids, effective components, level and habitat |
 | `World` | The in-memory world, `apply`, its queries and its snapshot |
 | `Command` | What may be asked of the world, and `decide` |
-| `Event` | What happened, with its time and sequence number, and the changes each amounts to |
+| `Event` | What happened, with its time and sequence number, and the cells each touched |
 | `Refusal` | The reasons a command is refused |
-| `Span` | Rectangles by their edges; kept public until a later step folds it into `Region` |
 
 `src/internal` holds the placement rules and the body of `decide`; no other package imports it. Still in folders until they move to other packages: `src/generation` (the seeded landscape generator), `src/definitions/biomes` with `src/schema/biome.ts`.
 
@@ -94,7 +93,7 @@ export const Oak = prefab("oak", {
 
 **Related prefabs are a plain record.** `flower-patch.ts` builds seven complete prefabs from one unexported base and exports them as `FlowerPatches`. There is no "variant" concept.
 
-A biome is a recipe for generating an area, and how often something appears is the biome's to say:
+A biome is a recipe for generating a region, and how often something appears is the biome's to say:
 
 ```ts
 export const Meadow = biome({
@@ -115,7 +114,7 @@ At most one entry of `grows` is placed per cell. Each entry of `extras` is rolle
 
 ## How an edit happens
 
-An edit takes one path. `Command.decide(world, command, now)` turns a command into events stamped with `now`, or a refusal; `Event.changes` turns an event into the smallest writes to state, and `World.apply` is the only function that changes a world. The server stores the same changes as rows and keeps the events as the world's history.
+An edit takes one path. `Command.decide(world, command, now)` turns a command into events stamped with `now`, or a refusal, and `World.apply` is the only function that changes a world. The server keeps the events as the world's history.
 
 After any edit, `decide` also removes the entities that no longer fit where they are, such as an oak whose floor was erased.
 

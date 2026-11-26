@@ -1,7 +1,7 @@
 import * as Refusal from "@agent-crossing/world/Refusal";
 import * as Schema from "effect/Schema";
 
-import * as StreamFrame from "../StreamFrame.ts";
+import * as StreamFrame from "../../StreamFrame.ts";
 
 /** What the World object answers to a command. */
 export const Verdict = Schema.TaggedUnion({

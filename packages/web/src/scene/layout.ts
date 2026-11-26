@@ -1,6 +1,6 @@
 import type * as Cell from "@agent-crossing/world/Cell";
 import * as Entity from "@agent-crossing/world/Entity";
-import type * as Span from "@agent-crossing/world/Span";
+import * as Region from "@agent-crossing/world/Region";
 import * as World from "@agent-crossing/world/World";
 import * as Arr from "effect/Array";
 import * as Option from "effect/Option";
@@ -49,13 +49,13 @@ export const standingSurfaceAt = (
   cell: typeof Cell.Cell.Type
 ) => standingSurface(World.floorAt(world, cell), World.liquidAt(world, cell));
 
-/** The center of a span, as scene `x` and `z`. */
-export const centerOf = (span: Span.Span) =>
+/** The center of a rectangle, as scene `x` and `z`. */
+export const centerOf = ({ from, to }: typeof Region.Rect.Type) =>
   ({
-    x: (span.minX + span.maxX) / 2,
-    z: (span.minY + span.maxY) / 2,
+    x: (from.x + to.x) / 2,
+    z: (from.y + to.y) / 2,
   }) as const;
 
-/** The diagonal of a span in cells, at least one. */
-export const diagonalOf = (span: Span.Span) =>
-  Math.hypot(span.maxX - span.minX + 1, span.maxY - span.minY + 1);
+/** The diagonal of a rectangle in cells, at least one. */
+export const diagonalOf = (rect: typeof Region.Rect.Type) =>
+  Math.hypot(Region.width(rect), Region.height(rect));

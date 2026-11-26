@@ -2,15 +2,14 @@ import type * as Components from "@agent-crossing/definitions/Components";
 import * as Prefabs from "@agent-crossing/definitions/Prefabs";
 import * as Cell from "@agent-crossing/world/Cell";
 import * as Entity from "@agent-crossing/world/Entity";
-import type * as Region from "@agent-crossing/world/Region";
-import * as Span from "@agent-crossing/world/Span";
+import * as Region from "@agent-crossing/world/Region";
 import * as World from "@agent-crossing/world/World";
 import * as Arr from "effect/Array";
 import * as Option from "effect/Option";
 import * as Order from "effect/Order";
 import * as Str from "effect/String";
 
-import { labelOf, listed, spanText } from "./internal/words.ts";
+import { labelOf, listed, rectText } from "./words.ts";
 
 const MAP_MAX_SIDE = 128;
 
@@ -72,8 +71,8 @@ const placeLabel = (row: string[], column: number, label: string) => {
   }
 };
 
-const columnHeaders = (span: Span.Span, margin: string) => {
-  const xs = Arr.range(span.minX, span.maxX);
+const columnHeaders = (rect: typeof Region.Rect.Type, margin: string) => {
+  const xs = Arr.range(rect.from.x, rect.to.x);
   const labels = Arr.makeBy(xs.length, () => BLANK);
 
   Arr.forEach(xs, (x, column) => {
@@ -81,7 +80,7 @@ const columnHeaders = (span: Span.Span, margin: string) => {
       placeLabel(labels, column, `${x}`);
     }
   });
-  placeLabel(labels, 0, `${span.minX}`);
+  placeLabel(labels, 0, `${rect.from.x}`);
 
   return [
     Str.trimEnd(`${margin}${Arr.join(labels, "")}`),
@@ -93,15 +92,15 @@ const columnHeaders = (span: Span.Span, margin: string) => {
 };
 
 const grid = (
-  span: Span.Span,
+  rect: typeof Region.Rect.Type,
   characterAt: (cell: typeof Cell.Cell.Type) => string
 ) => {
-  const width = Math.max(`${span.minY}`.length, `${span.maxY}`.length);
+  const width = Math.max(`${rect.from.y}`.length, `${rect.to.y}`.length);
   const margin = Str.repeat(width + 1)(BLANK);
 
-  const rows = Arr.map(Arr.range(span.minY, span.maxY), (y) => {
+  const rows = Arr.map(Arr.range(rect.from.y, rect.to.y), (y) => {
     const line = Arr.join(
-      Arr.map(Arr.range(span.minX, span.maxX), (x) =>
+      Arr.map(Arr.range(rect.from.x, rect.to.x), (x) =>
         Option.match(Cell.at(x, y), {
           onNone: () => BLANK,
           onSome: characterAt,
@@ -113,7 +112,7 @@ const grid = (
     return Str.trimEnd(`${Str.padStart(width, BLANK)(`${y}`)} ${line}`);
   });
 
-  return [...columnHeaders(span, margin), ...rows];
+  return [...columnHeaders(rect, margin), ...rows];
 };
 
 const terrainGlyphs: readonly string[] = Arr.flatMap(Prefabs.all, (prefab) => {
@@ -148,10 +147,10 @@ const legendOf = (drawn: readonly Drawn[]) => {
   )}`;
 };
 
-const rendered = (world: World.World, span: Span.Span) => {
+const rendered = (world: World.World, rect: typeof Region.Rect.Type) => {
   const drawn: Drawn[] = [];
 
-  const glyphs = grid(span, (cell) =>
+  const glyphs = grid(rect, (cell) =>
     Option.match(drawnAt(world, cell), {
       onNone: () => BLANK,
       onSome: (seen) => {
@@ -162,7 +161,7 @@ const rendered = (world: World.World, span: Span.Span) => {
     })
   );
 
-  const levels = grid(span, (cell) => levelAt(world, cell));
+  const levels = grid(rect, (cell) => levelAt(world, cell));
 
   return [
     ...glyphs,
@@ -177,55 +176,36 @@ const rendered = (world: World.World, span: Span.Span) => {
 const AXES =
   "x grows east (right) and y grows south (down). The first header row labels x every 10 columns, the second gives the last digit of each column's x, and each row starts with its y. One character per cell; blank cells are outside the world.";
 
-const clamped = (span: Span.Span) =>
-  ({
-    maxX: Math.min(span.maxX, span.minX + MAP_MAX_SIDE - 1),
-    maxY: Math.min(span.maxY, span.minY + MAP_MAX_SIDE - 1),
-    minX: span.minX,
-    minY: span.minY,
-  }) satisfies Span.Span;
-
 /**
  * The map of a rectangle: how to read it, the glyph map, the level map of the
  * same cells and a legend of the glyphs that appear. At most
  * 128 × 128 cells, cut from the north-west corner.
  */
-export const text = (
-  world: World.World,
-  rect: Pick<typeof Region.Rect.Type, "from" | "to">
-) => {
-  const asked = Span.of(rect.from, rect.to);
-  const span = clamped(asked);
+export const text = (world: World.World, rect: typeof Region.Rect.Type) => {
+  const asked = Region.rect(rect.from, rect.to);
+  const kept = Region.cut(asked, MAP_MAX_SIDE);
 
-  const cut =
-    span.maxX === asked.maxX && span.maxY === asked.maxY
-      ? []
-      : [
-          `The request covered ${spanText(asked)}; maps are at most ${MAP_MAX_SIDE} × ${MAP_MAX_SIDE} cells, so this shows ${spanText(span)}.`,
-        ];
+  const cut = Region.same(kept, asked)
+    ? []
+    : [
+        `The request covered ${rectText(asked)}; maps are at most ${MAP_MAX_SIDE} × ${MAP_MAX_SIDE} cells, so this shows ${rectText(kept)}.`,
+      ];
 
   return Arr.join(
-    [`Map of ${spanText(span)}. ${AXES}`, ...cut, ...rendered(world, span)],
+    [`Map of ${rectText(kept)}. ${AXES}`, ...cut, ...rendered(world, kept)],
     "\n"
   );
 };
 
 /**
- * A map of the area, or of the whole world when none is given; none when
- * no area is given and no cell has a floor.
+ * A map of the rectangle, or of the whole world when none is given; none
+ * when no rectangle is given and no cell has a floor.
  */
 export const ifAny = (
   world: World.World,
-  area: Option.Option<typeof Span.Area.Type>
+  rect: Option.Option<typeof Region.Rect.Type>
 ) =>
   Option.map(
-    Option.orElse(area, () =>
-      Option.flatMap(World.bounds(world), (span) =>
-        Option.all({
-          from: Cell.at(span.minX, span.minY),
-          to: Cell.at(span.maxX, span.maxY),
-        })
-      )
-    ),
-    (rect) => text(world, rect)
+    Option.orElse(rect, () => World.bounds(world)),
+    (given) => text(world, given)
   );

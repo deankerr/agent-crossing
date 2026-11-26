@@ -10,7 +10,7 @@ import {
   labelOf,
   listed,
   nounOf,
-  spanText,
+  rectText,
 } from "./internal/words.ts";
 
 /**
@@ -20,7 +20,7 @@ import {
 export const text = (world: World.World) =>
   Option.match(World.bounds(world), {
     onNone: () => "The world is empty: no cell has a floor.",
-    onSome: (span) => {
+    onSome: (bounds) => {
       const entities = World.entities(world);
       const floors = Arr.filter(entities, Entity.isFloor);
       const liquids = Arr.filter(entities, Entity.isLiquid);
@@ -44,7 +44,7 @@ export const text = (world: World.World) =>
 
       return Arr.join(
         [
-          `The world spans ${spanText(span)}, with ${floors.length} cells of floor.`,
+          `The world spans ${rectText(bounds)}, with ${floors.length} cells of floor.`,
           `Floors: ${listed(
             Arr.map(
               countsBy(floors, nounOf),

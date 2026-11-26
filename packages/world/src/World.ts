@@ -8,7 +8,7 @@ import * as Order from "effect/Order";
 import * as Cell from "./Cell.ts";
 import * as Entity from "./Entity.ts";
 import * as Event from "./Event.ts";
-import type * as Span from "./Span.ts";
+import * as Region from "./Region.ts";
 
 type Id = typeof Entity.Id.Type;
 
@@ -178,23 +178,6 @@ export const cellCount = (world: World) => allFloors(world).length;
 
 export const entityCount = (world: World) => HashMap.size(world.entities);
 
-/** The smallest span holding every floor, or none for an empty world. */
+/** The smallest rectangle holding every floor, or none for an empty world. */
 export const bounds = (world: World) =>
-  Arr.reduce(allFloors(world), Option.none<Span.Span>(), (span, { cell }) =>
-    Option.some(
-      Option.match(span, {
-        onNone: () => ({
-          maxX: cell.x,
-          maxY: cell.y,
-          minX: cell.x,
-          minY: cell.y,
-        }),
-        onSome: (sofar) => ({
-          maxX: Math.max(sofar.maxX, cell.x),
-          maxY: Math.max(sofar.maxY, cell.y),
-          minX: Math.min(sofar.minX, cell.x),
-          minY: Math.min(sofar.minY, cell.y),
-        }),
-      })
-    )
-  );
+  Region.bounding(Arr.map(allFloors(world), ({ cell }) => cell));

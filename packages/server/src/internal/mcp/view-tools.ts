@@ -4,9 +4,9 @@ import * as Arr from "effect/Array";
 import * as Effect from "effect/Effect";
 import * as Record from "effect/Record";
 
-import { WorldClient } from "../../world-object/client.ts";
-import type { Arguments } from "../tool.ts";
-import { parsed, parsedAs, queryTool, asTool } from "../tool.ts";
+import * as WorldClient from "../../WorldClient.ts";
+import type { Arguments } from "./tool.ts";
+import { parsed, parsedAs, queryTool, asTool } from "./tool.ts";
 
 type Member = (typeof View.View.members)[number];
 
@@ -20,7 +20,7 @@ const toolOf = (member: Member) => {
 
 const toolkit = Toolkit.make(...Arr.map(View.View.members, toolOf));
 
-const handlers = Effect.map(WorldClient, (world) =>
+const handlers = Effect.map(WorldClient.WorldClient, (world) =>
   Record.fromEntries(
     Arr.map(View.View.members, (member) => [
       asTool(member).name,
