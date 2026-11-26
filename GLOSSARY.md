@@ -1,8 +1,12 @@
 # Agent Crossing world
 
-The words for what the world is made of and how it is described. They cover the world's definitions and what exists in it, not how agents act or how edits are made.
+The words for what the world is made of, how it changes and how it is shown. They do not yet cover how agents act.
 
 ## Language
+
+### The world
+
+**World**: Everything that exists: every entity, wherever it is. There is one. _Avoid_: Instance, simulation, map
 
 ### Where things are
 
@@ -20,9 +24,15 @@ The words for what the world is made of and how it is described. They cover the 
 
 **Water**: A place with liquid over its floor. Derived from what is there, never stored. _Avoid_: Swimmable, wet ground
 
+**Terrain**: The floor of a cell and any liquid over it. Everything else in the cell stands on it. _Avoid_: Ground, base, a terrain
+
+**Region**: A set of cells, given as a rectangle, a disc or a list. _Avoid_: Area, span, zone
+
 ### What exists
 
 **Entity**: One thing in the world: a prefab, at a cell, with whatever differs from its prefab. _Avoid_: Thing, object, tile, instance
+
+**Character**: An entity that an agent controls. _Avoid_: Avatar, villager, player, role
 
 **Component**: One property an entity can have, from a closed set. An entity has the components of its prefab, and may override or add any of them. _Avoid_: Trait, property, attribute
 
@@ -36,11 +46,9 @@ The words for what the world is made of and how it is described. They cover the 
 
 **Prefab**: A named definition of a sort of entity, such as oak, grass or sign: the components every entity of that sort starts with. _Avoid_: Kind, type, prototype, blueprint
 
-**Category**: A grouping of prefabs for organization, such as terrain, nature or made. No rule reads it. _Avoid_: Class, group, family
+**Category**: A grouping of prefabs for organization, such as nature or made. No rule reads it. _Avoid_: Class, group, family
 
-**Terrain**: The category of the natural prefabs that make up the land and water. It is not a kind of entity and carries no rules of its own. _Avoid_: Ground, a terrain
-
-**Label**: A component: what an agent calls the entity and the glyph it is drawn with on a text map. _Avoid_: Noun, name, description
+**Label**: A component: what an agent calls the entity and the glyph it is drawn with on the map. _Avoid_: Noun, name, description
 
 **Model**: A component: the named parts the entity is drawn from. _Avoid_: Appearance, mesh, sprite
 
@@ -52,4 +60,28 @@ The words for what the world is made of and how it is described. They cover the 
 
 **Shade**: A named color in the palette, with the value the spectator view paints. _Avoid_: Ink, hex, hue
 
-**Biome**: A recipe for generating an area: a floor, any liquid over it, and what grows there and how often. It is not stored in the world. _Avoid_: Region, zone, area
+**Biome**: A recipe for generating a region: a floor, any liquid over it, and what grows there and how often. It is not stored in the world. _Avoid_: Region, zone, area
+
+### How the world changes
+
+**Command**: A request to change the world, which the world either accepts or refuses. Nothing else changes it. _Avoid_: Edit, action, mutation
+
+**Event**: Something that happened to the world because a command was accepted. One command may cause several. An event is a fact and is never refused. It says everything that happened: what, and where. _Avoid_: Change, update, delta
+
+**Rule**: Something that must hold in the world, such as one entity per layer, or an entity only where its habitat allows. _Avoid_: Constraint, law, validation
+
+**Refusal**: The world's answer to a command that would break a rule, saying which. _Avoid_: Rejection, error, failure
+
+**History**: Every event, in order. _Avoid_: Log, journal, timeline
+
+### How the world is shown
+
+**View**: The world as shown to one kind of reader, such as the spectator view in 3D or the map in text. _Avoid_: Render, readout, display
+
+**Map**: The view that draws each cell as one glyph. _Avoid_: Grid, text map, chart
+
+### Outside the world
+
+**Agent**: An AI that someone runs in their own harness, outside the world. It reaches the world over MCP, and only its character is in the world. _Avoid_: Bot, player, user
+
+**Generator**: A program outside the world that turns a seed and biomes into commands. _Avoid_: Worldgen, builder
