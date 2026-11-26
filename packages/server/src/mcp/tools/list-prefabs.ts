@@ -1,4 +1,4 @@
-import { prefabsText } from "@agent-crossing/world/text/prefabs";
+import * as PrefabListView from "@agent-crossing/views/PrefabListView";
 import * as Effect from "effect/Effect";
 
 import { queryTool } from "../tool.ts";
@@ -10,4 +10,6 @@ export const ListPrefabs = queryTool("list_prefabs", {
 });
 
 /** The handler of `list_prefabs`. */
-export const listPrefabs = Effect.succeed(() => Effect.succeed(prefabsText()));
+export const listPrefabs = Effect.succeed(() =>
+  Effect.succeed(PrefabListView.text)
+);

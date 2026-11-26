@@ -86,7 +86,7 @@ export default defineConfig({
       files: ["packages/server/src/world-object/**"],
       rules: importsPointOneWay(
         ["mcp", "stream"],
-        "world-object reads only the world package; mcp, stream and api.ts read world-object, never the other way."
+        "world-object reads only the world and views packages; mcp, stream and api.ts read world-object, never the other way."
       ),
     },
     {
@@ -104,7 +104,11 @@ export default defineConfig({
       ),
     },
     {
-      files: ["packages/definitions/src/*.ts", "packages/world/src/*.ts"],
+      files: [
+        "packages/definitions/src/*.ts",
+        "packages/views/src/*.ts",
+        "packages/world/src/*.ts",
+      ],
       rules: { "unicorn/filename-case": ["error", { case: "pascalCase" }] },
     },
     {
@@ -133,7 +137,25 @@ export default defineConfig({
             patterns: [
               {
                 message:
-                  "The world package reads no other package; server and web read world, never the other way.",
+                  "The world package reads only definitions; views, server and web read world, never the other way.",
+                regex: "^@agent-crossing/(server|views|web)(/|$)",
+              },
+            ],
+          },
+        ],
+      },
+    },
+    {
+      files: ["packages/views/**"],
+      rules: {
+        "no-restricted-imports": [
+          "error",
+          {
+            patterns: [
+              noInternals,
+              {
+                message:
+                  "The views package reads only world and definitions; server and web read views, never the other way.",
                 regex: "^@agent-crossing/(server|web)(/|$)",
               },
             ],

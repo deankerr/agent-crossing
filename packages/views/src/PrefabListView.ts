@@ -1,7 +1,6 @@
 import * as Prefabs from "@agent-crossing/definitions/Prefabs";
+import * as Entity from "@agent-crossing/world/Entity";
 import * as Arr from "effect/Array";
-
-import * as Entity from "../Entity.ts";
 
 const prefabLine = ({ components, name }: (typeof Prefabs.all)[number]) => {
   const { label, layer } = components;
@@ -22,11 +21,10 @@ const prefabLine = ({ components, name }: (typeof Prefabs.all)[number]) => {
 };
 
 /** Every prefab with its glyph, label, layer and habitat. */
-export const prefabsText = () =>
-  Arr.join(
-    [
-      "Prefabs (glyph, name: label, layer, habitat). A cell holds at most one entity per layer (floor, liquid, cover, object); entities with no layer share freely. A floor puts a cell in the world, and a liquid over it makes the place water instead of land. An entity may be only where its habitat allows. Any component can be overridden per entity, for example colors or text.",
-      ...Arr.map(Prefabs.all, prefabLine),
-    ],
-    "\n"
-  );
+export const text = Arr.join(
+  [
+    "Prefabs (glyph, name: label, layer, habitat). A cell holds at most one entity per layer (floor, liquid, cover, object); entities with no layer share freely. A floor puts a cell in the world, and a liquid over it makes the place water instead of land. An entity may be only where its habitat allows. Any component can be overridden per entity, for example colors or text.",
+    ...Arr.map(Prefabs.all, prefabLine),
+  ],
+  "\n"
+);

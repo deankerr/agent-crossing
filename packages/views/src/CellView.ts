@@ -1,11 +1,11 @@
+import * as Cell from "@agent-crossing/world/Cell";
+import * as Entity from "@agent-crossing/world/Entity";
+import * as World from "@agent-crossing/world/World";
 import * as Arr from "effect/Array";
 import * as Option from "effect/Option";
 import * as Record from "effect/Record";
 
-import * as Cell from "../Cell.ts";
-import * as Entity from "../Entity.ts";
-import * as World from "../World.ts";
-import { listed, quoted } from "./words.ts";
+import { listed, nounOf, quoted } from "./internal/words.ts";
 
 const componentText = (entity: typeof Entity.Entity.Type) => {
   const components = Entity.components(entity);
@@ -40,7 +40,7 @@ const componentText = (entity: typeof Entity.Entity.Type) => {
 };
 
 const named = (entity: typeof Entity.Entity.Type) => {
-  const noun = Entity.nounOf(entity);
+  const noun = nounOf(entity);
 
   return noun === entity.prefab ? noun : `${noun} (${entity.prefab})`;
 };
@@ -52,7 +52,7 @@ const at = (entity: typeof Entity.Entity.Type) =>
  * The floor and any liquid of one cell, and every other entity in it with
  * its effective components.
  */
-export const inspectText = (world: World.World, cell: typeof Cell.Cell.Type) =>
+export const text = (world: World.World, cell: typeof Cell.Cell.Type) =>
   Option.match(World.floorAt(world, cell), {
     onNone: () =>
       `Cell ${Cell.format(cell)} is outside the world: it has no floor.`,

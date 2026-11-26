@@ -1,17 +1,17 @@
 import type * as Prefabs from "@agent-crossing/definitions/Prefabs";
+import * as Cell from "@agent-crossing/world/Cell";
+import * as Entity from "@agent-crossing/world/Entity";
+import * as Region from "@agent-crossing/world/Region";
+import * as World from "@agent-crossing/world/World";
 import * as Arr from "effect/Array";
 import * as Option from "effect/Option";
 import * as Record from "effect/Record";
 
-import * as Cell from "../Cell.ts";
-import * as Entity from "../Entity.ts";
-import * as Region from "../Region.ts";
-import * as World from "../World.ts";
-import { quoted } from "./words.ts";
+import { nounOf, quoted } from "./internal/words.ts";
 
-/** {@link findText} lists at most this many entities. */
-export const FIND_MAX_LIMIT = 500;
-export const FIND_DEFAULT_LIMIT = 100;
+/** {@link text} lists at most this many entities. */
+export const MAX_LIMIT = 500;
+export const DEFAULT_LIMIT = 100;
 
 type Present = typeof Entity.Entity.Type;
 
@@ -35,7 +35,7 @@ const entityLine = (entity: Present) => {
     (part) => part !== ""
   );
 
-  return `${entity.id} ${entity.prefab} (${Entity.nounOf(entity)}) at ${Cell.format(entity.cell)}${own.length === 0 ? "" : `: ${Arr.join(own, ", ")}`}`;
+  return `${entity.id} ${entity.prefab} (${nounOf(entity)}) at ${Cell.format(entity.cell)}${own.length === 0 ? "" : `: ${Arr.join(own, ", ")}`}`;
 };
 
 const inRegion = (region: Option.Option<typeof Region.Region.Type>) =>
@@ -53,13 +53,13 @@ const inRegion = (region: Option.Option<typeof Region.Region.Type>) =>
  * `limit`. With a prefab, only entities of that prefab; without one, every
  * entity but the floors and liquids.
  */
-export const findText = (
+export const text = (
   world: World.World,
   region: Option.Option<typeof Region.Region.Type>,
   prefab: Option.Option<typeof Prefabs.Name.Type>,
   limit: number
 ) => {
-  const cap = Math.max(1, Math.min(FIND_MAX_LIMIT, Math.trunc(limit)));
+  const cap = Math.max(1, Math.min(MAX_LIMIT, Math.trunc(limit)));
   const isIn = inRegion(region);
 
   const found = Arr.filter(
@@ -86,7 +86,7 @@ export const findText = (
   return Arr.join(
     [
       found.length > cap
-        ? `${found.length} ${what(found.length)} ${where}; showing the first ${cap} (the limit is ${cap}, at most ${FIND_MAX_LIMIT}). Narrow the region or prefab to see the rest.`
+        ? `${found.length} ${what(found.length)} ${where}; showing the first ${cap} (the limit is ${cap}, at most ${MAX_LIMIT}). Narrow the region or prefab to see the rest.`
         : `${found.length} ${what(found.length)} ${where}:`,
       ...Arr.map(shown, entityLine),
     ],

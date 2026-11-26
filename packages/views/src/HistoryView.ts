@@ -1,15 +1,15 @@
+import * as Event from "@agent-crossing/world/Event";
 import * as Arr from "effect/Array";
 import * as DateTime from "effect/DateTime";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 import * as Str from "effect/String";
 
-import * as Event from "../Event.ts";
-import { eventText } from "./event.ts";
+import * as EventText from "./EventText.ts";
 
-/** {@link historyText} shows at most this many events. */
-export const HISTORY_MAX_LIMIT = 200;
-export const HISTORY_DEFAULT_LIMIT = 20;
+/** {@link text} shows at most this many events. */
+export const MAX_LIMIT = 200;
+export const DEFAULT_LIMIT = 20;
 
 const HistoryEntry = Schema.Struct({
   seq: Event.Seq,
@@ -23,7 +23,7 @@ const timeOf = (at: number) =>
   });
 
 /** The latest events, oldest first, one line each. */
-export const historyText = (
+export const text = (
   entries: readonly (typeof HistoryEntry.Type)[],
   total: number
 ) =>
@@ -35,7 +35,7 @@ export const historyText = (
           ...Arr.map(
             entries,
             ({ event, seq }) =>
-              `#${seq} ${timeOf(event.at)} ${eventText(event)}`
+              `#${seq} ${timeOf(event.at)} ${EventText.sentence(event)}`
           ),
         ],
         "\n"

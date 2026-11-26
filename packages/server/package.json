@@ -9,6 +9,7 @@
   },
   "dependencies": {
     "@agent-crossing/definitions": "workspace:*",
+    "@agent-crossing/views": "workspace:*",
     "@agent-crossing/world": "workspace:*",
     "@alchemy.run/cloudflare": "catalog:",
     "@alchemy.run/docker": "catalog:",

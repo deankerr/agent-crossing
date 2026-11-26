@@ -198,30 +198,3 @@ export const bounds = (world: World) =>
       })
     )
   );
-
-/** How many of something there are under one key. */
-export interface Count {
-  readonly key: string;
-  readonly count: number;
-}
-
-/** How many entities share each key, most first, then by key. */
-export const countsBy = (
-  counted: Iterable<Present>,
-  keyOf: (present: Present) => string
-) => {
-  const counts = new Map<string, number>();
-
-  for (const present of counted) {
-    const key = keyOf(present);
-    counts.set(key, (counts.get(key) ?? 0) + 1);
-  }
-
-  return Arr.sort(
-    Arr.map(Arr.fromIterable(counts), ([key, count]) => ({ count, key })),
-    Order.combine(
-      Order.mapInput(Order.flip(Order.Number), (entry: Count) => entry.count),
-      Order.mapInput(Order.String, (entry: Count) => entry.key)
-    )
-  );
-};

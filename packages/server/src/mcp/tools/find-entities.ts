@@ -1,9 +1,6 @@
 import * as Prefabs from "@agent-crossing/definitions/Prefabs";
+import * as EntityListView from "@agent-crossing/views/EntityListView";
 import * as Region from "@agent-crossing/world/Region";
-import {
-  FIND_DEFAULT_LIMIT,
-  FIND_MAX_LIMIT,
-} from "@agent-crossing/world/text/find";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
@@ -19,7 +16,7 @@ const FindEntitiesInput = Schema.Struct({
 
 /** `find_entities`: entities with their ids, in a region or everywhere. */
 export const FindEntities = queryTool("find_entities", {
-  description: `Lists entities with their ids, prefabs and cells, oldest first: in a region or the whole world. Without a prefab it lists every entity but the floors and liquids; with one, only entities of that prefab. Shows at most \`limit\` (default ${FIND_DEFAULT_LIMIT}, at most ${FIND_MAX_LIMIT}) and says how many there are in all.`,
+  description: `Lists entities with their ids, prefabs and cells, oldest first: in a region or the whole world. Without a prefab it lists every entity but the floors and liquids; with one, only entities of that prefab. Shows at most \`limit\` (default ${EntityListView.DEFAULT_LIMIT}, at most ${EntityListView.MAX_LIMIT}) and says how many there are in all.`,
   parameters: FindEntitiesInput,
 });
 
@@ -31,6 +28,6 @@ export const findEntities = Effect.map(
       world.find(
         Option.fromNullishOr(region),
         Option.fromNullishOr(prefab),
-        limit ?? FIND_DEFAULT_LIMIT
+        limit ?? EntityListView.DEFAULT_LIMIT
       )
 );

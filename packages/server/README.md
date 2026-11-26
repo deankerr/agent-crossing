@@ -66,7 +66,7 @@ bun scripts/mcp.ts place_entities '{"entities":[{"prefab":"sign","cell":{"x":4,"
 
 The whole world lives in memory as a `World` from `@agent-crossing/world/state/world`. SQLite holds it as rows: `entities (id, prefab, x, y, components JSON)`, one per entity with floors and liquids among them (each storing its `level` in its components), `meta (spawned)` and the history `events (seq, event JSON)`, each event carrying its own time. The Api addresses the object by the instance name `WORLD_NAME`; changing it starts a fresh world with empty tables. On wake the rows are parsed with Schema into a snapshot and the world is rebuilt from it.
 
-Commands run one at a time. `decide(world, command, now)` turns a command into events; for each event, inside one transaction for the whole command, the event row is inserted, `changesOf` gives its `Change`s, `statementsOf` (in `src/world-object/rows.ts`, the only SQL writer) turns them into upserts and deletes, and `apply` updates the in-memory world. The events are then published to the live feed. Read tools answer from memory; only `history` reads SQL. The object writes its answers with `@agent-crossing/world/text`, because the world is in its memory and too large to send to the Worker.
+Commands run one at a time. `decide(world, command, now)` turns a command into events; for each event, inside one transaction for the whole command, the event row is inserted, `changesOf` gives its `Change`s, `statementsOf` (in `src/world-object/rows.ts`, the only SQL writer) turns them into upserts and deletes, and `apply` updates the in-memory world. The events are then published to the live feed. Read tools answer from memory; only `history` reads SQL. The object writes its answers with `@agent-crossing/views`, because the world is in its memory and too large to send to the Worker. The answer to an accepted command is `ReplyView.text` of its events and the world after them; a refused one carries the refusal, which `mcp` puts in words.
 
 ## Notes on the stack
 
@@ -75,19 +75,19 @@ Commands run one at a time. `decide(world, command, now)` turns a command into e
 
 ## Layout
 
-Imports point one way: `world-object` reads only the world package, `mcp` and `stream` read `world-object`, and `api.ts` reads all three. `no-restricted-imports` overrides in `oxlint.config.ts` enforce it, and keep the world package from reading `server` or `web`.
+Imports point one way: `world-object` reads only the world and views packages, `mcp` and `stream` read `world-object`, and `api.ts` reads all three. `no-restricted-imports` overrides in `oxlint.config.ts` enforce it, and keep the world package from reading `server` or `web`.
 
 - `src/api.ts` the Worker, which only routes: `/mcp` to the MCP handler and `/events` to the event stream.
 - `src/cluster.ts` where the World object runs: the local Docker swarm under `alchemy dev`, the Rivet Cloud cluster `agent-crossing` when deployed.
 - `src/world-object/` keeping the world:
   - `world-object.ts` the Durable Object: the world in memory, commits, reads and the feed.
   - `rows.ts` the tables, `Change` to SQL statements, and parsing rows back.
-  - `wire.ts` what crosses its calls: the verdict on a command and the items of the feed.
+  - `wire.ts` what crosses its calls: the verdict on a command (the reply text, or the refusal) and the items of the feed.
   - `client.ts` the `WorldClient` service, the object as typed calls, which is all that `mcp` and `stream` see of it. `api.ts` provides its layer once, on the Worker's construction effect.
 - `src/mcp/` the editor's door:
   - `server.ts` the MCP endpoint, with the tools' `instructions.ts`.
   - `tools/` the tools: `commands.ts` builds one tool for each command from the command's schema, with its hints; each query tool has its own file, named after it (`view-map.ts` for `view_map`). `tools/index.ts` registers the queries and the command tools, in the order they are listed to clients, with every answer as text.
   - `tool.ts` what every tool shares: `queryTool` and `editTool`, which make a tool answering in text that may refuse and give it its MCP annotations, and the refusal; `edit.ts` the common path of an edit, from parsing the command to the reply.
-  - `replies.ts` and `refusal.ts` the sentences that are the MCP tools' own: what an edit did, and what to try after a refusal.
+  - `refusal.ts` the sentences that are the MCP tools' own: why a command was refused and which tool to try instead.
 - `src/stream/` the spectator's door: `stream.ts` the `/events` response and `sse.ts` the frames as server-sent events.
 - `scripts/mcp.ts` the command-line client.

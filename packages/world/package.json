@@ -13,9 +13,7 @@
     "./Refusal": "./src/Refusal.ts",
     "./Region": "./src/Region.ts",
     "./Span": "./src/Span.ts",
-    "./Tally": "./src/Tally.ts",
     "./World": "./src/World.ts",
-    "./text/*": "./src/text/*.ts",
     "./feed/*": "./src/feed/*.ts"
   },
   "scripts": {

@@ -48,13 +48,6 @@ export const components = (entity: Described) =>
 /** The level a floor or liquid stores; a missing one reads as 0. */
 export const level = (entity: Described) => components(entity).level ?? 0;
 
-export const labelOf = (entity: Described) => components(entity).label;
-
-export const nounOf = (entity: Described) => labelOf(entity).noun;
-
-export const pluralOf = (label: typeof Components.Label.Type) =>
-  label.plural ?? `${label.noun}s`;
-
 export const isFloor = (entity: typeof Entity.Type) =>
   components(entity).layer === "floor";
 

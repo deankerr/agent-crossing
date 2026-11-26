@@ -302,6 +302,9 @@ importers:
       '@agent-crossing/definitions':
         specifier: workspace:*
         version: link:../definitions
+      '@agent-crossing/views':
+        specifier: workspace:*
+        version: link:../views
       '@agent-crossing/world':
         specifier: workspace:*
         version: link:../world
@@ -328,11 +331,30 @@ importers:
         specifier: 'catalog:'
         version: 24.19.2
 
+  packages/views:
+    dependencies:
+      '@agent-crossing/definitions':
+        specifier: workspace:*
+        version: link:../definitions
+      '@agent-crossing/world':
+        specifier: workspace:*
+        version: link:../world
+      effect:
+        specifier: 'catalog:'
+        version: 4.1.5
+    devDependencies:
+      '@types/node':
+        specifier: 'catalog:'
+        version: 24.19.2
+
   packages/web:
     dependencies:
       '@agent-crossing/definitions':
         specifier: workspace:*
         version: link:../definitions
+      '@agent-crossing/views':
+        specifier: workspace:*
+        version: link:../views
       '@agent-crossing/world':
         specifier: workspace:*
         version: link:../world

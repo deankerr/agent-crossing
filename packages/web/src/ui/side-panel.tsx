@@ -1,6 +1,6 @@
+import * as CellView from "@agent-crossing/views/CellView";
+import * as SummaryView from "@agent-crossing/views/SummaryView";
 import * as Cell from "@agent-crossing/world/Cell";
-import { inspectText } from "@agent-crossing/world/text/inspect";
-import { summaryText } from "@agent-crossing/world/text/summary";
 import type * as World from "@agent-crossing/world/World";
 import * as Arr from "effect/Array";
 import * as DateTime from "effect/DateTime";
@@ -51,14 +51,14 @@ const CellDetails = ({
         ×
       </button>
     </header>
-    <pre className="panel-text">{inspectText(world, cell)}</pre>
+    <pre className="panel-text">{CellView.text(world, cell)}</pre>
   </section>
 );
 
 const Summary = ({ world }: { readonly world: World.World }) => (
   <section className="panel-section">
     <h2>The world</h2>
-    <pre className="panel-text">{summaryText(world)}</pre>
+    <pre className="panel-text">{SummaryView.text(world)}</pre>
   </section>
 );
 

@@ -1,4 +1,10 @@
 import * as Prefabs from "@agent-crossing/definitions/Prefabs";
+import * as CellView from "@agent-crossing/views/CellView";
+import * as EntityListView from "@agent-crossing/views/EntityListView";
+import * as HistoryView from "@agent-crossing/views/HistoryView";
+import * as MapView from "@agent-crossing/views/MapView";
+import * as ReplyView from "@agent-crossing/views/ReplyView";
+import * as SummaryView from "@agent-crossing/views/SummaryView";
 import * as Cell from "@agent-crossing/world/Cell";
 import * as Command from "@agent-crossing/world/Command";
 import * as Event from "@agent-crossing/world/Event";
@@ -6,16 +12,6 @@ import { FeedFrame } from "@agent-crossing/world/feed/frame";
 import { openingFrames } from "@agent-crossing/world/feed/opening";
 import * as Region from "@agent-crossing/world/Region";
 import * as Span from "@agent-crossing/world/Span";
-import * as Tally from "@agent-crossing/world/Tally";
-import { eventText } from "@agent-crossing/world/text/event";
-import { findText } from "@agent-crossing/world/text/find";
-import {
-  HISTORY_MAX_LIMIT,
-  historyText,
-} from "@agent-crossing/world/text/history";
-import { inspectText } from "@agent-crossing/world/text/inspect";
-import { mapIfAny } from "@agent-crossing/world/text/map";
-import { summaryText } from "@agent-crossing/world/text/summary";
 import * as World from "@agent-crossing/world/World";
 import * as Rivet from "@alchemy.run/rivet";
 import * as Arr from "effect/Array";
@@ -133,13 +129,15 @@ const instance = Effect.gen(function* () {
         const decision = Command.decide(before, command, now);
 
         if (Result.isFailure(decision)) {
-          return Verdict.cases.Rejected.make({ rejection: decision.failure });
+          return Verdict.cases.Refused.make({ refusal: decision.failure });
         }
 
         const events = decision.success;
         const happened = yield* record(events);
 
-        yield* Ref.set(world, World.applyAll(before, events));
+        const after = World.applyAll(before, events);
+
+        yield* Ref.set(world, after);
         yield* Option.match(Arr.last(happened), {
           onNone: () => Effect.void,
           onSome: ({ seq }) => Ref.set(head, seq),
@@ -147,12 +145,7 @@ const instance = Effect.gen(function* () {
         yield* PubSub.publishAll(live, happened);
 
         return Verdict.cases.Accepted.make({
-          sentences: Arr.map(events, eventText),
-          tally: Arr.reduce(events, Tally.none, Tally.tallied),
-          ...Option.match(Span.ofCells(Arr.flatMap(events, Event.cells)), {
-            onNone: () => ({}),
-            onSome: (span) => ({ edited: Span.toArea(span) }),
-          }),
+          text: ReplyView.text(events, after),
         });
       })
     );
@@ -209,7 +202,7 @@ const instance = Effect.gen(function* () {
         const only = yield* decodePrefab(prefab);
 
         return yield* reading((current) =>
-          findText(
+          EntityListView.text(
             current,
             Option.fromNullishOr(within),
             Option.fromNullishOr(only),
@@ -221,24 +214,27 @@ const instance = Effect.gen(function* () {
       Effect.gen(function* () {
         const rows = yield* run(
           "SELECT seq, event FROM (SELECT seq, event FROM events ORDER BY seq DESC LIMIT ?) ORDER BY seq",
-          clampedLimit(limit, HISTORY_MAX_LIMIT)
+          clampedLimit(limit, HistoryView.MAX_LIMIT)
         );
 
-        return historyText(yield* decodeEventRows(rows), yield* Ref.get(head));
+        return HistoryView.text(
+          yield* decodeEventRows(rows),
+          yield* Ref.get(head)
+        );
       }).pipe(Effect.orDie),
     inspect: (cell: typeof Cell.Cell.Encoded) =>
       Effect.flatMap(Effect.orDie(decodeCell(cell)), (at) =>
-        reading((current) => inspectText(current, at))
+        reading((current) => CellView.text(current, at))
       ),
     map: (area: typeof Span.Area.Encoded | null) =>
       Effect.flatMap(Effect.orDie(decodeArea(area)), (shown) =>
         reading((current) =>
-          Option.getOrNull(mapIfAny(current, Option.fromNullishOr(shown)))
+          Option.getOrNull(MapView.ifAny(current, Option.fromNullishOr(shown)))
         )
       ),
     summary: () =>
       Effect.gen(function* () {
-        const text = yield* reading(summaryText);
+        const text = yield* reading(SummaryView.text);
         const events = yield* Ref.get(head);
 
         return `${text}\nHistory: ${events} events.`;

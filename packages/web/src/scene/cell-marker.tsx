@@ -55,9 +55,12 @@ const cellLabel = (world: World.World, cell: typeof Cell.Cell.Type) => {
       [
         Option.match(World.floorAt(world, cell), {
           onNone: () => "no floor",
-          onSome: Entity.nounOf,
+          onSome: (floor) => Entity.components(floor).label.noun,
         }),
-        ...Arr.map(Arr.fromOption(World.liquidAt(world, cell)), Entity.nounOf),
+        ...Arr.map(
+          Arr.fromOption(World.liquidAt(world, cell)),
+          (liquid) => Entity.components(liquid).label.noun
+        ),
       ],
       " · "
     ),

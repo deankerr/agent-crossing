@@ -1,8 +1,8 @@
+import * as EventText from "@agent-crossing/views/EventText";
 import type * as Cell from "@agent-crossing/world/Cell";
 import type * as Entity from "@agent-crossing/world/Entity";
 import * as Event from "@agent-crossing/world/Event";
 import { FeedFrame } from "@agent-crossing/world/feed/frame";
-import { eventText } from "@agent-crossing/world/text/event";
 import * as World from "@agent-crossing/world/World";
 import * as Arr from "effect/Array";
 import * as Option from "effect/Option";
@@ -68,7 +68,7 @@ const happened = (
     cell: Arr.head(Event.cells(event)),
     key: `${shown.generation}:${seq}`,
     kind: event._tag,
-    sentence: eventText(event),
+    sentence: EventText.sentence(event),
   };
 
   const next: FeedState = {

@@ -14,22 +14,22 @@ Each public module is one file named for its noun, imported as a namespace: `imp
 | --- | --- |
 | `Cell` | Cells, coordinates and cell keys |
 | `Region` | Rectangles, discs and lists of cells, and the distinct cells of each |
-| `Entity` | Entities and their ids, effective components, level, label and habitat |
+| `Entity` | Entities and their ids, effective components, level and habitat |
 | `World` | The in-memory world, `apply`, its queries and its snapshot |
 | `Command` | What may be asked of the world, and `decide` |
 | `Event` | What happened, with its time and sequence number, and the changes each amounts to |
 | `Refusal` | The reasons a command is refused |
-| `Change`, `Span`, `Tally` | State writes, rectangles by their edges, and the tally of an edit; kept public until later steps remove them |
+| `Span` | Rectangles by their edges; kept public until a later step folds it into `Region` |
 
-`src/internal` holds the placement rules and the body of `decide`; no other package imports it. Still in folders until they move to other packages: `src/generation` (the seeded landscape generator), `src/definitions/biomes` with `src/schema/biome.ts`, `src/text` (the world in words) and `src/feed` (the frames a spectator receives).
+`src/internal` holds the placement rules and the body of `decide`; no other package imports it. Still in folders until they move to other packages: `src/generation` (the seeded landscape generator), `src/definitions/biomes` with `src/schema/biome.ts` and `src/feed` (the frames a spectator receives).
 
 Imports point one way: everything else reads the definitions, and definitions are written in the schema. Definitions hold no rules, no randomness and nothing that acts, so they read as a contract for the rest of the code.
 
 Events are kept apart from commands because they outlive them: a command is a way of asking, and an event is what the world remembers.
 
-The text here describes the world and never names a tool. Advice about which MCP tool to use next belongs to the server's MCP tools.
+This package holds no wording: the world in words is `@agent-crossing/views`.
 
-Other packages import the modules above, `/text/*` and `/feed/*`.
+Other packages import the modules above and `/feed/*`.
 
 ## How the world is described
 

@@ -34,7 +34,7 @@ export const refusalText = (refusal: typeof Refusal.Refusal.Type) =>
   Match.value(refusal).pipe(
     Match.tagsExhaustive({
       LayerTaken: ({ cell, layer, occupant }) =>
-        `The ${layer} layer of cell ${Cell.format(cell)} is taken by ${occupant.id}, ${article(Entity.nounOf(occupant))} (${occupant.prefab}). Each cell holds at most one entity per layer (floor, liquid, cover or object). Choose another cell, or move or remove ${occupant.id} first; to change a floor, use fill_region. Entities with no layer (${listed(unlayered)}) may share any cell.`,
+        `The ${layer} layer of cell ${Cell.format(cell)} is taken by ${occupant.id}, ${article(Entity.components(occupant).label.noun)} (${occupant.prefab}). Each cell holds at most one entity per layer (floor, liquid, cover or object). Choose another cell, or move or remove ${occupant.id} first; to change a floor, use fill_region. Entities with no layer (${listed(unlayered)}) may share any cell.`,
       NoFloor: ({ cell }) =>
         `Cell ${Cell.format(cell)} has no floor, so it is outside the world. Choose a cell inside the world (world_summary gives its extent), or lay a floor there first with fill_region.`,
       UnknownEntity: ({ entity }) =>

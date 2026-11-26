@@ -1,16 +1,16 @@
 import type * as Components from "@agent-crossing/definitions/Components";
 import * as Prefabs from "@agent-crossing/definitions/Prefabs";
+import * as Cell from "@agent-crossing/world/Cell";
+import * as Entity from "@agent-crossing/world/Entity";
+import type * as Region from "@agent-crossing/world/Region";
+import * as Span from "@agent-crossing/world/Span";
+import * as World from "@agent-crossing/world/World";
 import * as Arr from "effect/Array";
 import * as Option from "effect/Option";
 import * as Order from "effect/Order";
 import * as Str from "effect/String";
 
-import * as Cell from "../Cell.ts";
-import * as Entity from "../Entity.ts";
-import type * as Region from "../Region.ts";
-import * as Span from "../Span.ts";
-import * as World from "../World.ts";
-import { listed, spanText } from "./words.ts";
+import { labelOf, listed, spanText } from "./internal/words.ts";
 
 const MAP_MAX_SIDE = 128;
 
@@ -40,8 +40,8 @@ interface Drawn {
 const drawnAt = (world: World.World, cell: typeof Cell.Cell.Type) =>
   Option.map(World.floorAt(world, cell), (floor) =>
     Option.match(shown(World.entitiesAt(world, cell)), {
-      onNone: () => Entity.labelOf(floor),
-      onSome: Entity.labelOf,
+      onNone: () => labelOf(floor),
+      onSome: labelOf,
     })
   );
 
@@ -148,11 +148,7 @@ const legendOf = (drawn: readonly Drawn[]) => {
   )}`;
 };
 
-/**
- * The glyph map of the span, the level map of the same cells and a legend of
- * the glyphs that appear.
- */
-export const renderMap = (world: World.World, span: Span.Span) => {
+const rendered = (world: World.World, span: Span.Span) => {
   const drawn: Drawn[] = [];
 
   const glyphs = grid(span, (cell) =>
@@ -178,8 +174,7 @@ export const renderMap = (world: World.World, span: Span.Span) => {
   ];
 };
 
-/** How to read a map, told before each one. */
-export const AXES =
+const AXES =
   "x grows east (right) and y grows south (down). The first header row labels x every 10 columns, the second gives the last digit of each column's x, and each row starts with its y. One character per cell; blank cells are outside the world.";
 
 const clamped = (span: Span.Span) =>
@@ -190,7 +185,12 @@ const clamped = (span: Span.Span) =>
     minY: span.minY,
   }) satisfies Span.Span;
 
-const mapText = (
+/**
+ * The map of a rectangle: how to read it, the glyph map, the level map of the
+ * same cells and a legend of the glyphs that appear. At most
+ * 128 × 128 cells, cut from the north-west corner.
+ */
+export const text = (
   world: World.World,
   rect: Pick<typeof Region.Rect.Type, "from" | "to">
 ) => {
@@ -205,7 +205,7 @@ const mapText = (
         ];
 
   return Arr.join(
-    [`Map of ${spanText(span)}. ${AXES}`, ...cut, ...renderMap(world, span)],
+    [`Map of ${spanText(span)}. ${AXES}`, ...cut, ...rendered(world, span)],
     "\n"
   );
 };
@@ -214,7 +214,7 @@ const mapText = (
  * A map of the area, or of the whole world when none is given; none when
  * no area is given and no cell has a floor.
  */
-export const mapIfAny = (
+export const ifAny = (
   world: World.World,
   area: Option.Option<typeof Span.Area.Type>
 ) =>
@@ -227,5 +227,5 @@ export const mapIfAny = (
         })
       )
     ),
-    (rect) => mapText(world, rect)
+    (rect) => text(world, rect)
   );
