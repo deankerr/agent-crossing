@@ -9,7 +9,9 @@ export const Coordinate = Schema.Int.check(
 ).pipe(Schema.brand("Coordinate"));
 
 /** A square of the grid. `x` grows east, `y` grows south. */
-export const Cell = Schema.Struct({ x: Coordinate, y: Coordinate });
+export const Cell = Schema.Struct({ x: Coordinate, y: Coordinate }).annotate({
+  description: `A cell, like {"x":1,"y":2}: x grows east and y grows south, each from -${LIMIT} to ${LIMIT}.`,
+});
 
 export const Key = Schema.String.pipe(Schema.brand("CellKey"));
 

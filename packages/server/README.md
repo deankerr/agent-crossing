@@ -19,28 +19,27 @@ No event is lost or repeated between the snapshot and the live events. A reconne
 
 ## Tools
 
-Coordinates are plain integers: x grows east, y grows south. A region is `{"type":"rect","x1":0,"y1":0,"x2":9,"y2":9}`, `{"type":"disc","x":5,"y":5,"radius":3}` or `{"type":"cells","cells":[{"x":1,"y":2}]}`, at most 65,536 cells.
+The tools take the world's own shapes. A cell is `{"x":1,"y":2}`: x grows east, y grows south. A region is `{"_tag":"Rect","from":{"x":0,"y":0},"to":{"x":9,"y":9}}`, `{"_tag":"Disc","center":{"x":5,"y":5},"radius":3}` or `{"_tag":"Cells","cells":[{"x":1,"y":2}]}`, at most 65,536 cells. Arguments that do not parse are an MCP invalid-params error that names the field.
 
 Queries:
 
 - `world_summary` the extent, floor, water and entity counts, and the number of events.
-- `view_map {x1?, y1?, x2?, y2?}` a glyph map, a level map and a legend; the whole world when no rectangle is given; at most 128 × 128 cells, and it says when it cuts.
-- `inspect_cell {x, y}` the floor, any liquid and every other entity on a cell, with ids, levels and effective components.
+- `view_map {rect?}` a glyph map, a level map and a legend of a `Rect`; the whole world when no rectangle is given; at most 128 × 128 cells, and it says when it cuts.
+- `inspect_cell {cell}` the floor, any liquid and every other entity on a cell, with ids, levels and effective components.
 - `find_entities {region?, prefab?, limit?}` entities with ids, prefabs and cells, oldest first; every entity but floors and liquids unless a prefab is given; default 100, at most 500, and it says how many there are in all.
 - `list_prefabs` every prefab with its glyph, name, label, layer and habitat.
 - `history {limit?}` the latest events with sequence number and time; default 20, at most 200.
 
-Edits, each answered with what happened and a map of the affected area (its bounding box plus 2 cells, at most 48 × 48, saying when it cuts). A refused edit is a tool error saying why and what would work, and so are malformed arguments, which name the field.
+Edits: one tool for each command of `@agent-crossing/world/Command`, named for it in snake case, taking the command's own fields (without its `_tag`) and described by it. Each is answered with what happened and a map of the affected area (its bounding box plus 2 cells, at most 48 × 48, saying when it cuts). A refused edit is a tool error saying why and what would work.
 
-- `paint_floor {region, floor?, level?}` lays or changes floors
-- `pour_liquid {region, liquid, bed?}` turns land into water, sinking the floor one level
-- `erase_floor {region}` removes everything there, floors included
-- `spawn {prefab, x, y, components?}`, for example `{"prefab":"sign","x":4,"y":3,"components":{"text":"Welcome"}}`
-- `scatter {prefabs, region, density, seed?, components?}`
-- `move_entity {id, x, y}`
-- `change_entity {id, components}` replaces the entity's own components
-- `remove_entities {ids}` or `{region, prefab?}`; without a prefab the floors and liquids stay
-- `generate_world {width, height, x?, y?, seed?}` 8 to 256 cells a side, from the north-west corner `(x, y)`, default `(0, 0)`
+- `place_entities {entities}` places a list of `{prefab, cell, components?}` in order, or none if any may not be placed; for example `{"entities":[{"prefab":"sign","cell":{"x":4,"y":3},"components":{"text":"Welcome"}}]}`
+- `fill_region {region, prefab, components?}` puts a prefab in every cell where it may be: lays or replaces floors, pours a liquid over land (the floor sinking one level), or places anything else
+- `scatter_entities {prefabs, region, density, seed, components?}`
+- `move_entity {entity, to}`
+- `change_entity {entity, components}` replaces the entity's own components
+- `remove_entities {entities}` removes the listed entities
+- `clear_region {region, removing?}` removes what stands on the terrain; with `{"_tag":"Prefab","prefab":"oak"}` only that prefab; with `{"_tag":"Terrain"}` the terrain too, so the cells leave the world
+- `generate_world {seed, width, height, origin}` 8 to 256 cells a side, from the north-west corner `origin`
 
 ## Connect Claude Code
 
@@ -55,13 +54,13 @@ claude mcp add --transport http agent-crossing https://<api address>/mcp
 ```sh
 cd packages/server
 bun scripts/mcp.ts tools                      # every tool and its description
-bun scripts/mcp.ts schema spawn               # one tool's JSON input schema
+bun scripts/mcp.ts schema place_entities      # one tool's JSON input schema
 bun scripts/mcp.ts world_summary
-bun scripts/mcp.ts view_map '{"x1":0,"y1":0,"x2":40,"y2":20}'
-bun scripts/mcp.ts spawn '{"prefab":"sign","x":4,"y":3,"components":{"text":"Welcome"}}'
+bun scripts/mcp.ts view_map '{"rect":{"_tag":"Rect","from":{"x":0,"y":0},"to":{"x":40,"y":20}}}'
+bun scripts/mcp.ts place_entities '{"entities":[{"prefab":"sign","cell":{"x":4,"y":3},"components":{"text":"Welcome"}}]}'
 ```
 
-`pnpm mcp <tool> '<json>'` does the same. It reads `AGENT_CROSSING_URL`, the Api's address (`http://localhost:1337` under `alchemy dev`, or the `api` address a deploy prints), from the environment or from the `.env` at the root of the repository. It exits 0 when the tool answered, 1 when the tool reported an error, which is a refused edit or arguments the tool does not accept (the reason is on stderr), and 2 when the call itself failed: unreachable Api, arguments that are not a JSON object, an unknown tool or a malformed command line.
+`pnpm mcp <tool> '<json>'` does the same. It reads `AGENT_CROSSING_URL`, the Api's address (`http://localhost:1337` under `alchemy dev`, or the `api` address a deploy prints), from the environment or from the `.env` at the root of the repository. It exits 0 when the tool answered, 1 when the tool reported an error, which is a refused edit (the reason is on stderr), and 2 when the call itself failed: unreachable Api, arguments the tool does not accept, arguments that are not a JSON object, an unknown tool or a malformed command line.
 
 ## How the World object works
 
@@ -87,8 +86,8 @@ Imports point one way: `world-object` reads only the world package, `mcp` and `s
   - `client.ts` the `WorldClient` service, the object as typed calls, which is all that `mcp` and `stream` see of it. `api.ts` provides its layer once, on the Worker's construction effect.
 - `src/mcp/` the editor's door:
   - `server.ts` the MCP endpoint, with the tools' `instructions.ts`.
-  - `tools/` one file per tool, named after it (`paint-floor.ts` for `paint_floor`): its input, its `Tool` and its handler. `tools/index.ts` makes them one toolkit, in the order they are listed to clients, and registers it with every answer as text.
-  - `tool.ts` what every tool shares: `queryTool` and `editTool`, which make a tool answering in text that may refuse and give it its MCP annotations, and the refusal; `inputs.ts` the input vocabulary several tools share (coordinates, regions, prefabs, components, seeds) and its parsing; `edit.ts` the common path of an edit, from command to reply.
+  - `tools/` the tools: `commands.ts` builds one tool for each command from the command's schema, with its hints; each query tool has its own file, named after it (`view-map.ts` for `view_map`). `tools/index.ts` registers the queries and the command tools, in the order they are listed to clients, with every answer as text.
+  - `tool.ts` what every tool shares: `queryTool` and `editTool`, which make a tool answering in text that may refuse and give it its MCP annotations, and the refusal; `edit.ts` the common path of an edit, from parsing the command to the reply.
   - `replies.ts` and `refusal.ts` the sentences that are the MCP tools' own: what an edit did, and what to try after a refusal.
 - `src/stream/` the spectator's door: `stream.ts` the `/events` response and `sse.ts` the frames as server-sent events.
 - `scripts/mcp.ts` the command-line client.

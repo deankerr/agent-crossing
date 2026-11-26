@@ -34,14 +34,14 @@ export const refusalText = (refusal: typeof Refusal.Refusal.Type) =>
   Match.value(refusal).pipe(
     Match.tagsExhaustive({
       LayerTaken: ({ cell, layer, occupant }) =>
-        `The ${layer} layer of cell ${Cell.format(cell)} is taken by ${occupant.id}, ${article(Entity.nounOf(occupant))} (${occupant.prefab}). Each cell holds at most one entity per layer (floor, liquid, cover or object). Choose another cell, or move or remove ${occupant.id} first; to change a floor, use paint_floor. Entities with no layer (${listed(unlayered)}) may share any cell.`,
+        `The ${layer} layer of cell ${Cell.format(cell)} is taken by ${occupant.id}, ${article(Entity.nounOf(occupant))} (${occupant.prefab}). Each cell holds at most one entity per layer (floor, liquid, cover or object). Choose another cell, or move or remove ${occupant.id} first; to change a floor, use fill_region. Entities with no layer (${listed(unlayered)}) may share any cell.`,
       NoFloor: ({ cell }) =>
-        `Cell ${Cell.format(cell)} has no floor, so it is outside the world. Choose a cell inside the world (world_summary gives its extent), or lay a floor there first with paint_floor.`,
+        `Cell ${Cell.format(cell)} has no floor, so it is outside the world. Choose a cell inside the world (world_summary gives its extent), or lay a floor there first with fill_region.`,
       UnknownEntity: ({ entity }) =>
         `There is no entity ${entity}: it may have been removed. find_entities and inspect_cell list the ids of what is there.`,
       UnsuitablePlace: ({ cell, habitat, place }) =>
         place === "water"
-          ? `Cell ${Cell.format(cell)} is water, and that entity's habitat is ${Arr.join(habitat, " and ")}. Only entities whose habitat includes water (${listed(waterDwellers)}) may be in water. Choose land, or remove the liquid (${listed(liquids)}) there first with remove_entities and a prefab.`
-          : `Cell ${Cell.format(cell)} is land, and that entity's habitat is ${Arr.join(habitat, " and ")}. Choose a water cell, or pour a liquid there first with pour_liquid.`,
+          ? `Cell ${Cell.format(cell)} is water, and that entity's habitat is ${Arr.join(habitat, " and ")}. Only entities whose habitat includes water (${listed(waterDwellers)}) may be in water. Choose land, or remove the liquid (${listed(liquids)}) there first with clear_region and that prefab.`
+          : `Cell ${Cell.format(cell)} is land, and that entity's habitat is ${Arr.join(habitat, " and ")}. Choose a water cell, or put a liquid there first with fill_region.`,
     })
   );

@@ -1,5 +1,4 @@
 import * as Components from "@agent-crossing/definitions/Components";
-import * as Level from "@agent-crossing/definitions/Level";
 import * as Prefabs from "@agent-crossing/definitions/Prefabs";
 import * as Result from "effect/Result";
 import * as Schema from "effect/Schema";
@@ -15,134 +14,161 @@ import type * as World from "./World.ts";
 export const GENERATE_MIN_SIZE = 8;
 export const GENERATE_MAX_SIZE = 256;
 export const SCATTER_MAX_PREFABS = 16;
+export const PLACE_MAX_ENTITIES = 4096;
 
-const prefabIn = (layer: typeof Components.Layer.Type) =>
-  Prefabs.Name.check(
-    Schema.makeFilter(
-      (name) =>
-        Entity.prefabComponents(name).layer === layer ||
-        `must name a ${layer} prefab`
-    )
-  );
+const Prefab = Prefabs.Name.annotate({
+  description: "The name of a prefab.",
+});
 
-/** The name of a prefab whose layer is the floor. */
-export const FloorName = prefabIn("floor");
+const Own = Components.Components.annotate({
+  description:
+    'Components that differ from the prefab\'s, for example {"text":"Welcome to the glade"} for a sign or {"colors":{"body":"blue"}} for a block. Keys: label ({noun, plural?, glyph}), layer ("floor", "liquid", "cover" or "object"), habitat (["land"], ["water"] or both), obstacle (true), model, colors ({part: shade}), text, level.',
+});
 
-/** The name of a prefab whose layer is the liquid. */
-export const LiquidName = prefabIn("liquid");
+const Seed = Schema.Int.annotate({
+  description:
+    "Seed for the random choices; the same seed gives the same result.",
+});
 
-/**
- * Lays a floor where there is none, at `level` or 0, and changes the prefab,
- * the level or both of floors already there, keeping what stands on them.
- * Cells without a floor join the world only when a floor is given.
- */
-export const Paint = Schema.TaggedStruct("Paint", {
+const Id = Entity.Id.annotate({ description: "An entity's id, like e12." });
+
+const Placing = Schema.Struct({
+  prefab: Prefab,
+  cell: Cell.Cell,
+  components: Schema.optionalKey(Own),
+});
+
+export const PlaceEntities = Schema.TaggedStruct("PlaceEntities", {
+  entities: Schema.NonEmptyArray(Placing)
+    .check(Schema.isMaxLength(PLACE_MAX_ENTITIES))
+    .annotate({
+      description: `1 to ${PLACE_MAX_ENTITIES} entities, each a prefab at a cell, with any components of its own, such as the text of a sign.`,
+    }),
+}).annotate({
+  description:
+    "Places entities, in order, each where the ones before it left the world. Refused as a whole, placing none, if any cell has no floor, is a place (land or water) outside that entity's habitat, or has its layer taken.",
+});
+
+export const FillRegion = Schema.TaggedStruct("FillRegion", {
   region: Region.Region,
-  floor: Schema.optionalKey(FloorName),
-  level: Schema.optionalKey(Level.Level),
-}).check(
-  Schema.makeFilter(
-    ({ floor, level }) =>
-      floor !== undefined ||
-      level !== undefined ||
-      "give a floor, a level or both"
-  )
+  prefab: Prefab,
+  components: Schema.optionalKey(Own),
+}).annotate({
+  description:
+    "Puts the prefab in every cell of a region where it may be, by its layer. A floor is laid where there is none, at the level in components or 0, and replaces the floor already there, which keeps its level unless one is given and keeps what stands on it. A liquid goes over every floor without one, at the floor's level, and the floor sinks one level beneath it; floors already at the lowest level are skipped, and entities whose habitat is only land are removed. Anything else goes in each cell where it may be, and the rest are skipped.",
+});
+
+export const ScatterEntities = Schema.TaggedStruct("ScatterEntities", {
+  prefabs: Schema.NonEmptyArray(Prefab)
+    .check(Schema.isMaxLength(SCATTER_MAX_PREFABS))
+    .annotate({
+      description: `1 to ${SCATTER_MAX_PREFABS} prefabs, chosen at random for each entity.`,
+    }),
+  region: Region.Region,
+  density: Schema.Finite.check(
+    Schema.isBetween({ maximum: 1, minimum: 0 })
+  ).annotate({
+    description: "The share of the region's cells to try, 0 to 1.",
+  }),
+  seed: Seed,
+  components: Schema.optionalKey(Own),
+}).annotate({
+  description:
+    "Places entities of the given prefabs on a seeded random share (density) of a region's cells, skipping cells where they may not be. Good for forests, meadows and reed beds.",
+});
+
+export const MoveEntity = Schema.TaggedStruct("MoveEntity", {
+  entity: Id,
+  to: Cell.Cell,
+}).annotate({
+  description:
+    "Moves an entity to another cell. Refused if the cell has no floor, is a place outside its habitat or has its layer taken.",
+});
+
+export const ChangeEntity = Schema.TaggedStruct("ChangeEntity", {
+  entity: Id,
+  components: Components.Components.annotate({
+    description:
+      'The entity\'s own components, replacing those it had; {} resets it to its prefab. Example: {"text":"Gone fishing","colors":{"board":"blue"}}.',
+  }),
+}).annotate({
+  description:
+    "Replaces an entity's own components, for example a sign's text or a block's colors; its prefab's components still apply beneath. Refused if the entity could not stay where it is with them.",
+});
+
+export const RemoveEntities = Schema.TaggedStruct("RemoveEntities", {
+  entities: Schema.NonEmptyArray(Id)
+    .check(Schema.isMaxLength(Region.MAX_AREA))
+    .annotate({ description: 'The ids of the entities, like ["e3", "e7"].' }),
+}).annotate({
+  description:
+    "Removes the listed entities. Refused if any of them does not exist.",
+});
+
+const ClearPrefab = Schema.TaggedStruct("Prefab", { prefab: Prefab }).annotate({
+  description: "Only the entities of this prefab, floors and liquids included.",
+});
+
+const ClearTerrain = Schema.TaggedStruct("Terrain", {}).annotate({
+  description:
+    "Every entity, the terrain included, so that the cells leave the world.",
+});
+
+/** What a clearing removes beyond what stands on the terrain. */
+export const Clearing = Schema.Union([ClearPrefab, ClearTerrain]).pipe(
+  Schema.toTaggedUnion("_tag")
 );
 
-/**
- * Puts a liquid over every floor of the region that has none, at the floor's
- * level, and lowers the floor one level beneath it, changing it to `bed`
- * when given. Floors already at the lowest level are skipped.
- */
-export const Pour = Schema.TaggedStruct("Pour", {
+export const ClearRegion = Schema.TaggedStruct("ClearRegion", {
   region: Region.Region,
-  liquid: LiquidName,
-  bed: Schema.optionalKey(FloorName),
-});
-
-/** Removes every entity in a region, floors included. */
-export const Erase = Schema.TaggedStruct("Erase", { region: Region.Region });
-
-export const Spawn = Schema.TaggedStruct("Spawn", {
-  prefab: Prefabs.Name,
-  cell: Cell.Cell,
-  components: Schema.optionalKey(Components.Components),
-});
-
-/**
- * Spawns entities of the given prefabs on a seeded random share of a region.
- * Cells where one may not go are skipped.
- */
-export const Scatter = Schema.TaggedStruct("Scatter", {
-  prefabs: Schema.NonEmptyArray(Prefabs.Name).check(
-    Schema.isMaxLength(SCATTER_MAX_PREFABS)
+  removing: Schema.optionalKey(
+    Clearing.annotate({
+      description:
+        'Left out, everything standing on the terrain goes and the terrain stays. {"_tag":"Prefab","prefab":"oak"} removes only the entities of that prefab; {"_tag":"Terrain"} removes the terrain too.',
+    })
   ),
-  region: Region.Region,
-  density: Schema.Finite.check(Schema.isBetween({ maximum: 1, minimum: 0 })),
-  seed: Schema.Int,
-  components: Schema.optionalKey(Components.Components),
-});
-
-export const Move = Schema.TaggedStruct("Move", {
-  entity: Entity.Id,
-  to: Cell.Cell,
-});
-
-/** Replaces an entity's own components; its prefab's still apply beneath. */
-export const Change = Schema.TaggedStruct("Change", {
-  entity: Entity.Id,
-  components: Components.Components,
-});
-
-export const Remove = Schema.TaggedStruct("Remove", {
-  entities: Schema.NonEmptyArray(Entity.Id).check(
-    Schema.isMaxLength(Region.MAX_AREA)
-  ),
-});
-
-/**
- * Removes the entities of one prefab in a region or, with no prefab, every
- * entity there but the floors and liquids.
- */
-export const RemoveIn = Schema.TaggedStruct("RemoveIn", {
-  region: Region.Region,
-  prefab: Schema.optionalKey(Prefabs.Name),
+}).annotate({
+  description:
+    "Removes entities from a region: what stands on the terrain, the entities of one prefab, or everything with the terrain. Entities that may no longer stay where they are go too.",
 });
 
 const size = Schema.Int.check(
   Schema.isBetween({ maximum: GENERATE_MAX_SIZE, minimum: GENERATE_MIN_SIZE })
-);
+).annotate({
+  description: `Cells a side, ${GENERATE_MIN_SIZE} to ${GENERATE_MAX_SIZE}.`,
+});
 
-/**
- * Lays a generated landscape over the rectangle from `origin` (its
- * north-west corner), replacing every entity already there.
- */
-export const Generate = Schema.TaggedStruct("Generate", {
-  seed: Schema.Int,
+export const GenerateWorld = Schema.TaggedStruct("GenerateWorld", {
+  seed: Seed,
   width: size,
   height: size,
-  origin: Cell.Cell,
-}).check(
-  Schema.makeFilter(
-    ({ height, origin, width }) =>
-      (origin.x + width - 1 <= Cell.LIMIT &&
-        origin.y + height - 1 <= Cell.LIMIT) ||
-      "the landscape must fit inside the coordinate range"
+  origin: Cell.Cell.annotate({
+    description: "The north-west corner of the rectangle.",
+  }),
+})
+  .check(
+    Schema.makeFilter(
+      ({ height, origin, width }) =>
+        (origin.x + width - 1 <= Cell.LIMIT &&
+          origin.y + height - 1 <= Cell.LIMIT) ||
+        "the landscape must fit inside the coordinate range"
+    )
   )
-);
+  .annotate({
+    description:
+      "Lays a generated landscape of floors, water, hills and plants over the width by height rectangle from origin, replacing every entity already there.",
+  });
 
 /** What may be asked of the world. */
 export const Command = Schema.Union([
-  Paint,
-  Pour,
-  Erase,
-  Spawn,
-  Scatter,
-  Move,
-  Change,
-  Remove,
-  RemoveIn,
-  Generate,
+  PlaceEntities,
+  FillRegion,
+  ScatterEntities,
+  MoveEntity,
+  ChangeEntity,
+  RemoveEntities,
+  ClearRegion,
+  GenerateWorld,
 ]).pipe(Schema.toTaggedUnion("_tag"));
 
 /**
@@ -158,22 +184,19 @@ export const decide = (
 
   const decided: Result.Result<Decide.Outcome, typeof Refusal.Refusal.Type> =
     Command.match(command, {
-      Change: ({ components, entity }) =>
+      ChangeEntity: ({ components, entity }) =>
         Decide.change(world, edit, entity, components),
-      Erase: ({ region }) => Result.succeed(Decide.erase(world, region)),
-      Generate: (generating) =>
+      ClearRegion: ({ region, removing }) =>
+        Result.succeed(Decide.clear(world, region, removing)),
+      FillRegion: (filling) =>
+        Result.succeed(Decide.fill(world, edit, filling)),
+      GenerateWorld: (generating) =>
         Result.succeed(Decide.generate(world, edit, generating)),
-      Move: ({ entity, to }) => Decide.move(world, edit, entity, to),
-      Paint: ({ floor, level, region }) =>
-        Result.succeed(Decide.paint(world, edit, region, floor, level)),
-      Pour: (pouring) => Result.succeed(Decide.pour(world, edit, pouring)),
-      Remove: ({ entities }) => Decide.remove(world, entities),
-      RemoveIn: ({ prefab, region }) =>
-        Result.succeed(Decide.removeIn(world, region, prefab)),
-      Scatter: (scattering) =>
+      MoveEntity: ({ entity, to }) => Decide.move(world, edit, entity, to),
+      PlaceEntities: ({ entities }) => Decide.place(world, edit, entities),
+      RemoveEntities: ({ entities }) => Decide.remove(world, entities),
+      ScatterEntities: (scattering) =>
         Result.succeed(Decide.scatter(world, edit, scattering)),
-      Spawn: ({ cell, components, prefab }) =>
-        Decide.spawn(world, edit, prefab, cell, components ?? {}),
     });
 
   const decision: Result.Result<

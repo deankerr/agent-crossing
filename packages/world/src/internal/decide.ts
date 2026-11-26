@@ -1,7 +1,7 @@
 import type * as Components from "@agent-crossing/definitions/Components";
 import * as Level from "@agent-crossing/definitions/Level";
-import type * as Prefabs from "@agent-crossing/definitions/Prefabs";
 import * as Arr from "effect/Array";
+import * as Equal from "effect/Equal";
 import * as Option from "effect/Option";
 import * as Result from "effect/Result";
 
@@ -27,8 +27,6 @@ type At = typeof Cell.Cell.Type;
 type Happened = typeof Event.Event.Type;
 
 type Bag = typeof Components.Components.Type;
-
-type Name = typeof Prefabs.Name.Type;
 
 export interface Edit {
   readonly at: typeof Event.Timestamp.Type;
@@ -72,46 +70,75 @@ const numbered = (world: World.World, fresh: readonly NewEntity[]) =>
       }) satisfies Present
   );
 
-export const paint = (
+const fitsHere = (world: World.World, entity: Present) =>
+  ensurePlaceable(world, entity.cell, Entity.components(entity));
+
+const placedWhereFits = (
   world: World.World,
   edit: Edit,
-  region: typeof Region.Region.Type,
-  floor: Name | undefined,
-  level: typeof Level.Level.Type | undefined
+  fresh: Iterable<NewEntity>
+) => {
+  let working = world;
+  const placed: Present[] = [];
+
+  for (const one of fresh) {
+    const entity = nextEntity(working, one);
+
+    if (Result.isSuccess(fitsHere(working, entity))) {
+      working = counted(working, edit, entity);
+      placed.push(entity);
+    }
+  }
+
+  return outcome([], spawned(edit, placed));
+};
+
+const layFloors = (
+  world: World.World,
+  edit: Edit,
+  { components = {}, prefab, region }: typeof Command.FillRegion.Type
 ) => {
   const laid: NewEntity[] = [];
-  const repainted: Present[] = [];
+  const replaced: Present[] = [];
 
   for (const cell of Region.cells(region)) {
     const current = World.floorAt(world, cell);
 
     if (Option.isSome(current)) {
       const before = current.value;
-      const prefab = floor ?? before.prefab;
-      const after = level ?? Entity.level(before);
 
-      if (prefab !== before.prefab || after !== Entity.level(before)) {
-        repainted.push({
-          ...before,
-          components: { ...before.components, level: after },
-          prefab,
-        });
+      const after: Present = {
+        ...before,
+        components: {
+          ...before.components,
+          ...components,
+          level: components.level ?? Entity.level(before),
+        },
+        prefab,
+      };
+
+      if (!Equal.equals(after, before)) {
+        replaced.push(after);
       }
-    } else if (floor !== undefined) {
-      laid.push({ cell, components: { level: level ?? 0 }, prefab: floor });
+    } else {
+      laid.push({
+        cell,
+        components: { ...components, level: components.level ?? 0 },
+        prefab,
+      });
     }
   }
 
   return outcome(
     [],
-    [...spawned(edit, numbered(world, laid)), ...updated(edit, repainted)]
+    [...spawned(edit, numbered(world, laid)), ...updated(edit, replaced)]
   );
 };
 
-export const pour = (
+const pourLiquid = (
   world: World.World,
   edit: Edit,
-  { bed, liquid, region }: typeof Command.Pour.Type
+  { components = {}, prefab, region }: typeof Command.FillRegion.Type
 ) => {
   const liquids: NewEntity[] = [];
   const beds: Present[] = [];
@@ -125,11 +152,10 @@ export const pour = (
       Entity.level(floor.value) > Level.MIN
     ) {
       const level = Entity.level(floor.value);
-      liquids.push({ cell, components: { level }, prefab: liquid });
+      liquids.push({ cell, components: { ...components, level }, prefab });
       beds.push({
         ...floor.value,
         components: { ...floor.value.components, level: level - 1 },
-        prefab: bed ?? floor.value.prefab,
       });
     }
   }
@@ -140,8 +166,28 @@ export const pour = (
   );
 };
 
-export const erase = (world: World.World, region: typeof Region.Region.Type) =>
-  outcome(entitiesIn(world, Region.cells(region)));
+export const fill = (
+  world: World.World,
+  edit: Edit,
+  filling: typeof Command.FillRegion.Type
+) => {
+  const { components = {}, prefab, region } = filling;
+  const { layer } = Entity.overlay(Entity.prefabComponents(prefab), components);
+
+  if (layer === "floor") {
+    return layFloors(world, edit, filling);
+  }
+
+  if (layer === "liquid") {
+    return pourLiquid(world, edit, filling);
+  }
+
+  return placedWhereFits(
+    world,
+    edit,
+    Arr.map(Region.cells(region), (cell) => ({ cell, components, prefab }))
+  );
+};
 
 const nextEntity = (world: World.World, fresh: NewEntity) =>
   ({ ...fresh, id: Entity.idFor(world.spawned + 1) }) satisfies Present;
@@ -152,50 +198,48 @@ const counted = (world: World.World, edit: Edit, entity: Present) =>
     Event.Event.cases.EntitiesPlaced.make({ ...edit, entities: [entity] })
   );
 
-export const spawn = (
+export const place = (
   world: World.World,
   edit: Edit,
-  prefab: Name,
-  cell: At,
-  components: Bag
+  entities: typeof Command.PlaceEntities.Type.entities
 ) =>
   Result.gen(function* () {
-    const entity = nextEntity(world, { cell, components, prefab });
-    yield* ensurePlaceable(world, cell, Entity.components(entity));
+    let working = world;
+    const placed: Present[] = [];
 
-    return outcome([], spawned(edit, [entity]));
+    for (const { cell, components = {}, prefab } of entities) {
+      const entity = nextEntity(working, { cell, components, prefab });
+      yield* fitsHere(working, entity);
+      working = counted(working, edit, entity);
+      placed.push(entity);
+    }
+
+    return outcome([], spawned(edit, placed));
   });
 
 export const scatter = (
   world: World.World,
   edit: Edit,
-  command: typeof Command.Scatter.Type
+  command: typeof Command.ScatterEntities.Type
 ) => {
   const random = seededRandom(command.seed);
   const components = command.components ?? {};
-  let working = world;
-  const placed: Present[] = [];
 
-  for (const cell of Region.cells(command.region)) {
-    if (random.chance(command.density)) {
-      const prefab =
-        command.prefabs[random.integer(command.prefabs.length)] ??
-        command.prefabs[0];
-
-      const entity = nextEntity(working, { cell, components, prefab });
-
-      if (
-        Result.isSuccess(
-          ensurePlaceable(working, cell, Entity.components(entity))
-        )
-      ) {
-        working = counted(working, edit, entity);
-        placed.push(entity);
-      }
-    }
-  }
-
-  return outcome([], spawned(edit, placed));
+  return placedWhereFits(
+    world,
+    edit,
+    Arr.filterMap(Region.cells(command.region), (cell) =>
+      random.chance(command.density)
+        ? Result.succeed({
+            cell,
+            components,
+            prefab:
+              command.prefabs[random.integer(command.prefabs.length)] ??
+              command.prefabs[0],
+          })
+        : Result.failVoid
+    )
+  );
 };
 
 const existing = (world: World.World, id: Id) =>
@@ -261,23 +305,23 @@ export const remove = (world: World.World, ids: readonly Id[]) =>
     return outcome(entities);
   });
 
-export const removeIn = (
+export const clear = (
   world: World.World,
   region: typeof Region.Region.Type,
-  prefab: Name | undefined
+  removing: typeof Command.Clearing.Type | undefined
 ) =>
   outcome(
     Arr.filter(entitiesIn(world, Region.cells(region)), (entity) =>
-      prefab === undefined
+      removing === undefined
         ? !Entity.isFloor(entity) && !Entity.isLiquid(entity)
-        : entity.prefab === prefab
+        : removing._tag === "Terrain" || entity.prefab === removing.prefab
     )
   );
 
 export const generate = (
   world: World.World,
   edit: Edit,
-  command: typeof Command.Generate.Type
+  command: typeof Command.GenerateWorld.Type
 ) => {
   const cells = Span.cells({
     maxX: command.origin.x + command.width - 1,

@@ -1,4 +1,5 @@
 import * as Prefabs from "@agent-crossing/definitions/Prefabs";
+import * as Region from "@agent-crossing/world/Region";
 import {
   FIND_DEFAULT_LIMIT,
   FIND_MAX_LIMIT,
@@ -8,11 +9,10 @@ import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 
 import { WorldClient } from "../../world-object/client.ts";
-import { parsedRegion, RegionInput } from "../inputs.ts";
-import { parsed, queryTool } from "../tool.ts";
+import { queryTool } from "../tool.ts";
 
 const FindEntitiesInput = Schema.Struct({
-  region: Schema.optionalKey(RegionInput),
+  region: Schema.optionalKey(Region.Region),
   prefab: Schema.optionalKey(Prefabs.Name),
   limit: Schema.optionalKey(Schema.Int),
 });
@@ -28,16 +28,9 @@ export const findEntities = Effect.map(
   WorldClient,
   (world) =>
     ({ limit, prefab, region }: typeof FindEntitiesInput.Type) =>
-      Effect.gen(function* () {
-        const within = yield* Option.match(Option.fromNullishOr(region), {
-          onNone: () => Effect.succeedNone,
-          onSome: (input) => Effect.asSome(parsed(parsedRegion(input))),
-        });
-
-        return yield* world.find(
-          within,
-          Option.fromNullishOr(prefab),
-          limit ?? FIND_DEFAULT_LIMIT
-        );
-      })
+      world.find(
+        Option.fromNullishOr(region),
+        Option.fromNullishOr(prefab),
+        limit ?? FIND_DEFAULT_LIMIT
+      )
 );

@@ -19,7 +19,7 @@ const USAGE = `Calls the Agent Crossing MCP server and prints the tool's text.
 
 Usage:
   bun scripts/mcp.ts <tool> ['<json arguments>']   call a tool, for example
-      bun scripts/mcp.ts view_map '{"x1":0,"y1":0,"x2":20,"y2":10}'
+      bun scripts/mcp.ts view_map '{"rect":{"_tag":"Rect","from":{"x":0,"y":0},"to":{"x":20,"y":10}}}'
   bun scripts/mcp.ts tools                         list the tools
   bun scripts/mcp.ts schema <tool>                 print a tool's JSON input schema
 
@@ -46,7 +46,7 @@ const argumentsOf = (json: string | undefined) =>
     : Result.match(decodeArguments(json), {
         onFailure: () =>
           failed(
-            `The arguments must be one JSON object, for example '{"x":3,"y":4}'. Got: ${json}`
+            `The arguments must be one JSON object, for example '{"cell":{"x":3,"y":4}}'. Got: ${json}`
           ),
         onSuccess: Effect.succeed,
       });
@@ -139,7 +139,7 @@ const main = Effect.gen(function* () {
 
   if (rest.length > 0) {
     return yield* failed(
-      `Expected one JSON argument after the tool name, got ${rest.length + 1}. Quote the JSON, for example '{"x":3,"y":4}'.`
+      `Expected one JSON argument after the tool name, got ${rest.length + 1}. Quote the JSON, for example '{"cell":{"x":3,"y":4}}'.`
     );
   }
 

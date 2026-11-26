@@ -36,9 +36,11 @@ const Cells = Schema.TaggedStruct("Cells", {
   cells: Schema.NonEmptyArray(Cell.Cell).check(Schema.isMaxLength(MAX_AREA)),
 });
 
-export const Region = Schema.Union([Rect, Disc, Cells]).pipe(
-  Schema.toTaggedUnion("_tag")
-);
+export const Region = Schema.Union([Rect, Disc, Cells])
+  .annotate({
+    description: `A region of at most ${MAX_AREA} cells: a rectangle between two corners, {"_tag":"Rect","from":{"x":0,"y":0},"to":{"x":9,"y":9}}; a disc, {"_tag":"Disc","center":{"x":5,"y":5},"radius":3}, of radius 0 to ${DISC_MAX_RADIUS}; or a list, {"_tag":"Cells","cells":[{"x":1,"y":2}]}.`,
+  })
+  .pipe(Schema.toTaggedUnion("_tag"));
 
 const discCells = ({ center, radius }: typeof Disc.Type) =>
   Arr.filter(

@@ -1,7 +1,6 @@
 import type * as Command from "@agent-crossing/world/Command";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
-import * as Random from "effect/Random";
 import type * as Result from "effect/Result";
 
 import { WorldClient } from "../world-object/client.ts";
@@ -13,9 +12,6 @@ import { parsed, refused } from "./tool.ts";
 /** The sentence that ends every edit tool's description. */
 export const AFTER_EDIT =
   "The result says what happened and shows a map of the affected area.";
-
-/** A seed for an edit that was given none. */
-export const randomSeed = Random.nextIntBetween(0, 2_147_483_647);
 
 /**
  * The common path of every edit tool: the parsed command is acted on, and the

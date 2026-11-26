@@ -42,29 +42,40 @@ const anyRegion = (random: SeededRandom) =>
 const anyCommand = (random: SeededRandom) =>
   one(random, [
     () =>
-      Command.Command.cases.Paint.make({
-        floor: one(random, floors),
-        level: random.integer(8),
+      Command.Command.cases.FillRegion.make({
+        components: { level: random.integer(8) },
+        prefab: one(random, floors),
         region: anyRegion(random),
       }),
     () =>
-      Command.Command.cases.Paint.make({
-        level: random.integer(8),
+      Command.Command.cases.FillRegion.make({
+        prefab: one(random, floors),
         region: anyRegion(random),
       }),
     () =>
-      Command.Command.cases.Pour.make({
-        liquid: Command.LiquidName.make("water"),
+      Command.Command.cases.FillRegion.make({
+        prefab: Prefabs.Name.make("water"),
         region: anyRegion(random),
       }),
-    () => Command.Command.cases.Erase.make({ region: anyRegion(random) }),
     () =>
-      Command.Command.cases.Spawn.make({
-        cell: anyCell(random),
+      Command.Command.cases.FillRegion.make({
         prefab: one(random, Prefabs.Name.literals),
+        region: anyRegion(random),
       }),
     () =>
-      Command.Command.cases.Scatter.make({
+      Command.Command.cases.ClearRegion.make({
+        region: anyRegion(random),
+        removing: Command.Clearing.cases.Terrain.make({}),
+      }),
+    () =>
+      Command.Command.cases.PlaceEntities.make({
+        entities: [
+          { cell: anyCell(random), prefab: one(random, Prefabs.Name.literals) },
+          { cell: anyCell(random), prefab: one(random, Prefabs.Name.literals) },
+        ],
+      }),
+    () =>
+      Command.Command.cases.ScatterEntities.make({
         density: random.next(),
         prefabs: [
           one(random, Prefabs.Name.literals),
@@ -74,24 +85,31 @@ const anyCommand = (random: SeededRandom) =>
         seed: random.integer(1000),
       }),
     () =>
-      Command.Command.cases.Move.make({
+      Command.Command.cases.MoveEntity.make({
         entity: Entity.idFor(1 + random.integer(200)),
         to: anyCell(random),
       }),
     () =>
-      Command.Command.cases.Change.make({
+      Command.Command.cases.ChangeEntity.make({
         components: random.chance(0.5)
           ? { habitat: ["water"] }
           : { layer: one(random, Components.Layer.literals) },
         entity: Entity.idFor(1 + random.integer(200)),
       }),
     () =>
-      Command.Command.cases.Remove.make({
+      Command.Command.cases.RemoveEntities.make({
         entities: [Entity.idFor(1 + random.integer(200))],
       }),
-    () => Command.Command.cases.RemoveIn.make({ region: anyRegion(random) }),
+    () => Command.Command.cases.ClearRegion.make({ region: anyRegion(random) }),
     () =>
-      Command.Command.cases.Generate.make({
+      Command.Command.cases.ClearRegion.make({
+        region: anyRegion(random),
+        removing: Command.Clearing.cases.Prefab.make({
+          prefab: one(random, Prefabs.Name.literals),
+        }),
+      }),
+    () =>
+      Command.Command.cases.GenerateWorld.make({
         height: 8,
         origin: anyCell(random),
         seed: random.integer(1000),

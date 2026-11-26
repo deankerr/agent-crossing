@@ -1,11 +1,11 @@
+import * as Cell from "@agent-crossing/world/Cell";
 import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
 
 import { WorldClient } from "../../world-object/client.ts";
-import { cellFor, X, Y } from "../inputs.ts";
 import { queryTool } from "../tool.ts";
 
-const InspectCellInput = Schema.Struct({ x: X, y: Y });
+const InspectCellInput = Schema.Struct({ cell: Cell.Cell });
 
 /** `inspect_cell`: one cell and everything on it. */
 export const InspectCell = queryTool("inspect_cell", {
@@ -18,6 +18,6 @@ export const InspectCell = queryTool("inspect_cell", {
 export const inspectCell = Effect.map(
   WorldClient,
   (world) =>
-    ({ x, y }: typeof InspectCellInput.Type) =>
-      Effect.flatMap(cellFor(x, y), world.inspect)
+    ({ cell }: typeof InspectCellInput.Type) =>
+      world.inspect(cell)
 );
