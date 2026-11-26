@@ -31,11 +31,11 @@ import * as Semaphore from "effect/Semaphore";
 import * as Stream from "effect/Stream";
 
 import { Default } from "../cluster.ts";
-import { EventRow, SCHEMA, snapshotOfRows, statementsOf } from "./rows.ts";
+import { EventRow, SCHEMA, statementsOf, worldOfRows } from "./rows.ts";
 import { FeedItem, Verdict } from "./wire.ts";
 
 /** The one world every caller shares. */
-export const WORLD_NAME = "world-4";
+export const WORLD_NAME = "world-5";
 
 const HEARTBEAT_INTERVAL = Duration.seconds(15);
 
@@ -44,14 +44,6 @@ const COMMIT_TIMEOUT = Duration.minutes(5);
 interface Happened {
   readonly seq: typeof Event.Seq.Type;
   readonly event: typeof Event.Event.Type;
-}
-
-interface Recorded {
-  readonly world: World.World;
-  readonly happened: readonly Happened[];
-  readonly changeCount: number;
-  readonly edited: Option.Option<Span.Span>;
-  readonly tally: typeof Tally.Tally.Type;
 }
 
 const decodeCommand = Schema.decodeUnknownEffect(Command.Command);
@@ -89,8 +81,8 @@ const instance = Effect.gen(function* () {
     discard: true,
   });
 
-  const loaded = yield* Effect.orDie(
-    snapshotOfRows({
+  const awake = yield* Effect.orDie(
+    worldOfRows({
       entities: yield* run("SELECT id, prefab, x, y, components FROM entities"),
       meta: yield* run("SELECT spawned FROM meta WHERE id = 1"),
     })
@@ -101,7 +93,6 @@ const instance = Effect.gen(function* () {
     (rows) => Effect.orDie(decodeSeq(rows[0]?.head ?? 0))
   );
 
-  const awake = World.fromSnapshot(loaded);
   const world = yield* Ref.make<World.World>(awake);
   const head = yield* Ref.make<typeof Event.Seq.Type>(yield* lastSeq);
   const live = yield* PubSub.unbounded<Happened>();
@@ -111,7 +102,7 @@ const instance = Effect.gen(function* () {
     `World awake: ${World.cellCount(awake)} cells, ${World.entityCount(awake)} entities, ${yield* Ref.get(head)} events.`
   );
 
-  const step = (sofar: Recorded, event: typeof Event.Event.Type) =>
+  const step = (event: typeof Event.Event.Type) =>
     Effect.gen(function* () {
       const rows = yield* run<{ seq: number }>(
         "INSERT INTO events (event) VALUES (?) RETURNING seq",
@@ -119,51 +110,20 @@ const instance = Effect.gen(function* () {
       );
 
       const seq = yield* decodeSeq(rows[0]?.seq);
-      const changes = Event.changes(sofar.world, event);
 
       yield* Effect.forEach(
-        yield* statementsOf(changes),
+        yield* statementsOf(event),
         ({ bindings, sql }) => run(sql, ...bindings),
         { discard: true }
       );
 
-      const recorded: Recorded = {
-        changeCount: sofar.changeCount + changes.length,
-        edited: Span.widen(
-          sofar.edited,
-          Span.ofCells(
-            Arr.flatMap(changes, (change) =>
-              World.touchedBy(sofar.world, change)
-            )
-          )
-        ),
-        happened: [...sofar.happened, { event, seq }],
-        tally: Tally.tallied(sofar.tally, sofar.world, event),
-        world: World.applyAll(sofar.world, changes),
-      };
-
-      return recorded;
+      return { event, seq } satisfies Happened;
     });
 
-  const record = (
-    before: World.World,
-    events: readonly (typeof Event.Event.Type)[]
-  ) =>
-    storage.transaction(
-      Effect.reduce(
-        events,
-        () =>
-          ({
-            changeCount: 0,
-            edited: Option.none<Span.Span>(),
-            happened: [],
-            tally: Tally.none,
-            world: before,
-          }) satisfies Recorded,
-        step
-      ),
-      { timeout: COMMIT_TIMEOUT }
-    );
+  const record = (events: readonly (typeof Event.Event.Type)[]) =>
+    storage.transaction(Effect.forEach(events, step), {
+      timeout: COMMIT_TIMEOUT,
+    });
 
   const commit = (command: typeof Command.Command.Type) =>
     serialised(
@@ -176,20 +136,20 @@ const instance = Effect.gen(function* () {
           return Verdict.cases.Rejected.make({ rejection: decision.failure });
         }
 
-        const outcome = yield* record(before, decision.success);
+        const events = decision.success;
+        const happened = yield* record(events);
 
-        yield* Ref.set(world, outcome.world);
-        yield* Option.match(Arr.last(outcome.happened), {
+        yield* Ref.set(world, World.applyAll(before, events));
+        yield* Option.match(Arr.last(happened), {
           onNone: () => Effect.void,
           onSome: ({ seq }) => Ref.set(head, seq),
         });
-        yield* PubSub.publishAll(live, outcome.happened);
+        yield* PubSub.publishAll(live, happened);
 
         return Verdict.cases.Accepted.make({
-          changes: outcome.changeCount,
-          sentences: Arr.map(outcome.happened, ({ event }) => eventText(event)),
-          tally: outcome.tally,
-          ...Option.match(outcome.edited, {
+          sentences: Arr.map(events, eventText),
+          tally: Arr.reduce(events, Tally.none, Tally.tallied),
+          ...Option.match(Span.ofCells(Arr.flatMap(events, Event.cells)), {
             onNone: () => ({}),
             onSome: (span) => ({ edited: Span.toArea(span) }),
           }),

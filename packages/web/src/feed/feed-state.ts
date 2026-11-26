@@ -31,8 +31,8 @@ interface Shown {
 
 export interface FeedState {
   readonly connection: Connection;
-  /** The snapshot arriving since the last `Reset`, until its `Ready`. */
-  readonly loading: Option.Option<World.World>;
+  /** The entities arriving since the last `Reset`, until its `Ready`. */
+  readonly loading: Option.Option<readonly (typeof Entity.Entity.Type)[]>;
   /** The last complete world; kept on screen while a new snapshot loads. */
   readonly shown: Option.Option<Shown>;
   /** Newest first. */
@@ -53,18 +53,6 @@ export const initialFeedState = (connection: Connection) => {
 export const withConnection = (state: FeedState, connection: Connection) =>
   ({ ...state, connection }) satisfies FeedState;
 
-const cellOfEntity = (world: World.World, id: typeof Entity.Id.Type) =>
-  Option.map(World.entity(world, id), (entity) => entity.cell);
-
-const eventCell = (world: World.World, event: typeof Event.Event.Type) =>
-  Event.Event.match(event, {
-    Changed: ({ entity }) => cellOfEntity(world, entity),
-    Moved: ({ to }) => Option.some(to),
-    Removed: ({ entities }) => cellOfEntity(world, entities[0]),
-    Spawned: ({ entities }) => Option.some(entities[0].cell),
-    Updated: ({ entities }) => Option.some(entities[0].cell),
-  });
-
 const happened = (
   state: FeedState,
   shown: Shown,
@@ -77,7 +65,7 @@ const happened = (
 
   const entry: HistoryEntry = {
     at: event.at,
-    cell: eventCell(shown.world, event),
+    cell: Arr.head(Event.cells(event)),
     key: `${shown.generation}:${seq}`,
     kind: event._tag,
     sentence: eventText(event),
@@ -89,7 +77,7 @@ const happened = (
     shown: Option.some({
       ...shown,
       cursor: seq,
-      world: Event.evolve(shown.world, event),
+      world: World.apply(shown.world, event),
     }),
   };
 
@@ -105,16 +93,16 @@ const nextGeneration = (shown: Option.Option<Shown>) =>
 /**
  * Folds one frame of the spectator stream into the state. A `Reset` starts a
  * fresh snapshot without hiding the world on screen; `Ready` swaps it in;
- * `Happened` evolves the shown world at once. Frames out of order are ignored.
+ * `Happened` applies to the shown world at once. Frames out of order are ignored.
  */
 export const receive = (state: FeedState, frame: typeof FeedFrame.Type) => {
   const next: FeedState = FeedFrame.match(frame, {
-    Changes: ({ changes }) =>
+    Entities: ({ entities }) =>
       Option.match(state.loading, {
         onNone: () => state,
-        onSome: (world) => ({
+        onSome: (loaded) => ({
           ...state,
-          loading: Option.some(World.applyAll(world, changes)),
+          loading: Option.some([...loaded, ...entities]),
         }),
       }),
     Happened: ({ event, seq }) =>
@@ -127,17 +115,17 @@ export const receive = (state: FeedState, frame: typeof FeedFrame.Type) => {
     Ready: ({ cursor }) =>
       Option.match(state.loading, {
         onNone: () => state,
-        onSome: (world) => ({
+        onSome: (loaded) => ({
           ...state,
           loading: Option.none(),
           shown: Option.some({
             cursor,
             generation: nextGeneration(state.shown),
-            world,
+            world: World.make(loaded, 0),
           }),
         }),
       }),
-    Reset: () => ({ ...state, loading: Option.some(World.empty) }),
+    Reset: () => ({ ...state, loading: Option.some([]) }),
   });
 
   return next;

@@ -77,7 +77,9 @@ const History = ({
       <ol className="history">
         {Arr.map(history, (entry) => (
           <li
-            className={entry.kind === "Removed" ? "history-removed" : undefined}
+            className={
+              entry.kind === "EntitiesRemoved" ? "history-removed" : undefined
+            }
             key={entry.key}
           >
             <button

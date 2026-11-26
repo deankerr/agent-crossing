@@ -26,13 +26,16 @@ const poured = (liquids: readonly (typeof Entity.Entity.Type)[]) => {
 /** One sentence for the history log. */
 export const eventText = (event: typeof Event.Event.Type) =>
   Event.Event.match(event, {
-    Changed: ({ entity }) => `Changed ${entity}`,
-    Moved: ({ entity, to }) => `Moved ${entity} to ${Cell.format(to)}`,
-    Removed: ({ entities }) =>
-      entities.length === 1
-        ? `Removed ${entities[0]}`
-        : `Removed ${entitiesWord(entities.length)}`,
-    Spawned: ({ entities }) => {
+    EntitiesChanged: ({ entities }) => {
+      if (Arr.every(entities, Entity.isFloor)) {
+        return painted(entities);
+      }
+
+      return entities.length === 1
+        ? `Changed ${entities[0].id}`
+        : `Changed ${entitiesWord(entities.length)}`;
+    },
+    EntitiesPlaced: ({ entities }) => {
       if (Arr.every(entities, Entity.isFloor)) {
         return painted(entities);
       }
@@ -45,13 +48,10 @@ export const eventText = (event: typeof Event.Event.Type) =>
         ? `Put ${article(Entity.nounOf(entities[0]))} at ${Cell.format(entities[0].cell)}`
         : `Placed ${entitiesWord(entities.length)}`;
     },
-    Updated: ({ entities }) => {
-      if (Arr.every(entities, Entity.isFloor)) {
-        return painted(entities);
-      }
-
-      return entities.length === 1
-        ? `Changed ${entities[0].id}`
-        : `Changed ${entitiesWord(entities.length)}`;
-    },
+    EntitiesRemoved: ({ entities }) =>
+      entities.length === 1
+        ? `Removed ${entities[0].id}`
+        : `Removed ${entitiesWord(entities.length)}`,
+    EntityMoved: ({ entity }) =>
+      `Moved ${entity.id} to ${Cell.format(entity.cell)}`,
   });

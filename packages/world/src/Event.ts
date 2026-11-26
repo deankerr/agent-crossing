@@ -1,12 +1,8 @@
-import * as Components from "@agent-crossing/definitions/Components";
 import * as Arr from "effect/Array";
-import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 
 import * as Cell from "./Cell.ts";
-import * as Change from "./Change.ts";
 import * as Entity from "./Entity.ts";
-import * as World from "./World.ts";
 
 /** Epoch milliseconds, always passed in, never read from a clock. */
 export const Timestamp = Schema.Int;
@@ -22,64 +18,32 @@ const upToLimit = <S extends Schema.Top>(item: S) =>
 
 const edit = { at: Timestamp };
 
-/** What happened to the world, kept as its history. */
+/** What happened to the world, kept as its history. Each event says everything that happened, read without the world. */
 export const Event = Schema.TaggedUnion({
   /** New entities, floors and liquids among them. */
-  Spawned: { ...edit, entities: upToLimit(Entity.Entity) },
-  /** Entities given a new prefab or new components, each keeping its id and cell. */
-  Updated: { ...edit, entities: upToLimit(Entity.Entity) },
-  Moved: { ...edit, entity: Entity.Id, to: Cell.Cell },
-  /** Replaces the entity's own components. */
-  Changed: { ...edit, entity: Entity.Id, components: Components.Components },
-  Removed: { ...edit, entities: upToLimit(Entity.Id) },
+  EntitiesPlaced: { ...edit, entities: upToLimit(Entity.Entity) },
+  /** Each entity as it is afterwards, keeping its id and cell, with a new prefab or new own components. */
+  EntitiesChanged: { ...edit, entities: upToLimit(Entity.Entity) },
+  /** The entity as it is afterwards, at its new cell, and the cell it left. */
+  EntityMoved: { ...edit, entity: Entity.Entity, from: Cell.Cell },
+  /** The entities as they were. */
+  EntitiesRemoved: { ...edit, entities: upToLimit(Entity.Entity) },
 });
 
-type Present = typeof Entity.Entity.Type;
+const cellsOf = ({
+  entities,
+}: {
+  readonly entities: readonly (typeof Entity.Entity.Type)[];
+}) => Arr.map(entities, (entity) => entity.cell);
 
-const putChanged = (
-  world: World.World,
-  id: typeof Entity.Id.Type,
-  update: (present: Present) => Present
-) =>
-  Arr.fromOption(
-    Option.map(World.entity(world, id), (present) =>
-      Change.Change.cases.EntityPut.make({ entity: update(present) })
-    )
-  );
-
-const put = (entities: readonly Present[]) =>
-  Arr.map(entities, (present) =>
-    Change.Change.cases.EntityPut.make({ entity: present })
-  );
-
-/** The state writes an event amounts to, given the world it happens to. */
-export const changes = (world: World.World, event: typeof Event.Type) => {
-  const writes: readonly (typeof Change.Change.Type)[] = Event.match(event, {
-    Changed: ({ components, entity }) =>
-      putChanged(world, entity, (current) => ({ ...current, components })),
-    Moved: ({ entity, to }) =>
-      putChanged(world, entity, (current) => ({ ...current, cell: to })),
-    Removed: ({ entities }) =>
-      Arr.map(entities, (id) => Change.Change.cases.EntityDropped.make({ id })),
-    Spawned: ({ entities }) =>
-      Arr.append(
-        put(entities),
-        Change.Change.cases.SpawnCounted.make({
-          spawned: Math.max(
-            ...Arr.map(entities, (spawned) => Entity.serial(spawned.id))
-          ),
-        })
-      ),
-    Updated: ({ entities }) => put(entities),
+/** The cells an event touched, where things are now before where they were. */
+export const cells = (event: typeof Event.Type) => {
+  const touched: readonly (typeof Cell.Cell.Type)[] = Event.match(event, {
+    EntitiesChanged: cellsOf,
+    EntitiesPlaced: cellsOf,
+    EntitiesRemoved: cellsOf,
+    EntityMoved: ({ entity, from }) => [entity.cell, from],
   });
 
-  return writes;
+  return touched;
 };
-
-export const evolve = (world: World.World, event: typeof Event.Type) =>
-  World.applyAll(world, changes(world, event));
-
-export const evolveAll = (
-  world: World.World,
-  events: Iterable<typeof Event.Type>
-) => Arr.reduce(Arr.fromIterable(events), world, evolve);

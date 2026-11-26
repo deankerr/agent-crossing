@@ -1,10 +1,9 @@
 import * as Components from "@agent-crossing/definitions/Components";
 import * as Prefabs from "@agent-crossing/definitions/Prefabs";
 import * as Cell from "@agent-crossing/world/Cell";
-import * as Change from "@agent-crossing/world/Change";
 import * as Entity from "@agent-crossing/world/Entity";
 import * as Event from "@agent-crossing/world/Event";
-import type * as World from "@agent-crossing/world/World";
+import * as World from "@agent-crossing/world/World";
 import * as Arr from "effect/Array";
 import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
@@ -82,30 +81,49 @@ const rowOfEntity = (entity: typeof Entity.Entity.Type) =>
     y: entity.cell.y,
   }) satisfies typeof EntityRow.Type;
 
-const writeOf = (change: typeof Change.Change.Type) =>
-  Change.Change.match(change, {
-    EntityDropped: ({ id }) =>
-      Effect.succeed({
-        op: "delete",
-        table: "entities",
-        values: [id],
-      } satisfies Write),
-    EntityPut: ({ entity }) =>
-      Effect.map(
-        encodeEntityRow(rowOfEntity(entity)),
-        (row) =>
-          ({
-            op: "upsert",
-            table: "entities",
-            values: [row.id, row.prefab, row.x, row.y, row.components],
-          }) satisfies Write
-      ),
-    SpawnCounted: ({ spawned }) =>
-      Effect.succeed({
+const upserted = (entity: typeof Entity.Entity.Type) =>
+  Effect.map(
+    encodeEntityRow(rowOfEntity(entity)),
+    (row) =>
+      ({
         op: "upsert",
-        table: "meta",
-        values: [1, spawned],
-      } satisfies Write),
+        table: "entities",
+        values: [row.id, row.prefab, row.x, row.y, row.components],
+      }) satisfies Write
+  );
+
+const upsertedAll = (entities: readonly (typeof Entity.Entity.Type)[]) =>
+  Effect.forEach(entities, upserted);
+
+const writesOf = (event: typeof Event.Event.Type) =>
+  Event.Event.match(event, {
+    EntitiesChanged: ({ entities }) => upsertedAll(entities),
+    EntitiesPlaced: ({ entities }) =>
+      Effect.map(upsertedAll(entities), (writes) =>
+        Arr.append(writes, {
+          op: "upsert",
+          table: "meta",
+          values: [
+            1,
+            Math.max(
+              ...Arr.map(entities, (entity) => Entity.serial(entity.id))
+            ),
+          ],
+        } satisfies Write)
+      ),
+    EntitiesRemoved: ({ entities }) =>
+      Effect.succeed(
+        Arr.map(
+          entities,
+          (entity) =>
+            ({
+              op: "delete",
+              table: "entities",
+              values: [entity.id],
+            }) satisfies Write
+        )
+      ),
+    EntityMoved: ({ entity }) => upsertedAll([entity]),
   });
 
 const placeholders = (count: number) =>
@@ -170,12 +188,12 @@ const statementOfRun = (run: readonly Write[]) => {
 };
 
 /**
- * The statements that persist `changes`, in order. Consecutive writes to the
+ * The statements that persist an event's rows, in order. Consecutive writes to the
  * same table with the same operation share one multi-row statement, because
  * each statement is a round trip to the database.
  */
-export const statementsOf = (changes: readonly (typeof Change.Change.Type)[]) =>
-  Effect.map(Effect.forEach(changes, writeOf), (writes) =>
+export const statementsOf = (event: typeof Event.Event.Type) =>
+  Effect.map(writesOf(event), (writes) =>
     Arr.map(runsOf(writes), statementOfRun)
   );
 
@@ -200,16 +218,11 @@ interface StoredRows {
 const decodeEntityRows = Schema.decodeUnknownEffect(Schema.Array(EntityRow));
 const decodeMetaRows = Schema.decodeUnknownEffect(Schema.Array(MetaRow));
 
-/** Parses the stored rows into the snapshot they amount to. */
-export const snapshotOfRows = (rows: StoredRows) =>
+/** Parses the stored rows into the world they amount to. */
+export const worldOfRows = (rows: StoredRows) =>
   Effect.gen(function* () {
     const entities = yield* decodeEntityRows(rows.entities);
     const meta = yield* decodeMetaRows(rows.meta);
 
-    const snapshot: typeof World.Snapshot.Type = {
-      entities: Arr.map(entities, entityOfRow),
-      spawned: meta[0]?.spawned ?? 0,
-    };
-
-    return snapshot;
+    return World.make(Arr.map(entities, entityOfRow), meta[0]?.spawned ?? 0);
   });

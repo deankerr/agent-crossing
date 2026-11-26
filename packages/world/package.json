@@ -7,7 +7,6 @@
   "sideEffects": false,
   "exports": {
     "./Cell": "./src/Cell.ts",
-    "./Change": "./src/Change.ts",
     "./Command": "./src/Command.ts",
     "./Entity": "./src/Entity.ts",
     "./Event": "./src/Event.ts",

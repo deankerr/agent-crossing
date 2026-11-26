@@ -4,11 +4,10 @@ import * as HashMap from "effect/HashMap";
 import * as HashSet from "effect/HashSet";
 import * as Option from "effect/Option";
 import * as Order from "effect/Order";
-import * as Schema from "effect/Schema";
 
 import * as Cell from "./Cell.ts";
-import * as Change from "./Change.ts";
 import * as Entity from "./Entity.ts";
+import * as Event from "./Event.ts";
 import type * as Span from "./Span.ts";
 
 type Id = typeof Entity.Id.Type;
@@ -66,27 +65,41 @@ const unindexed = (world: World, id: Id) =>
       withoutIndexed(world.entitiesByCell, Cell.key(present.cell), id),
   });
 
-/** The only function that modifies a world. */
-export const apply = (world: World, change: typeof Change.Change.Type) => {
-  const next: World = Change.Change.match(change, {
-    EntityDropped: ({ id }) => ({
-      ...world,
-      entities: HashMap.remove(world.entities, id),
-      entitiesByCell: unindexed(world, id),
-    }),
-    EntityPut: ({ entity: put }) => ({
-      ...world,
-      entities: HashMap.set(world.entities, put.id, put),
-      entitiesByCell: withIndexed(
-        unindexed(world, put.id),
-        Cell.key(put.cell),
-        put.id
+const put = (world: World, present: Present) =>
+  ({
+    ...world,
+    entities: HashMap.set(world.entities, present.id, present),
+    entitiesByCell: withIndexed(
+      unindexed(world, present.id),
+      Cell.key(present.cell),
+      present.id
+    ),
+  }) satisfies World;
+
+const drop = (world: World, id: Id) =>
+  ({
+    ...world,
+    entities: HashMap.remove(world.entities, id),
+    entitiesByCell: unindexed(world, id),
+  }) satisfies World;
+
+const putAll = (world: World, entities: Iterable<Present>) =>
+  Arr.reduce(Arr.fromIterable(entities), world, put);
+
+/** The only function that modifies a world: the world after the event. */
+export const apply = (world: World, event: typeof Event.Event.Type) => {
+  const next: World = Event.Event.match(event, {
+    EntitiesChanged: ({ entities }) => putAll(world, entities),
+    EntitiesPlaced: ({ entities }) => ({
+      ...putAll(world, entities),
+      spawned: Math.max(
+        world.spawned,
+        ...Arr.map(entities, (placed) => Entity.serial(placed.id))
       ),
     }),
-    SpawnCounted: ({ spawned }) => ({
-      ...world,
-      spawned: Math.max(world.spawned, spawned),
-    }),
+    EntitiesRemoved: ({ entities }) =>
+      Arr.reduce(entities, world, (sofar, removed) => drop(sofar, removed.id)),
+    EntityMoved: ({ entity: moved }) => put(world, moved),
   });
 
   return next;
@@ -94,8 +107,12 @@ export const apply = (world: World, change: typeof Change.Change.Type) => {
 
 export const applyAll = (
   world: World,
-  changes: Iterable<typeof Change.Change.Type>
-) => Arr.reduce(Arr.fromIterable(changes), world, apply);
+  events: Iterable<typeof Event.Event.Type>
+) => Arr.reduce(Arr.fromIterable(events), world, apply);
+
+/** A world of these entities, with `spawned` entities ever placed. */
+export const make = (entities: Iterable<Present>, spawned: number) =>
+  putAll({ ...empty, spawned }, entities);
 
 /** Rebuilds the cell index from the entities alone. */
 export const indexEntities = (all: World["entities"]) =>
@@ -208,46 +225,3 @@ export const countsBy = (
     )
   );
 };
-
-const oldCell = (world: World, id: Id) =>
-  Arr.fromOption(Option.map(entity(world, id), (present) => present.cell));
-
-/** The cells a change touches, given the world it applies to: where entities were and where they are now. */
-export const touchedBy = (world: World, change: typeof Change.Change.Type) => {
-  const cells: readonly At[] = Change.Change.match(change, {
-    EntityDropped: ({ id }) => oldCell(world, id),
-    EntityPut: ({ entity: put }) => [put.cell, ...oldCell(world, put.id)],
-    SpawnCounted: () => [],
-  });
-
-  return cells;
-};
-
-/** The whole world as JSON-ready data. */
-export const Snapshot = Schema.Struct({
-  entities: Schema.Array(Entity.Entity),
-  spawned: Schema.Int.check(Schema.isGreaterThanOrEqualTo(0)),
-});
-
-const toSnapshot = (world: World) =>
-  ({
-    entities: entities(world),
-    spawned: world.spawned,
-  }) satisfies typeof Snapshot.Type;
-
-const snapshotChanges = (snapshot: typeof Snapshot.Type) => {
-  const changes: readonly (typeof Change.Change.Type)[] = [
-    ...Arr.map(snapshot.entities, (present) =>
-      Change.Change.cases.EntityPut.make({ entity: present })
-    ),
-    Change.Change.cases.SpawnCounted.make({ spawned: snapshot.spawned }),
-  ];
-
-  return changes;
-};
-
-/** The changes that rebuild `world` from the empty world: entities oldest first, then the spawn count. */
-export const changesFor = (world: World) => snapshotChanges(toSnapshot(world));
-
-export const fromSnapshot = (snapshot: typeof Snapshot.Type) =>
-  applyAll(empty, snapshotChanges(snapshot));

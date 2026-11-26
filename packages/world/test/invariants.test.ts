@@ -9,7 +9,6 @@ import * as Result from "effect/Result";
 import * as Cell from "../src/Cell.ts";
 import * as Command from "../src/Command.ts";
 import * as Entity from "../src/Entity.ts";
-import * as Event from "../src/Event.ts";
 import { seededRandom } from "../src/generation/random.ts";
 import type { SeededRandom } from "../src/generation/random.ts";
 import * as Region from "../src/Region.ts";
@@ -160,7 +159,7 @@ describe("evolving the decisions of random commands", () => {
         const decision = Command.decide(world, anyCommand(random), step);
 
         if (Result.isSuccess(decision)) {
-          world = Event.evolveAll(world, decision.success);
+          world = World.applyAll(world, decision.success);
         }
 
         expect(problemsOf(world)).toStrictEqual([]);

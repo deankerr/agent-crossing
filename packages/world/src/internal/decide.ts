@@ -6,7 +6,6 @@ import * as Option from "effect/Option";
 import * as Result from "effect/Result";
 
 import type * as Cell from "../Cell.ts";
-import * as Change from "../Change.ts";
 import type * as Command from "../Command.ts";
 import * as Entity from "../Entity.ts";
 import * as Event from "../Event.ts";
@@ -36,30 +35,29 @@ export interface Edit {
 }
 
 export interface Outcome {
-  readonly dropped: readonly Id[];
+  readonly dropped: readonly Present[];
   readonly events: readonly Happened[];
 }
 
-const outcome = (dropped: readonly Id[], events: readonly Happened[] = []) =>
-  ({ dropped, events }) satisfies Outcome;
+const outcome = (
+  dropped: readonly Present[],
+  events: readonly Happened[] = []
+) => ({ dropped, events }) satisfies Outcome;
 
-const removed = (edit: Edit, ids: readonly Id[]) =>
-  Arr.map(Arr.chunksOf(ids, Event.MAX_ITEMS), (entities) =>
-    Event.Event.cases.Removed.make({ ...edit, entities })
+const removed = (edit: Edit, entities: readonly Present[]) =>
+  Arr.map(Arr.chunksOf(entities, Event.MAX_ITEMS), (chunk) =>
+    Event.Event.cases.EntitiesRemoved.make({ ...edit, entities: chunk })
   );
 
 const spawned = (edit: Edit, entities: readonly Present[]) =>
   Arr.map(Arr.chunksOf(entities, Event.MAX_ITEMS), (chunk) =>
-    Event.Event.cases.Spawned.make({ ...edit, entities: chunk })
+    Event.Event.cases.EntitiesPlaced.make({ ...edit, entities: chunk })
   );
 
 const updated = (edit: Edit, entities: readonly Present[]) =>
   Arr.map(Arr.chunksOf(entities, Event.MAX_ITEMS), (chunk) =>
-    Event.Event.cases.Updated.make({ ...edit, entities: chunk })
+    Event.Event.cases.EntitiesChanged.make({ ...edit, entities: chunk })
   );
-
-const idsOf = (entities: readonly Present[]) =>
-  Arr.map(entities, (entity) => entity.id);
 
 const entitiesIn = (world: World.World, cells: readonly At[]) =>
   Arr.flatMap(cells, (cell) => World.entitiesAt(world, cell));
@@ -143,15 +141,15 @@ export const pour = (
 };
 
 export const erase = (world: World.World, region: typeof Region.Region.Type) =>
-  outcome(idsOf(entitiesIn(world, Region.cells(region))));
+  outcome(entitiesIn(world, Region.cells(region)));
 
 const nextEntity = (world: World.World, fresh: NewEntity) =>
   ({ ...fresh, id: Entity.idFor(world.spawned + 1) }) satisfies Present;
 
-const counted = (world: World.World, entity: Present) =>
+const counted = (world: World.World, edit: Edit, entity: Present) =>
   World.apply(
-    World.apply(world, Change.Change.cases.EntityPut.make({ entity })),
-    Change.Change.cases.SpawnCounted.make({ spawned: world.spawned + 1 })
+    world,
+    Event.Event.cases.EntitiesPlaced.make({ ...edit, entities: [entity] })
   );
 
 export const spawn = (
@@ -191,7 +189,7 @@ export const scatter = (
           ensurePlaceable(working, cell, Entity.components(entity))
         )
       ) {
-        working = counted(working, entity);
+        working = counted(working, edit, entity);
         placed.push(entity);
       }
     }
@@ -218,7 +216,13 @@ export const move = (world: World.World, edit: Edit, id: Id, to: At) =>
 
     return outcome(
       [],
-      [Event.Event.cases.Moved.make({ ...edit, entity: id, to })]
+      [
+        Event.Event.cases.EntityMoved.make({
+          ...edit,
+          entity: { ...entity, cell: to },
+          from: entity.cell,
+        }),
+      ]
     );
   });
 
@@ -239,19 +243,22 @@ export const change = (
 
     return outcome(
       [],
-      [Event.Event.cases.Changed.make({ ...edit, components, entity: id })]
+      [
+        Event.Event.cases.EntitiesChanged.make({
+          ...edit,
+          entities: [{ ...entity, components }],
+        }),
+      ]
     );
   });
 
 export const remove = (world: World.World, ids: readonly Id[]) =>
   Result.gen(function* () {
-    const distinct = Arr.dedupe(ids);
+    const entities = yield* Result.all(
+      Arr.map(Arr.dedupe(ids), (id) => existing(world, id))
+    );
 
-    for (const id of distinct) {
-      yield* existing(world, id);
-    }
-
-    return outcome(distinct);
+    return outcome(entities);
   });
 
 export const removeIn = (
@@ -260,12 +267,10 @@ export const removeIn = (
   prefab: Name | undefined
 ) =>
   outcome(
-    idsOf(
-      Arr.filter(entitiesIn(world, Region.cells(region)), (entity) =>
-        prefab === undefined
-          ? !Entity.isFloor(entity) && !Entity.isLiquid(entity)
-          : entity.prefab === prefab
-      )
+    Arr.filter(entitiesIn(world, Region.cells(region)), (entity) =>
+      prefab === undefined
+        ? !Entity.isFloor(entity) && !Entity.isLiquid(entity)
+        : entity.prefab === prefab
     )
   );
 
@@ -282,26 +287,9 @@ export const generate = (
   });
 
   return outcome(
-    idsOf(entitiesIn(world, cells)),
+    entitiesIn(world, cells),
     spawned(edit, numbered(world, generateLandscape(command)))
   );
-};
-
-const touchedBy = (world: World.World, event: Happened) => {
-  const cellOf = (id: Id) =>
-    Arr.fromOption(
-      Option.map(World.entity(world, id), (entity) => entity.cell)
-    );
-
-  const cells: readonly At[] = Event.Event.match(event, {
-    Changed: ({ entity }) => cellOf(entity),
-    Moved: ({ entity, to }) => [...cellOf(entity), to],
-    Removed: ({ entities }) => Arr.flatMap(entities, cellOf),
-    Spawned: ({ entities }) => Arr.map(entities, (entity) => entity.cell),
-    Updated: ({ entities }) => Arr.map(entities, (entity) => entity.cell),
-  });
-
-  return cells;
 };
 
 export const settled = (
@@ -309,23 +297,15 @@ export const settled = (
   edit: Edit,
   { dropped, events }: Outcome
 ) => {
-  const afterDropping = World.applyAll(
-    world,
-    Arr.map(dropped, (id) => Change.Change.cases.EntityDropped.make({ id }))
-  );
-
-  const after = Event.evolveAll(afterDropping, events);
+  const after = World.applyAll(world, [...removed(edit, dropped), ...events]);
 
   const touched = [
-    ...Arr.flatMap(dropped, (id) =>
-      Arr.fromOption(
-        Option.map(World.entity(world, id), (entity) => entity.cell)
-      )
-    ),
-    ...Arr.flatMap(events, (event) => touchedBy(world, event)),
+    ...Arr.map(dropped, (entity) => entity.cell),
+    ...Arr.flatMap(events, Event.cells),
   ];
 
-  const misfits = idsOf(misfitsIn(after, touched));
-
-  return [...removed(edit, [...dropped, ...misfits]), ...events];
+  return [
+    ...removed(edit, [...dropped, ...misfitsIn(after, touched)]),
+    ...events,
+  ];
 };

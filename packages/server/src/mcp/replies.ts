@@ -91,7 +91,7 @@ const tallyText = ({ tally }: Accepted) => {
 };
 
 const happenedText = (accepted: Accepted) => {
-  const { changes, sentences } = accepted;
+  const { sentences } = accepted;
 
   if (sentences.length === 0) {
     return "Nothing changed: the edit matched nothing that differs from what is already there.";
@@ -103,10 +103,7 @@ const happenedText = (accepted: Accepted) => {
       : Arr.map(sentences, (sentence) => `${sentence}.`);
 
   return Arr.join(
-    [
-      ...told,
-      `(${plural(sentences.length, "event", "events")}, ${plural(changes, "change", "changes")}.)`,
-    ],
+    [...told, `(${plural(sentences.length, "event", "events")}.)`],
     " "
   );
 };

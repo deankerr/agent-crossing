@@ -54,18 +54,6 @@ export const ofCells = (given: Iterable<typeof Cell.Cell.Type>) =>
     )
   );
 
-export const widen = (a: Option.Option<Span>, b: Option.Option<Span>) =>
-  Option.match(a, {
-    onNone: () => b,
-    onSome: (left) =>
-      Option.some(
-        Option.match(b, {
-          onNone: () => left,
-          onSome: (right) => union(left, right),
-        })
-      ),
-  });
-
 /** An inclusive rectangle of cells, as it crosses the wire. */
 export const Area = Schema.Struct({ from: Cell.Cell, to: Cell.Cell });
 

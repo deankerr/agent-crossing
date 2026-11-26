@@ -1,10 +1,8 @@
 import * as Arr from "effect/Array";
-import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 
 import * as Entity from "./Entity.ts";
 import * as Event from "./Event.ts";
-import * as World from "./World.ts";
 
 const Count = Schema.Int.check(Schema.isGreaterThanOrEqualTo(0));
 
@@ -42,21 +40,25 @@ const isOther = (entity: Present) =>
   !Entity.isFloor(entity) && !Entity.isLiquid(entity);
 
 /**
- * The tally with one more event, given the world it happens to. Removed
- * floors count as erased cells, everything else removed as removed entities.
+ * The tally with one more event. Removed floors count as erased cells,
+ * everything else removed as removed entities.
  */
-export const tallied = (
-  tally: Counts,
-  world: World.World,
-  event: typeof Event.Event.Type
-) =>
+export const tallied = (tally: Counts, event: typeof Event.Event.Type) =>
   Event.Event.match(event, {
-    Changed: () => ({ ...tally, changed: tally.changed + 1 }),
-    Moved: () => ({ ...tally, moved: tally.moved + 1 }),
-    Removed: ({ entities }) => {
-      const floors = Arr.filter(entities, (id) =>
-        Option.exists(World.entity(world, id), Entity.isFloor)
-      ).length;
+    EntitiesChanged: ({ entities }) => ({
+      ...tally,
+      changed:
+        tally.changed + countOf(entities, (entity) => !Entity.isFloor(entity)),
+      painted: tally.painted + countOf(entities, Entity.isFloor),
+    }),
+    EntitiesPlaced: ({ entities }) => ({
+      ...tally,
+      painted: tally.painted + countOf(entities, Entity.isFloor),
+      placed: tally.placed + countOf(entities, isOther),
+      poured: tally.poured + countOf(entities, Entity.isLiquid),
+    }),
+    EntitiesRemoved: ({ entities }) => {
+      const floors = countOf(entities, Entity.isFloor);
 
       return {
         ...tally,
@@ -64,16 +66,5 @@ export const tallied = (
         removed: tally.removed + entities.length - floors,
       };
     },
-    Spawned: ({ entities }) => ({
-      ...tally,
-      painted: tally.painted + countOf(entities, Entity.isFloor),
-      placed: tally.placed + countOf(entities, isOther),
-      poured: tally.poured + countOf(entities, Entity.isLiquid),
-    }),
-    Updated: ({ entities }) => ({
-      ...tally,
-      changed:
-        tally.changed + countOf(entities, (entity) => !Entity.isFloor(entity)),
-      painted: tally.painted + countOf(entities, Entity.isFloor),
-    }),
+    EntityMoved: () => ({ ...tally, moved: tally.moved + 1 }),
   }) satisfies Counts;
