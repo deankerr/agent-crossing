@@ -6,7 +6,6 @@ import { ring } from "../ring.ts";
 export const Fern = prefab("fern", {
   label: { glyph: "f", noun: "fern" },
   layer: "cover",
-  habitat: ["land"],
   model: {
     parts: [
       {

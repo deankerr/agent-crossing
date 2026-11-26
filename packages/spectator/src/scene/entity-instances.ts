@@ -188,7 +188,7 @@ const fenceCellsOf = (entities: Iterable<typeof Entity.Type>) => {
   const byPrefab = new Map<string, Set<string>>();
 
   for (const entity of entities) {
-    if (componentsOf(entity).model?.pose === "fence") {
+    if (componentsOf(entity).model.pose === "fence") {
       const cells = byPrefab.get(entity.prefab) ?? new Set<string>();
       cells.add(cellKey(entity.cell));
       byPrefab.set(entity.prefab, cells);

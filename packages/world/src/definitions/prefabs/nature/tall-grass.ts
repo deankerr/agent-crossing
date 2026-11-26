@@ -20,7 +20,6 @@ export const TallGrass = prefab("tall-grass", {
     plural: "tufts of tall grass",
   },
   layer: "cover",
-  habitat: ["land"],
   model: {
     parts: [
       {

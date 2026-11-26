@@ -3,7 +3,6 @@ import { prefab } from "../../../schema/prefab.ts";
 export const Bench = prefab("bench", {
   label: { glyph: "n", noun: "bench", plural: "benches" },
   layer: "object",
-  habitat: ["land"],
   obstacle: true,
   model: {
     parts: [

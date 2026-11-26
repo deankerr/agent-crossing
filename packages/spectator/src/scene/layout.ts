@@ -27,7 +27,7 @@ export const surfaceOf = (entity: typeof Entity.Type) =>
   levelSurface(storedLevel(entity));
 
 const liquidTop = (liquid: typeof Entity.Type) => {
-  const tops = Arr.flatMap(componentsOf(liquid).model?.parts ?? [], (part) =>
+  const tops = Arr.flatMap(componentsOf(liquid).model.parts, (part) =>
     Arr.flatMap(part.forms, ({ solid }) =>
       "fill" in solid ? [solid.fill] : []
     )

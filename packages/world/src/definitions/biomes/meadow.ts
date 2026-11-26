@@ -2,7 +2,7 @@ import { biome } from "../../schema/biome.ts";
 import { Nature, Terrain } from "../prefabs/index.ts";
 import { Flowers } from "./flowers.ts";
 
-/** Dry, sunny ground thick with flowers and tall grass. */
+/** Dry, sunny land thick with flowers and tall grass. */
 export const Meadow = biome({
   name: "meadow",
   floor: Terrain.Meadow,

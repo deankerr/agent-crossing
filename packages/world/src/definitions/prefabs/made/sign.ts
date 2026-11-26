@@ -3,7 +3,6 @@ import { prefab } from "../../../schema/prefab.ts";
 export const Sign = prefab("sign", {
   label: { glyph: "S", noun: "sign" },
   layer: "object",
-  habitat: ["land"],
   obstacle: true,
   model: {
     parts: [

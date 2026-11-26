@@ -3,7 +3,6 @@ import { prefab } from "../../../schema/prefab.ts";
 export const Rock = prefab("rock", {
   label: { glyph: "R", noun: "rock" },
   layer: "object",
-  habitat: ["land"],
   obstacle: true,
   model: {
     parts: [

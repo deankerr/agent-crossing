@@ -407,7 +407,7 @@ const growthOn = (random: SeededRandom, biome: Biome) => {
   return found;
 };
 
-interface Terrain {
+interface Relief {
   readonly plan: Plan;
   readonly water: ReadonlySet<number>;
   readonly path: ReadonlySet<number>;
@@ -419,26 +419,26 @@ interface Terrain {
 
 const PINE_FOREST_LEVEL = 5;
 
-const isLandAt = (terrain: Terrain, [x, y]: Point) =>
-  inside(terrain.plan, x, y) && !terrain.water.has(indexOf(terrain.plan, x, y));
+const isLandAt = (relief: Relief, [x, y]: Point) =>
+  inside(relief.plan, x, y) && !relief.water.has(indexOf(relief.plan, x, y));
 
-const nearWater = (terrain: Terrain, [x, y]: Point) =>
+const nearWater = (relief: Relief, [x, y]: Point) =>
   Arr.some(
     DIAGONALS,
     ([dx, dy]) =>
-      inside(terrain.plan, x + dx, y + dy) &&
-      terrain.water.has(indexOf(terrain.plan, x + dx, y + dy))
+      inside(relief.plan, x + dx, y + dy) &&
+      relief.water.has(indexOf(relief.plan, x + dx, y + dy))
   );
 
-const landBiome = (terrain: Terrain, index: number) => {
-  const wet = terrain.moisture[index] ?? 0;
+const landBiome = (relief: Relief, index: number) => {
+  const wet = relief.moisture[index] ?? 0;
 
-  if ((terrain.elevation[index] ?? 0) > 0.85) {
+  if ((relief.elevation[index] ?? 0) > 0.85) {
     return Biomes.Stone;
   }
 
   if (wet > 0.56) {
-    return (terrain.levels[index] ?? 0) >= PINE_FOREST_LEVEL
+    return (relief.levels[index] ?? 0) >= PINE_FOREST_LEVEL
       ? Biomes.PineForest
       : Biomes.Forest;
   }
@@ -447,26 +447,26 @@ const landBiome = (terrain: Terrain, index: number) => {
     return Biomes.Meadow;
   }
 
-  return (terrain.patches[index] ?? 0) > 0.85 ? Biomes.Dirt : Biomes.Grassland;
+  return (relief.patches[index] ?? 0) > 0.85 ? Biomes.Dirt : Biomes.Grassland;
 };
 
-const biomeAt = (terrain: Terrain, at: Point, index: number) => {
-  const { plan } = terrain;
-  let biome: Biome = landBiome(terrain, index);
+const biomeAt = (relief: Relief, at: Point, index: number) => {
+  const { plan } = relief;
+  let biome: Biome = landBiome(relief, index);
 
-  if (terrain.water.has(index)) {
+  if (relief.water.has(index)) {
     const shore = Arr.some(STEPS, ([dx, dy]) =>
-      isLandAt(terrain, [at[0] + dx, at[1] + dy])
+      isLandAt(relief, [at[0] + dx, at[1] + dy])
     );
 
     biome = shore ? Biomes.Shore : Biomes.OpenWater;
   } else if (fromCenter(plan, ...at) <= plan.clearing) {
     biome = Biomes.Clearing;
-  } else if (terrain.path.has(index)) {
+  } else if (relief.path.has(index)) {
     biome = Biomes.Path;
   } else if (
-    touches(plan, terrain.water, at) ||
-    (nearWater(terrain, at) && plan.random.chance(0.5))
+    touches(plan, relief.water, at) ||
+    (nearWater(relief, at) && plan.random.chance(0.5))
   ) {
     biome = Biomes.Sand;
   }
@@ -492,7 +492,7 @@ const cellEntities = (
 ) => {
   const { liquid } = biome;
 
-  const ground =
+  const base =
     liquid === undefined
       ? [newEntityIn(cell, biome.floor, { level })]
       : [
@@ -501,7 +501,7 @@ const cellEntities = (
         ];
 
   return Arr.getSomes([
-    ...ground,
+    ...base,
     ...Arr.map(growthOn(random, biome), (prefab) =>
       newEntityIn(cell, prefab, {})
     ),
@@ -510,8 +510,8 @@ const cellEntities = (
 
 /**
  * A landscape for the rectangle: rolling hills, ponds joined to the edge by
- * a stream, sandy shores, forests, meadows, rocky heights and a clear walkable
- * area in the middle with a path towards the water. Each cell gets a floor,
+ * a stream, sandy shores, forests, meadows, rocky heights and a clear area of
+ * land in the middle with a path towards the water. Each cell gets a floor,
  * then any liquid, then what grows there. Pure in the seed.
  */
 export const generateLandscape = (spec: LandscapeSpec) => {
@@ -560,7 +560,7 @@ export const generateLandscape = (spec: LandscapeSpec) => {
     onSome: (source) => layPath(plan, water, source),
   });
 
-  const terrain: Terrain = {
+  const relief: Relief = {
     elevation,
     levels,
     moisture,
@@ -578,7 +578,7 @@ export const generateLandscape = (spec: LandscapeSpec) => {
 
       if (Option.isSome(cell)) {
         const index = y * width + x;
-        const biome = biomeAt(terrain, [x, y], index);
+        const biome = biomeAt(relief, [x, y], index);
         entities.push(
           ...cellEntities(random, biome, cell.value, levels[index] ?? 0)
         );

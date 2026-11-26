@@ -32,7 +32,7 @@ Other packages import `@agent-crossing/world/schema/*`, `/definitions/prefabs`, 
 
 ## How the world is described
 
-**Everything is an entity.** There is no separate ground. Grass is an entity that fills the floor layer of its cell, and water is an entity that fills the liquid layer over a floor. A pond is a sand or dirt floor with water over it.
+**Everything is an entity.** Grass is an entity that fills the floor layer of its cell, and water is an entity that fills the liquid layer over a floor. A pond is a sand or dirt floor with water over it.
 
 **The world has no size.** A cell is in the world when it has a floor, so the world is whatever shape has been painted.
 
@@ -45,7 +45,7 @@ Other packages import `@agent-crossing/world/schema/*`, `/definitions/prefabs`, 
 | `label` | What an agent calls the entity, and its glyph on a text map |
 | `layer` | The slot of its cell it fills: `floor`, `liquid`, `cover` or `object` |
 | `habitat` | The places it can be: `land`, `water` or both. Land when not stated |
-| `obstacle` | Its cell cannot be walked on |
+| `obstacle` | It is in the way: no character can move into its cell |
 | `model` | The named parts it is drawn from |
 | `colors` | Shades it gives to named parts of its model, in place of the model's own |
 | `text` | Writing on it, as on a sign |
@@ -57,13 +57,12 @@ Other packages import `@agent-crossing/world/schema/*`, `/definitions/prefabs`, 
 
 ## Definitions
 
-A prefab is one file under its category folder, `terrain`, `nature` or `made`:
+A prefab is one file under its category folder, `terrain`, `nature` or `made`. Every prefab has a label and a model:
 
 ```ts
 export const Oak = prefab("oak", {
   label: { glyph: "T", noun: "oak tree" },
   layer: "object",
-  habitat: ["land"],
   obstacle: true,
   model: {
     parts: [

@@ -5,7 +5,6 @@ const QUARTER = Math.PI / 2;
 export const Log = prefab("log", {
   label: { glyph: "L", noun: "fallen log" },
   layer: "object",
-  habitat: ["land"],
   obstacle: true,
   model: {
     parts: [

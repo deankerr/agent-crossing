@@ -31,11 +31,7 @@ const DRAWN_ORDER: readonly (typeof Layer.Type | undefined)[] = [
 
 const shown = (entities: readonly (typeof Entity.Type)[]) =>
   Arr.findFirst(DRAWN_ORDER, (layer) =>
-    Arr.findFirst(entities, (entity) => {
-      const components = componentsOf(entity);
-
-      return components.layer === layer && components.label !== undefined;
-    })
+    Arr.findFirst(entities, (entity) => componentsOf(entity).layer === layer)
   );
 
 interface Drawn {
@@ -122,9 +118,7 @@ const grid = (span: Span, characterAt: (cell: typeof Cell.Type) => string) => {
 const terrainGlyphs: readonly string[] = Arr.flatMap(prefabs, (prefab) => {
   const { label, layer } = prefab.components;
 
-  return label !== undefined && (layer === "floor" || layer === "liquid")
-    ? [label.glyph]
-    : [];
+  return layer === "floor" || layer === "liquid" ? [label.glyph] : [];
 });
 
 const legendOf = (drawn: readonly Drawn[]) => {

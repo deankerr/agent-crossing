@@ -3,7 +3,6 @@ import { prefab } from "../../../schema/prefab.ts";
 export const Bush = prefab("bush", {
   label: { glyph: "B", noun: "bush", plural: "bushes" },
   layer: "object",
-  habitat: ["land"],
   obstacle: true,
   model: {
     parts: [

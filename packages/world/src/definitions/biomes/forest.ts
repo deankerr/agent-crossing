@@ -1,7 +1,7 @@
 import { biome, weighted } from "../../schema/biome.ts";
 import { Nature, Terrain } from "../prefabs/index.ts";
 
-/** Woodland on low ground, mostly oaks. */
+/** Woodland on low land, mostly oaks. */
 export const Forest = biome({
   name: "forest",
   floor: Terrain.ForestFloor,

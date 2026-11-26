@@ -1,3 +1,4 @@
+import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 import * as Str from "effect/String";
 
@@ -28,17 +29,17 @@ export const Entity = Schema.Struct({
 
 type Described = Pick<typeof Entity.Type, "prefab" | "components">;
 
-/** The components every entity of the prefab starts with. */
-export const prefabComponents = (prefab: typeof PrefabName.Type) => {
-  const components: typeof Components.Type =
-    prefabsByName.get(prefab)?.components ?? {};
-
-  return components;
-};
+/**
+ * The components every entity of the prefab starts with. Prefab names are
+ * read from the prefabs, so every name has one.
+ */
+export const prefabComponents = (prefab: typeof PrefabName.Type) =>
+  Option.getOrThrow(Option.fromUndefinedOr(prefabsByName.get(prefab)))
+    .components;
 
 /** `over` wins wherever it says something. */
-export const overlay = (
-  under: typeof Components.Type,
+export const overlay = <Under extends typeof Components.Type>(
+  under: Under,
   over: typeof Components.Type
 ) => ({ ...under, ...over }) satisfies typeof Components.Type;
 
@@ -50,11 +51,7 @@ export const componentsOf = (entity: Described) =>
 export const storedLevel = (entity: Described) =>
   componentsOf(entity).level ?? 0;
 
-const unlabeled = (prefab: string) =>
-  ({ glyph: "?", noun: prefab }) satisfies typeof Label.Type;
-
-export const labelOf = (entity: Described) =>
-  componentsOf(entity).label ?? unlabeled(entity.prefab);
+export const labelOf = (entity: Described) => componentsOf(entity).label;
 
 export const nounOf = (entity: Described) => labelOf(entity).noun;
 

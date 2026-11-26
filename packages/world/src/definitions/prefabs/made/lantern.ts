@@ -3,7 +3,6 @@ import { prefab } from "../../../schema/prefab.ts";
 export const Lantern = prefab("lantern", {
   label: { glyph: "!", noun: "lantern" },
   layer: "object",
-  habitat: ["land"],
   obstacle: true,
   model: {
     parts: [

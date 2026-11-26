@@ -3,7 +3,6 @@ import { prefab } from "../../../schema/prefab.ts";
 export const Oak = prefab("oak", {
   label: { glyph: "T", noun: "oak tree" },
   layer: "object",
-  habitat: ["land"],
   obstacle: true,
   model: {
     parts: [

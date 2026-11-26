@@ -151,14 +151,6 @@ export const standingLevelAt = (world: World, cell: At) =>
     storedLevel
   );
 
-/** Land with no obstacle on it. */
-export const isWalkable = (world: World, cell: At) =>
-  Option.contains(placeAt(world, cell), "land") &&
-  !Arr.some(
-    entitiesAt(world, cell),
-    (entity) => componentsOf(entity).obstacle === true
-  );
-
 /** Every entity, oldest first. */
 export const allEntities = (world: World) =>
   Arr.sort(Arr.fromIterable(HashMap.values(world.entities)), bySerial);

@@ -2,9 +2,9 @@ import * as Arr from "effect/Array";
 import * as Option from "effect/Option";
 import * as Record from "effect/Record";
 
+import { habitatOf } from "../rules/placement.ts";
 import { formatCell } from "../schema/cell.ts";
 import type { Cell } from "../schema/cell.ts";
-import type { Components } from "../schema/components.ts";
 import { componentsOf, nounOf, storedLevel } from "../state/entity.ts";
 import type { Entity } from "../state/entity.ts";
 import {
@@ -12,31 +12,26 @@ import {
   floorAt,
   isFloor,
   isLiquid,
-  isWalkable,
   liquidAt,
 } from "../state/world.ts";
 import type { World } from "../state/world.ts";
 import { listed, quoted } from "./words.ts";
 
-const componentText = (components: typeof Components.Type) =>
-  listed([
+const componentText = (entity: typeof Entity.Type) => {
+  const components = componentsOf(entity);
+
+  return listed([
     ...(components.layer === undefined ? [] : [`layer ${components.layer}`]),
-    ...(components.habitat === undefined
+    ...(components.layer === "floor" || components.layer === "liquid"
       ? []
-      : [`habitat ${Arr.join(components.habitat, " and ")}`]),
+      : [`habitat ${Arr.join(habitatOf(components), " and ")}`]),
     ...(components.obstacle === true ? ["obstacle"] : []),
     ...(components.level === undefined ? [] : [`level ${components.level}`]),
-    ...(components.label === undefined
-      ? []
-      : [`label "${components.label.noun}" (${components.label.glyph})`]),
-    ...(components.model === undefined
-      ? []
-      : [
-          `model of ${Arr.join(
-            Arr.map(components.model.parts, (part) => part.name),
-            " and "
-          )}`,
-        ]),
+    `label "${components.label.noun}" (${components.label.glyph})`,
+    `model of ${Arr.join(
+      Arr.map(components.model.parts, (part) => part.name),
+      " and "
+    )}`,
     ...(components.colors === undefined
       ? []
       : [
@@ -52,6 +47,7 @@ const componentText = (components: typeof Components.Type) =>
       ? []
       : [`text ${quoted(components.text)}`]),
   ]);
+};
 
 const named = (entity: typeof Entity.Type) => {
   const noun = nounOf(entity);
@@ -71,25 +67,33 @@ export const inspectText = (world: World, cell: typeof Cell.Type) =>
     onNone: () =>
       `Cell ${formatCell(cell)} is outside the world: it has no floor.`,
     onSome: (floor) => {
+      const present = entitiesAt(world, cell);
+
       const entities = Arr.filter(
-        entitiesAt(world, cell),
+        present,
         (entity) => !isFloor(entity) && !isLiquid(entity)
       );
 
+      const obstructed = Arr.some(
+        present,
+        (entity) => componentsOf(entity).obstacle === true
+      );
+
       const surface = Option.match(liquidAt(world, cell), {
-        onNone: () => at(floor),
-        onSome: (liquid) => `${at(liquid)} over ${at(floor)}`,
+        onNone: () =>
+          `${at(floor)}, ${obstructed ? "land with an obstacle" : "land"}`,
+        onSome: (liquid) => `${at(liquid)} over ${at(floor)}, water`,
       });
 
       return Arr.join(
         [
-          `Cell ${formatCell(cell)}: ${surface}, ${isWalkable(world, cell) ? "walkable" : "not walkable"}.`,
+          `Cell ${formatCell(cell)}: ${surface}.`,
           ...(entities.length === 0
             ? ["Nothing stands here."]
             : Arr.map(
                 entities,
                 (entity) =>
-                  `- ${entity.id} ${entity.prefab}: ${componentText(componentsOf(entity))}`
+                  `- ${entity.id} ${entity.prefab}: ${componentText(entity)}`
               )),
         ],
         "\n"

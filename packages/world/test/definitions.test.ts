@@ -27,10 +27,7 @@ describe("the definitions", () => {
 
   it("names every part once within its model", () => {
     const repeating = Arr.filter(prefabs, (prefab) => {
-      const parts = Arr.map(
-        prefab.components.model?.parts ?? [],
-        (part) => part.name
-      );
+      const parts = Arr.map(prefab.components.model.parts, (part) => part.name);
 
       return Arr.dedupe(parts).length !== parts.length;
     });

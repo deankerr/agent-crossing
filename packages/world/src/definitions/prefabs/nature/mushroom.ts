@@ -2,7 +2,6 @@ import { prefab } from "../../../schema/prefab.ts";
 
 export const Mushroom = prefab("mushroom", {
   label: { glyph: "m", noun: "mushroom" },
-  habitat: ["land"],
   model: {
     parts: [
       {

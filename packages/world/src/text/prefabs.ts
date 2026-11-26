@@ -8,7 +8,7 @@ const prefabLine = ({ components, name }: (typeof prefabs)[number]) => {
 
   const parts = Arr.filter(
     [
-      label === undefined ? "" : `"${label.noun}"`,
+      `"${label.noun}"`,
       layer === undefined ? "no layer" : `layer ${layer}`,
       layer === "floor" || layer === "liquid"
         ? ""
@@ -18,7 +18,7 @@ const prefabLine = ({ components, name }: (typeof prefabs)[number]) => {
     (part) => part !== ""
   );
 
-  return `${label?.glyph ?? "?"} ${name}: ${Arr.join(parts, ", ")}`;
+  return `${label.glyph} ${name}: ${Arr.join(parts, ", ")}`;
 };
 
 /** Every prefab with its glyph, label, layer and habitat. */

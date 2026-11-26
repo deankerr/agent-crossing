@@ -14,7 +14,6 @@ const BERRIES = [
 export const BerryBush = prefab("berry-bush", {
   label: { glyph: "Q", noun: "berry bush", plural: "berry bushes" },
   layer: "object",
-  habitat: ["land"],
   obstacle: true,
   model: {
     parts: [

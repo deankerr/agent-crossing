@@ -3,7 +3,6 @@ import { prefab } from "../../../schema/prefab.ts";
 export const DeadTree = prefab("dead-tree", {
   label: { glyph: "Y", noun: "dead tree" },
   layer: "object",
-  habitat: ["land"],
   obstacle: true,
   model: {
     parts: [

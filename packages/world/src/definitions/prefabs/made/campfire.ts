@@ -8,7 +8,6 @@ const QUARTER = Math.PI / 2;
 export const Campfire = prefab("campfire", {
   label: { glyph: "x", noun: "campfire" },
   layer: "object",
-  habitat: ["land"],
   obstacle: true,
   model: {
     parts: [

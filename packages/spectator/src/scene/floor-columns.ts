@@ -72,7 +72,7 @@ export const floorColumns = (entities: Iterable<typeof Entity.Type>) => {
     const { colors, layer, model } = componentsOf(entity);
     const liquid = layer === "liquid";
 
-    if ((layer === "floor" || liquid) && model !== undefined) {
+    if (layer === "floor" || liquid) {
       const surface = surfaceOf(entity);
       const level = storedLevel(entity);
 

@@ -52,23 +52,6 @@ interface ModelGeometry {
   readonly height: number;
 }
 
-const PLACEHOLDER_HEX = "#e05cd0";
-
-const placeholder: PaintedModel = {
-  key: "placeholder",
-  parts: [
-    {
-      forms: [
-        { at: [0, 0.22, 0], solid: { box: [0.44, 0.44, 0.44] } },
-        { at: [0, 0.56, 0], solid: { ball: [0.12, 0] } },
-      ],
-      glow: false,
-      hex: PLACEHOLDER_HEX,
-    },
-  ],
-  pose: "quarter",
-};
-
 /** The hex a part is painted: the entity's color for it, or its own shade. */
 export const partHex = (
   part: typeof Part.Type,
@@ -93,13 +76,9 @@ const colorsKey = (colors: typeof Colors.Type | undefined) =>
     ","
   );
 
-/** The entity's model with its colors settled, or the placeholder. */
+/** The entity's model with its colors settled. */
 export const paintedModelOf = (entity: typeof Entity.Type) => {
   const { colors, model } = componentsOf(entity);
-
-  if (model === undefined) {
-    return placeholder;
-  }
 
   const source =
     entity.components.model === undefined

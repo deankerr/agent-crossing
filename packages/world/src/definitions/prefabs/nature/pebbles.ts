@@ -19,7 +19,6 @@ export const Pebbles = prefab("pebbles", {
     plural: "patches of pebbles",
   },
   layer: "cover",
-  habitat: ["land"],
   model: {
     parts: [
       {

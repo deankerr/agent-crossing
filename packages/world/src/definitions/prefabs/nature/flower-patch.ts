@@ -17,7 +17,6 @@ const flowerPatch = <const Shade extends Bloom>(bloom: Shade) =>
   prefab(`flower-patch-${bloom}`, {
     label: { glyph: "*", noun: "flower patch", plural: "flower patches" },
     layer: "cover",
-    habitat: ["land"],
     model: {
       parts: [
         {
