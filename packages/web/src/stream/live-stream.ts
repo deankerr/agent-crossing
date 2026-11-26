@@ -1,22 +1,22 @@
-import { FeedFrame } from "@agent-crossing/world/feed/frame";
+import * as StreamFrame from "@agent-crossing/server/StreamFrame";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as Record from "effect/Record";
 import * as Result from "effect/Result";
 import * as Schema from "effect/Schema";
 
-import type { Connection } from "./feed-state.ts";
+import type { Connection } from "./stream-state.ts";
 
 const FIRST_RETRY_MILLIS = 1000;
 const LAST_RETRY_MILLIS = 30_000;
 
-interface FeedListener {
+interface StreamListener {
   readonly onConnection: (connection: Connection) => void;
-  readonly onFrame: (frame: typeof FeedFrame.Type) => void;
+  readonly onFrame: (frame: typeof StreamFrame.StreamFrame.Type) => void;
 }
 
-/** Starts a feed that keeps reporting to the listener. */
-export type WorldFeed = (listener: FeedListener) => void;
+/** Starts a stream that keeps reporting to the listener. */
+export type WorldStream = (listener: StreamListener) => void;
 
 export const eventsUrl = (worldUrl: URL) => new URL("events", worldUrl);
 
@@ -26,28 +26,28 @@ const retryMillis = (failures: number) =>
 const decodeText = Schema.decodeUnknownOption(Schema.String);
 
 const decodeFrame = Schema.decodeUnknownResult(
-  Schema.fromJsonString(FeedFrame)
+  Schema.fromJsonString(StreamFrame.StreamFrame)
 );
 
 const logUndecodableFrame = (data: string, error: Schema.SchemaError) => {
   Effect.runSync(
     Effect.logError(
-      "Dropped a frame from the world feed that did not decode",
+      "Dropped a frame from the world stream that did not decode",
       error.message,
       { data }
     ).pipe(Effect.annotateLogs({ source: "agent-crossing-web" }))
   );
 };
 
-const FRAME_EVENTS = ["message", ...Record.keys(FeedFrame.cases)];
+const FRAME_EVENTS = ["message", ...Record.keys(StreamFrame.StreamFrame.cases)];
 
 /**
  * The Api's event stream. The browser retries a dropped stream on its
  * own; when it gives up, a new stream is opened after a growing delay. Every
  * new stream starts with `Reset`, so nothing needs resuming.
  */
-export const liveFeed = (url: URL) => {
-  const feed: WorldFeed = (listener) => {
+export const liveStream = (url: URL) => {
+  const stream: WorldStream = (listener) => {
     let failures = 0;
 
     const forward = (event: Event) => {
@@ -99,5 +99,5 @@ export const liveFeed = (url: URL) => {
     open();
   };
 
-  return feed;
+  return stream;
 };

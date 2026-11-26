@@ -4,15 +4,15 @@ import { Canvas } from "@react-three/fiber";
 import * as Option from "effect/Option";
 import { useEffect, useState } from "react";
 
-import { statusOf } from "../feed/feed-state.ts";
-import type { FeedState } from "../feed/feed-state.ts";
 import { VIEW_DIRECTION } from "../scene/camera-rig.tsx";
 import type { FocusRequest } from "../scene/camera-rig.tsx";
 import { levelSurface, standingSurfaceAt } from "../scene/layout.ts";
 import { OverlayContext } from "../scene/overlay.tsx";
 import { WorldScene } from "../scene/world-scene.tsx";
+import { statusOf } from "../stream/stream-state.ts";
+import type { StreamState } from "../stream/stream-state.ts";
 import { SidePanel } from "./side-panel.tsx";
-import { useFeedState } from "./store.ts";
+import { useStreamState } from "./store.ts";
 
 type At = typeof Cell.Cell.Type;
 
@@ -31,7 +31,7 @@ const focusPoint = (world: World.World, cell: At) =>
     cell.y,
   ] as const;
 
-const stageNotice = (state: FeedState) =>
+const stageNotice = (state: StreamState) =>
   Option.match(state.shown, {
     onNone: () =>
       Option.some(
@@ -48,7 +48,7 @@ const stageNotice = (state: FeedState) =>
   });
 
 export const App = () => {
-  const state = useFeedState();
+  const state = useStreamState();
   const [selected, setSelected] = useState(Option.none<At>());
   const [focus, setFocus] = useState(Option.none<FocusRequest>());
   const [overlay, setOverlay] = useState<HTMLElement | null>(null);

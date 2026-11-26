@@ -13,8 +13,7 @@
     "./Refusal": "./src/Refusal.ts",
     "./Region": "./src/Region.ts",
     "./Span": "./src/Span.ts",
-    "./World": "./src/World.ts",
-    "./feed/*": "./src/feed/*.ts"
+    "./World": "./src/World.ts"
   },
   "scripts": {
     "test": "vitest run"

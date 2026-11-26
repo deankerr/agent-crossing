@@ -83,6 +83,45 @@ export default defineConfig({
       },
     },
     {
+      files: ["packages/web/**"],
+      rules: {
+        "no-restricted-imports": [
+          "error",
+          {
+            patterns: [
+              noInternals,
+              {
+                message:
+                  "web reads only the stream's frames from the server package, @agent-crossing/server/StreamFrame.",
+                group: [
+                  "@agent-crossing/server",
+                  "@agent-crossing/server/*",
+                  "!@agent-crossing/server/StreamFrame",
+                ],
+              },
+            ],
+          },
+        ],
+      },
+    },
+    {
+      files: ["packages/server/src/StreamFrame.ts"],
+      rules: {
+        "no-restricted-imports": [
+          "error",
+          {
+            patterns: [
+              {
+                message:
+                  "StreamFrame is read by web, so it imports nothing from Alchemy, Rivet or Cloudflare.",
+                regex: "alchemy|rivet|cloudflare",
+              },
+            ],
+          },
+        ],
+      },
+    },
+    {
       files: ["packages/server/src/world-object/**"],
       rules: importsPointOneWay(
         ["mcp", "stream"],
@@ -106,6 +145,7 @@ export default defineConfig({
     {
       files: [
         "packages/definitions/src/*.ts",
+        "packages/server/src/StreamFrame.ts",
         "packages/views/src/*.ts",
         "packages/world/src/*.ts",
       ],

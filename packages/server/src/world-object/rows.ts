@@ -19,7 +19,7 @@ export const SCHEMA = [
   "CREATE TABLE IF NOT EXISTS meta (id INTEGER PRIMARY KEY CHECK (id = 1), spawned INTEGER NOT NULL)",
 ] as const;
 
-/** A stored event, as `history` reads it back. */
+/** A stored event, as the history view reads it back. */
 export const EventRow = Schema.Struct({
   seq: Event.Seq,
   event: Schema.fromJsonString(Event.Event),

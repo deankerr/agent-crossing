@@ -1,31 +1,20 @@
-import * as Prefabs from "@agent-crossing/definitions/Prefabs";
-import * as Cell from "@agent-crossing/world/Cell";
+import * as View from "@agent-crossing/views/View";
 import * as Command from "@agent-crossing/world/Command";
-import * as Region from "@agent-crossing/world/Region";
-import * as Span from "@agent-crossing/world/Span";
 import * as Context from "effect/Context";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
-import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 import * as Stream from "effect/Stream";
 
-import { FeedItem, Verdict } from "./wire.ts";
+import { StreamItem, Verdict } from "./wire.ts";
 import WorldObject, { WORLD_NAME } from "./world-object.ts";
 
 const decodeVerdict = Schema.decodeUnknownEffect(Verdict);
-const decodeFeedItem = Schema.decodeUnknownEffect(FeedItem);
+const decodeStreamItem = Schema.decodeUnknownEffect(StreamItem);
 const decodeText = Schema.decodeUnknownEffect(Schema.String);
 
-const decodeMaybeText = Schema.decodeUnknownEffect(
-  Schema.NullOr(Schema.String)
-);
-
 const encodeCommand = Schema.encodeEffect(Command.Command);
-const encodeCell = Schema.encodeEffect(Cell.Cell);
-const encodeArea = Schema.encodeEffect(Schema.NullOr(Span.Area));
-const encodeRegion = Schema.encodeEffect(Schema.NullOr(Region.Region));
-const encodePrefab = Schema.encodeEffect(Schema.NullOr(Prefabs.Name));
+const encodeView = Schema.encodeEffect(View.View);
 
 /** The World object as typed calls: decoded values in and out, for the one world every caller shares. */
 export class WorldClient extends Context.Service<
@@ -34,20 +23,10 @@ export class WorldClient extends Context.Service<
     readonly act: (
       command: typeof Command.Command.Type
     ) => Effect.Effect<typeof Verdict.Type>;
-    readonly summary: Effect.Effect<string>;
-    /** The map of the area, or of the whole world; none when no area is given and the world is empty. */
-    readonly map: (
-      area: Option.Option<typeof Span.Area.Type>
-    ) => Effect.Effect<Option.Option<string>>;
-    readonly inspect: (cell: typeof Cell.Cell.Type) => Effect.Effect<string>;
-    readonly find: (
-      region: Option.Option<typeof Region.Region.Type>,
-      prefab: Option.Option<typeof Prefabs.Name.Type>,
-      limit: number
-    ) => Effect.Effect<string>;
-    readonly history: (limit: number) => Effect.Effect<string>;
-    /** The spectator feed, opened afresh by each run. */
-    readonly feed: Stream.Stream<typeof FeedItem.Type, unknown>;
+    /** The view in words. */
+    readonly view: (view: typeof View.View.Type) => Effect.Effect<string>;
+    /** The world's stream, opened afresh by each run. */
+    readonly follow: Stream.Stream<typeof StreamItem.Type, unknown>;
   }
 >()("agent-crossing/WorldClient", {
   make: Effect.gen(function* () {
@@ -58,9 +37,6 @@ export class WorldClient extends Context.Service<
     const decoded = <A, E, R>(answer: Effect.Effect<A, E, R>) =>
       answer.pipe(Effect.provideContext(runtime), Effect.orDie);
 
-    const text = <E, R>(answer: Effect.Effect<unknown, E, R>) =>
-      decoded(Effect.flatMap(answer, decodeText));
-
     return {
       act: (command) =>
         decoded(
@@ -69,33 +45,19 @@ export class WorldClient extends Context.Service<
             Effect.flatMap(decodeVerdict)
           )
         ),
-      feed: Stream.suspend(() =>
-        world.feed().pipe(
-          Stream.mapEffect((item) => decodeFeedItem(item)),
+      follow: Stream.suspend(() =>
+        world.follow().pipe(
+          Stream.mapEffect((item) => decodeStreamItem(item)),
           Stream.provideContext(runtime)
         )
       ),
-      find: (region, prefab, limit) =>
-        text(
-          Effect.gen(function* () {
-            const within = yield* encodeRegion(Option.getOrNull(region));
-            const only = yield* encodePrefab(Option.getOrNull(prefab));
-
-            return yield* world.find(within, only, limit);
-          })
-        ),
-      history: (limit) => text(world.history(limit)),
-      inspect: (cell) =>
-        text(Effect.flatMap(encodeCell(cell), (at) => world.inspect(at))),
-      map: (area) =>
+      view: (view) =>
         decoded(
-          encodeArea(Option.getOrNull(area)).pipe(
-            Effect.flatMap((shown) => world.map(shown)),
-            Effect.flatMap(decodeMaybeText),
-            Effect.map(Option.fromNullishOr)
+          encodeView(view).pipe(
+            Effect.flatMap((encoded) => world.view(encoded)),
+            Effect.flatMap(decodeText)
           )
         ),
-      summary: text(Effect.suspend(() => world.summary())),
     };
   }),
 }) {

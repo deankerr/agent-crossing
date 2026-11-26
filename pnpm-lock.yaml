@@ -352,6 +352,9 @@ importers:
       '@agent-crossing/definitions':
         specifier: workspace:*
         version: link:../definitions
+      '@agent-crossing/server':
+        specifier: workspace:*
+        version: link:../server
       '@agent-crossing/views':
         specifier: workspace:*
         version: link:../views

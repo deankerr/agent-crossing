@@ -50,9 +50,9 @@ These are guidelines. An exception is fine when the commit says why.
 One world, kept in one place, with a door for each role: a spectator watches and an editor shapes it.
 
 - `packages/definitions` The vocabulary definitions are written in and the prefabs written in it, as data: `Components`, `Level`, `Model`, `Palette`, `Prefab` and `Prefabs`
-- `packages/world` What the world is and how it changes, as pure functions: `Cell`, `Region`, `Entity`, `World`, `Command` (with `decide`), `Event` and `Refusal`, plus `Span` for now; still in folders until they move out: `generation`, the biomes and `feed` (the frames spectators receive)
-- `packages/views` The world in words, as pure functions from the world or its events to text: `MapView`, `SummaryView`, `CellView`, `EntityListView`, `HistoryView`, `PrefabListView`, `EventText` (one event as a sentence) and `ReplyView` (the reply to an accepted command)
-- `packages/server` Where the one live world is kept and served: the World Durable Object that orders commands and stores rows (`world-object`), the MCP tools (`mcp`) and the spectator event stream (`stream`), routed by a Cloudflare Worker (`api.ts`)
-- `packages/web` The read-only 3D spectator view of the world, drawn from each prefab's model (`feed`, `scene`, `ui`)
+- `packages/world` What the world is and how it changes, as pure functions: `Cell`, `Region`, `Entity`, `World`, `Command` (with `decide`), `Event` and `Refusal`, plus `Span` for now; still in folders until they move out: `generation` and the biomes
+- `packages/views` The world in words, as pure functions from the world or its events to text: `View` (what can be asked to see, and the one function that renders any of it), `MapView`, `SummaryView`, `CellView`, `EntityListView`, `HistoryView`, `PrefabListView`, `EventText` (one event as a sentence) and `ReplyView` (the reply to an accepted command)
+- `packages/server` Where the one live world is kept and served: the World Durable Object that orders commands and stores rows (`world-object`), the MCP tools (`mcp`) and the event stream (`stream`) with its frames (`StreamFrame`, the package's one public module), routed by a Cloudflare Worker (`api.ts`)
+- `packages/web` The read-only 3D spectator view of the world, drawn from each prefab's model (`stream`, `scene`, `ui`)
 
-Imports point one way: `definitions` ← `world` ← `views` ← `server/world-object` ← `server/mcp` and `server/stream` ← `server/api.ts`, and `web` reads `world` and `views`. The world package holds no wording, and no text in `views` names an MCP tool.
+Imports point one way: `definitions` ← `world` ← `views` ← `server/world-object` ← `server/mcp` and `server/stream` ← `server/api.ts`, and `web` reads `world`, `views` and `server/StreamFrame`. The world package holds no wording, and no text in `views` names an MCP tool.

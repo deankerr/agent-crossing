@@ -3,7 +3,7 @@ import * as HttpServerResponse from "effect/http/HttpServerResponse";
 import * as Stream from "effect/Stream";
 
 import { WorldClient } from "../world-object/client.ts";
-import { FeedItem } from "../world-object/wire.ts";
+import { StreamItem } from "../world-object/wire.ts";
 import { sseComment, sseFrame } from "./sse.ts";
 
 const SSE_HEADERS = {
@@ -25,8 +25,8 @@ export const preflight = () =>
   });
 
 /**
- * The world's feed as server-sent events. When the feed ends, a closing
- * comment asks the spectator to reconnect. Yield it from the Worker's
+ * The world's stream as server-sent events. When it ends, a closing
+ * comment asks the reader to reconnect. Yield it from the Worker's
  * construction effect; each call of what it gives answers one request.
  */
 export const stream = Effect.map(
@@ -34,9 +34,9 @@ export const stream = Effect.map(
   (world) => () =>
     HttpServerResponse.stream(
       Stream.encodeText(
-        world.feed.pipe(
+        world.follow.pipe(
           Stream.mapEffect((item) =>
-            FeedItem.match(item, {
+            StreamItem.match(item, {
               Frame: ({ frame }) => sseFrame(frame),
               Heartbeat: () => Effect.succeed(sseComment("keep-alive")),
             })
@@ -44,7 +44,7 @@ export const stream = Effect.map(
           Stream.catchCause((cause) =>
             Stream.fromEffect(
               Effect.as(
-                Effect.logWarning("World feed ended", cause),
+                Effect.logWarning("World stream ended", cause),
                 sseComment("stream ended; reconnect for a fresh snapshot")
               )
             )

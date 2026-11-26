@@ -8,6 +8,7 @@ Each public module is one file named for its view, imported as a namespace: `imp
 
 | Module | What it holds |
 | --- | --- |
+| `View` | What can be asked to see of the world, as a tagged union like `Command`, and `text`, which renders any view from the world, the latest events and the event count; `eventsNeeded` says how many events a view needs |
 | `MapView` | The map of a rectangle: a glyph map, a level map of the same cells and a legend |
 | `SummaryView` | The world in a few lines: its extent, floors, water and entity counts |
 | `CellView` | One cell's floor, any liquid and every other entity with its components |

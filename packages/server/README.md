@@ -6,7 +6,7 @@ Running and deploying are described in the [root README](../../README.md#develop
 
 ## Endpoints
 
-**`GET /events`** The spectator stream, unauthenticated, as server-sent events with `Access-Control-Allow-Origin: *` and a `: keep-alive` comment every 15 s. Each event is an unnamed `message` whose `data` is one `FeedFrame` of `@agent-crossing/world/feed/frame` as JSON:
+**`GET /events`** The event stream, unauthenticated, as server-sent events with `Access-Control-Allow-Origin: *` and a `: keep-alive` comment every 15 s. Each event is an unnamed `message` whose `data` is one `StreamFrame` of `@agent-crossing/server/StreamFrame`, the package's one public module, as JSON:
 
 1. `{"_tag":"Reset"}`: start from the empty world.
 2. `{"_tag":"Changes","changes":[...]}`: the current world as `Change`s, at most 1000 per frame, entities oldest first (floors and liquids among them), then the spawn count. Apply them in order.
@@ -21,14 +21,14 @@ No event is lost or repeated between the snapshot and the live events. A reconne
 
 The tools take the world's own shapes. A cell is `{"x":1,"y":2}`: x grows east, y grows south. A region is `{"_tag":"Rect","from":{"x":0,"y":0},"to":{"x":9,"y":9}}`, `{"_tag":"Disc","center":{"x":5,"y":5},"radius":3}` or `{"_tag":"Cells","cells":[{"x":1,"y":2}]}`, at most 65,536 cells. Arguments that do not parse are an MCP invalid-params error that names the field.
 
-Queries:
+Views: one read-only tool for each view of `@agent-crossing/views/View`, named for it in snake case, taking the view's own fields (without its `_tag`) and described by it.
 
-- `world_summary` the extent, floor, water and entity counts, and the number of events.
+- `view_summary` the extent, floor, water and entity counts, and the number of events.
 - `view_map {rect?}` a glyph map, a level map and a legend of a `Rect`; the whole world when no rectangle is given; at most 128 × 128 cells, and it says when it cuts.
-- `inspect_cell {cell}` the floor, any liquid and every other entity on a cell, with ids, levels and effective components.
-- `find_entities {region?, prefab?, limit?}` entities with ids, prefabs and cells, oldest first; every entity but floors and liquids unless a prefab is given; default 100, at most 500, and it says how many there are in all.
-- `list_prefabs` every prefab with its glyph, name, label, layer and habitat.
-- `history {limit?}` the latest events with sequence number and time; default 20, at most 200.
+- `view_cell {cell}` the floor, any liquid and every other entity on a cell, with ids, levels and effective components.
+- `view_entities {region?, prefab?, limit?}` entities with ids, prefabs and cells, oldest first; every entity but floors and liquids unless a prefab is given; default 100, at most 500, and it says how many there are in all.
+- `view_prefabs` every prefab with its glyph, name, label, layer and habitat.
+- `view_history {limit?}` the latest events with sequence number and time; default 20, at most 200.
 
 Edits: one tool for each command of `@agent-crossing/world/Command`, named for it in snake case, taking the command's own fields (without its `_tag`) and described by it. Each is answered with what happened and a map of the affected area (its bounding box plus 2 cells, at most 48 × 48, saying when it cuts). A refused edit is a tool error saying why and what would work.
 
@@ -55,7 +55,7 @@ claude mcp add --transport http agent-crossing https://<api address>/mcp
 cd packages/server
 bun scripts/mcp.ts tools                      # every tool and its description
 bun scripts/mcp.ts schema place_entities      # one tool's JSON input schema
-bun scripts/mcp.ts world_summary
+bun scripts/mcp.ts view_summary
 bun scripts/mcp.ts view_map '{"rect":{"_tag":"Rect","from":{"x":0,"y":0},"to":{"x":40,"y":20}}}'
 bun scripts/mcp.ts place_entities '{"entities":[{"prefab":"sign","cell":{"x":4,"y":3},"components":{"text":"Welcome"}}]}'
 ```
@@ -66,7 +66,7 @@ bun scripts/mcp.ts place_entities '{"entities":[{"prefab":"sign","cell":{"x":4,"
 
 The whole world lives in memory as a `World` from `@agent-crossing/world/state/world`. SQLite holds it as rows: `entities (id, prefab, x, y, components JSON)`, one per entity with floors and liquids among them (each storing its `level` in its components), `meta (spawned)` and the history `events (seq, event JSON)`, each event carrying its own time. The Api addresses the object by the instance name `WORLD_NAME`; changing it starts a fresh world with empty tables. On wake the rows are parsed with Schema into a snapshot and the world is rebuilt from it.
 
-Commands run one at a time. `decide(world, command, now)` turns a command into events; for each event, inside one transaction for the whole command, the event row is inserted, `changesOf` gives its `Change`s, `statementsOf` (in `src/world-object/rows.ts`, the only SQL writer) turns them into upserts and deletes, and `apply` updates the in-memory world. The events are then published to the live feed. Read tools answer from memory; only `history` reads SQL. The object writes its answers with `@agent-crossing/views`, because the world is in its memory and too large to send to the Worker. The answer to an accepted command is `ReplyView.text` of its events and the world after them; a refused one carries the refusal, which `mcp` puts in words.
+Commands run one at a time. `decide(world, command, now)` turns a command into events; for each event, inside one transaction for the whole command, the event row is inserted, `changesOf` gives its `Change`s, `statementsOf` (in `src/world-object/rows.ts`, the only SQL writer) turns them into upserts and deletes, and `apply` updates the in-memory world. The events are then published to the live stream. A view is answered from memory by `View.text`, with the latest events read from SQL when the view asks for some (only `view_history` does). The object writes its answers with `@agent-crossing/views`, because the world is in its memory and too large to send to the Worker. The answer to an accepted command is `ReplyView.text` of its events and the world after them; a refused one carries the refusal, which `mcp` puts in words.
 
 ## Notes on the stack
 
@@ -80,14 +80,15 @@ Imports point one way: `world-object` reads only the world and views packages, `
 - `src/api.ts` the Worker, which only routes: `/mcp` to the MCP handler and `/events` to the event stream.
 - `src/cluster.ts` where the World object runs: the local Docker swarm under `alchemy dev`, the Rivet Cloud cluster `agent-crossing` when deployed.
 - `src/world-object/` keeping the world:
-  - `world-object.ts` the Durable Object: the world in memory, commits, reads and the feed.
+  - `world-object.ts` the Durable Object: the world in memory, and its three methods: `act` on a command, `view` in words and `follow` the stream.
   - `rows.ts` the tables, `Change` to SQL statements, and parsing rows back.
-  - `wire.ts` what crosses its calls: the verdict on a command (the reply text, or the refusal) and the items of the feed.
+  - `wire.ts` what crosses its calls: the verdict on a command (the reply text, or the refusal) and the items of the stream.
   - `client.ts` the `WorldClient` service, the object as typed calls, which is all that `mcp` and `stream` see of it. `api.ts` provides its layer once, on the Worker's construction effect.
 - `src/mcp/` the editor's door:
   - `server.ts` the MCP endpoint, with the tools' `instructions.ts`.
-  - `tools/` the tools: `commands.ts` builds one tool for each command from the command's schema, with its hints; each query tool has its own file, named after it (`view-map.ts` for `view_map`). `tools/index.ts` registers the queries and the command tools, in the order they are listed to clients, with every answer as text.
-  - `tool.ts` what every tool shares: `queryTool` and `editTool`, which make a tool answering in text that may refuse and give it its MCP annotations, and the refusal; `edit.ts` the common path of an edit, from parsing the command to the reply.
+  - `tools/` the tools: `commands.ts` builds one tool for each command from the command's schema, with its hints; `views.ts` builds one tool for each view the same way. `tools/index.ts` registers the view tools and the command tools, in the order they are listed to clients, with every answer as text.
+  - `tool.ts` what every tool shares: `queryTool` and `editTool`, which make a tool answering in text that may refuse and give it its MCP annotations, `asTool` and `parsedAs`, which make a tool of a member of a tagged union and parse its arguments back into one, and the refusal; `edit.ts` the common path of an edit, from parsing the command to the reply.
   - `refusal.ts` the sentences that are the MCP tools' own: why a command was refused and which tool to try instead.
+- `src/StreamFrame.ts` the stream's frames and the frames that open it; the one public module, which `web` reads, so it imports nothing from Alchemy, Rivet or Cloudflare.
 - `src/stream/` the spectator's door: `stream.ts` the `/events` response and `sse.ts` the frames as server-sent events.
 - `scripts/mcp.ts` the command-line client.

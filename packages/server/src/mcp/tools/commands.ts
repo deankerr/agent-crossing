@@ -3,13 +3,10 @@ import * as Toolkit from "effect/ai/Toolkit";
 import * as Arr from "effect/Array";
 import * as Effect from "effect/Effect";
 import * as Record from "effect/Record";
-import * as Result from "effect/Result";
-import * as Schema from "effect/Schema";
-import * as SchemaAST from "effect/SchemaAST";
-import * as Str from "effect/String";
 
 import { AFTER_EDIT, editing } from "../edit.ts";
-import { editTool } from "../tool.ts";
+import type { Arguments } from "../tool.ts";
+import { editTool, parsedAs, asTool } from "../tool.ts";
 
 type Member = (typeof Command.Command.members)[number];
 
@@ -29,43 +26,25 @@ const hints = {
   { readonly destructive: boolean; readonly idempotent: boolean }
 >;
 
-const Asked = Schema.Record(Schema.String, Schema.Unknown);
-
-const decodeCommand = Schema.decodeUnknownResult(Command.Command);
-
-const tagOf = (member: Member) => member.fields._tag.schema.literal;
-
-const nameOf = (member: Member) => Str.pascalToSnake(tagOf(member));
+const commandOf = parsedAs(Command.Command, "The edit");
 
 const toolOf = (member: Member) => {
-  const { _tag, ...rest } = member.fields;
-
-  const fields: { readonly [field: string]: Schema.Codec<unknown, unknown> } =
-    rest;
+  const { description, name, parameters } = asTool(member);
 
   return editTool(
-    nameOf(member),
-    {
-      description: `${SchemaAST.resolveDescription(member.ast) ?? ""} ${AFTER_EDIT}`,
-      parameters: Schema.Struct(fields),
-    },
-    hints[tagOf(member)]
+    name,
+    { description: `${description} ${AFTER_EDIT}`, parameters },
+    hints[member.fields._tag.schema.literal]
   );
 };
-
-const commandOf = (member: Member, asked: typeof Asked.Type) =>
-  Result.mapError(
-    decodeCommand({ ...asked, _tag: tagOf(member) }),
-    (issue) => `The edit is not valid: ${issue.message}`
-  );
 
 const toolkit = Toolkit.make(...Arr.map(Command.Command.members, toolOf));
 
 const handlers = Effect.map(editing, (edit) =>
   Record.fromEntries(
     Arr.map(Command.Command.members, (member) => [
-      nameOf(member),
-      (asked: typeof Asked.Type) => edit(commandOf(member, asked)),
+      asTool(member).name,
+      (asked: typeof Arguments.Type) => edit(commandOf(member, asked)),
     ])
   )
 );

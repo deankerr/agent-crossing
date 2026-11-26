@@ -13,7 +13,8 @@
     "./MapView": "./src/MapView.ts",
     "./PrefabListView": "./src/PrefabListView.ts",
     "./ReplyView": "./src/ReplyView.ts",
-    "./SummaryView": "./src/SummaryView.ts"
+    "./SummaryView": "./src/SummaryView.ts",
+    "./View": "./src/View.ts"
   },
   "dependencies": {
     "@agent-crossing/definitions": "workspace:*",

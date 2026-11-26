@@ -4,6 +4,9 @@
   "private": true,
   "license": "MIT",
   "type": "module",
+  "exports": {
+    "./StreamFrame": "./src/StreamFrame.ts"
+  },
   "scripts": {
     "mcp": "bun scripts/mcp.ts"
   },

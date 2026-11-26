@@ -3,7 +3,7 @@ import * as Schema from "effect/Schema";
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 
-import { eventsUrl, liveFeed } from "./feed/live-feed.ts";
+import { eventsUrl, liveStream } from "./stream/live-stream.ts";
 import { App } from "./ui/app.tsx";
 import { startSpectator, SpectatorContext } from "./ui/store.ts";
 
@@ -22,7 +22,7 @@ const page = Option.match(worldUrl, {
   ),
   onSome: (url) => (
     <SpectatorContext
-      value={Option.some(startSpectator(liveFeed(eventsUrl(url))))}
+      value={Option.some(startSpectator(liveStream(eventsUrl(url))))}
     >
       <App />
     </SpectatorContext>

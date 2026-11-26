@@ -1,17 +1,7 @@
-import * as Prefabs from "@agent-crossing/definitions/Prefabs";
-import * as CellView from "@agent-crossing/views/CellView";
-import * as EntityListView from "@agent-crossing/views/EntityListView";
-import * as HistoryView from "@agent-crossing/views/HistoryView";
-import * as MapView from "@agent-crossing/views/MapView";
 import * as ReplyView from "@agent-crossing/views/ReplyView";
-import * as SummaryView from "@agent-crossing/views/SummaryView";
-import * as Cell from "@agent-crossing/world/Cell";
+import * as View from "@agent-crossing/views/View";
 import * as Command from "@agent-crossing/world/Command";
 import * as Event from "@agent-crossing/world/Event";
-import { FeedFrame } from "@agent-crossing/world/feed/frame";
-import { openingFrames } from "@agent-crossing/world/feed/opening";
-import * as Region from "@agent-crossing/world/Region";
-import * as Span from "@agent-crossing/world/Span";
 import * as World from "@agent-crossing/world/World";
 import * as Rivet from "@alchemy.run/rivet";
 import * as Arr from "effect/Array";
@@ -27,8 +17,9 @@ import * as Semaphore from "effect/Semaphore";
 import * as Stream from "effect/Stream";
 
 import { Default } from "../cluster.ts";
+import * as StreamFrame from "../StreamFrame.ts";
 import { EventRow, SCHEMA, statementsOf, worldOfRows } from "./rows.ts";
-import { FeedItem, Verdict } from "./wire.ts";
+import { StreamItem, Verdict } from "./wire.ts";
 
 /** The one world every caller shares. */
 export const WORLD_NAME = "world-5";
@@ -43,24 +34,18 @@ interface Happened {
 }
 
 const decodeCommand = Schema.decodeUnknownEffect(Command.Command);
-const decodeCell = Schema.decodeUnknownEffect(Cell.Cell);
-const decodeArea = Schema.decodeUnknownEffect(Schema.NullOr(Span.Area));
-const decodeRegion = Schema.decodeUnknownEffect(Schema.NullOr(Region.Region));
-const decodePrefab = Schema.decodeUnknownEffect(Schema.NullOr(Prefabs.Name));
+const decodeView = Schema.decodeUnknownEffect(View.View);
 const decodeSeq = Schema.decodeUnknownEffect(Event.Seq);
 const decodeEventRows = Schema.decodeUnknownEffect(Schema.Array(EventRow));
 
 const encodeEventJson = Schema.encodeEffect(Schema.fromJsonString(Event.Event));
 const encodeVerdict = Schema.encodeEffect(Verdict);
-const encodeFeedItem = Schema.encodeEffect(FeedItem);
+const encodeStreamItem = Schema.encodeEffect(StreamItem);
 
-const heartbeat = FeedItem.cases.Heartbeat.make({});
+const heartbeat = StreamItem.cases.Heartbeat.make({});
 
-const framed = (frame: typeof FeedFrame.Type) =>
-  FeedItem.cases.Frame.make({ frame });
-
-const clampedLimit = (limit: number, maximum: number) =>
-  Math.max(1, Math.min(maximum, Math.trunc(limit)));
+const framed = (frame: typeof StreamFrame.StreamFrame.Type) =>
+  StreamItem.cases.Frame.make({ frame });
 
 const instance = Effect.gen(function* () {
   const { storage } = yield* Rivet.DurableObjectState;
@@ -150,9 +135,6 @@ const instance = Effect.gen(function* () {
       })
     );
 
-  const reading = <A>(read: (current: World.World) => A) =>
-    Effect.map(Ref.get(world), read);
-
   return {
     act: (command: typeof Command.Command.Encoded) =>
       Effect.gen(function* () {
@@ -160,7 +142,7 @@ const instance = Effect.gen(function* () {
 
         return yield* encodeVerdict(verdict);
       }).pipe(Effect.orDie),
-    feed: () =>
+    follow: () =>
       Stream.unwrap(
         Effect.gen(function* () {
           // WARNING: subscribe and read the world in one serialised step, or events are lost or repeated.
@@ -173,13 +155,15 @@ const instance = Effect.gen(function* () {
           );
 
           const opening = Stream.fromIterable(
-            Arr.map(openingFrames(opened.world, opened.cursor), framed)
+            Arr.map(StreamFrame.opening(opened.world, opened.cursor), framed)
           );
 
           const happenings = Stream.map(
             Stream.fromSubscription(opened.subscription),
             ({ event, seq }) =>
-              framed(FeedFrame.cases.Happened.make({ event, seq }))
+              framed(
+                StreamFrame.StreamFrame.cases.Happened.make({ event, seq })
+              )
           );
 
           const beats = Stream.map(
@@ -188,57 +172,26 @@ const instance = Effect.gen(function* () {
           );
 
           return Stream.merge(beats, Stream.concat(opening, happenings)).pipe(
-            Stream.mapEffect((item) => Effect.orDie(encodeFeedItem(item)))
+            Stream.mapEffect((item) => Effect.orDie(encodeStreamItem(item)))
           );
         })
       ),
-    find: (
-      region: typeof Region.Region.Encoded | null,
-      prefab: string | null,
-      limit: number
-    ) =>
+    view: (view: typeof View.View.Encoded) =>
       Effect.gen(function* () {
-        const within = yield* decodeRegion(region);
-        const only = yield* decodePrefab(prefab);
+        const asked = yield* decodeView(view);
 
-        return yield* reading((current) =>
-          EntityListView.text(
-            current,
-            Option.fromNullishOr(within),
-            Option.fromNullishOr(only),
-            limit
-          )
-        );
-      }).pipe(Effect.orDie),
-    history: (limit: number) =>
-      Effect.gen(function* () {
         const rows = yield* run(
           "SELECT seq, event FROM (SELECT seq, event FROM events ORDER BY seq DESC LIMIT ?) ORDER BY seq",
-          clampedLimit(limit, HistoryView.MAX_LIMIT)
+          View.eventsNeeded(asked)
         );
 
-        return HistoryView.text(
+        return View.text(
+          asked,
+          yield* Ref.get(world),
           yield* decodeEventRows(rows),
           yield* Ref.get(head)
         );
       }).pipe(Effect.orDie),
-    inspect: (cell: typeof Cell.Cell.Encoded) =>
-      Effect.flatMap(Effect.orDie(decodeCell(cell)), (at) =>
-        reading((current) => CellView.text(current, at))
-      ),
-    map: (area: typeof Span.Area.Encoded | null) =>
-      Effect.flatMap(Effect.orDie(decodeArea(area)), (shown) =>
-        reading((current) =>
-          Option.getOrNull(MapView.ifAny(current, Option.fromNullishOr(shown)))
-        )
-      ),
-    summary: () =>
-      Effect.gen(function* () {
-        const text = yield* reading(SummaryView.text);
-        const events = yield* Ref.get(head);
-
-        return `${text}\nHistory: ${events} events.`;
-      }),
   };
 });
 

@@ -6,8 +6,12 @@ import * as Arr from "effect/Array";
 import * as DateTime from "effect/DateTime";
 import * as Option from "effect/Option";
 
-import { statusOf } from "../feed/feed-state.ts";
-import type { FeedState, HistoryEntry, Status } from "../feed/feed-state.ts";
+import { statusOf } from "../stream/stream-state.ts";
+import type {
+  StreamState,
+  HistoryEntry,
+  Status,
+} from "../stream/stream-state.ts";
 
 const statusLabels: Readonly<Record<Status, string>> = {
   connecting: "Connecting…",
@@ -105,7 +109,7 @@ export const SidePanel = ({
   selected,
   state,
 }: {
-  readonly state: FeedState;
+  readonly state: StreamState;
   readonly selected: Option.Option<typeof Cell.Cell.Type>;
   readonly onPick: (cell: typeof Cell.Cell.Type) => void;
   readonly onClose: () => void;

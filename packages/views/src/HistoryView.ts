@@ -11,7 +11,8 @@ import * as EventText from "./EventText.ts";
 export const MAX_LIMIT = 200;
 export const DEFAULT_LIMIT = 20;
 
-const HistoryEntry = Schema.Struct({
+/** One event of the history with its sequence number. */
+export const Entry = Schema.Struct({
   seq: Event.Seq,
   event: Event.Event,
 });
@@ -23,10 +24,7 @@ const timeOf = (at: number) =>
   });
 
 /** The latest events, oldest first, one line each. */
-export const text = (
-  entries: readonly (typeof HistoryEntry.Type)[],
-  total: number
-) =>
+export const text = (entries: readonly (typeof Entry.Type)[], total: number) =>
   entries.length === 0
     ? "Nothing has happened yet."
     : Arr.join(

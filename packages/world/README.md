@@ -21,7 +21,7 @@ Each public module is one file named for its noun, imported as a namespace: `imp
 | `Refusal` | The reasons a command is refused |
 | `Span` | Rectangles by their edges; kept public until a later step folds it into `Region` |
 
-`src/internal` holds the placement rules and the body of `decide`; no other package imports it. Still in folders until they move to other packages: `src/generation` (the seeded landscape generator), `src/definitions/biomes` with `src/schema/biome.ts` and `src/feed` (the frames a spectator receives).
+`src/internal` holds the placement rules and the body of `decide`; no other package imports it. Still in folders until they move to other packages: `src/generation` (the seeded landscape generator), `src/definitions/biomes` with `src/schema/biome.ts`.
 
 Imports point one way: everything else reads the definitions, and definitions are written in the schema. Definitions hold no rules, no randomness and nothing that acts, so they read as a contract for the rest of the code.
 
@@ -29,7 +29,7 @@ Events are kept apart from commands because they outlive them: a command is a wa
 
 This package holds no wording: the world in words is `@agent-crossing/views`.
 
-Other packages import the modules above and `/feed/*`.
+Other packages import the modules above.
 
 ## How the world is described
 

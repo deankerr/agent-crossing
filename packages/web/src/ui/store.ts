@@ -1,25 +1,25 @@
 import * as Option from "effect/Option";
 import { createContext, use, useSyncExternalStore } from "react";
 
+import type { WorldStream } from "../stream/live-stream.ts";
 import {
-  initialFeedState,
+  initialStreamState,
   receive,
   withConnection,
-} from "../feed/feed-state.ts";
-import type { FeedState } from "../feed/feed-state.ts";
-import type { WorldFeed } from "../feed/live-feed.ts";
+} from "../stream/stream-state.ts";
+import type { StreamState } from "../stream/stream-state.ts";
 
 interface SpectatorStore {
-  readonly getState: () => FeedState;
+  readonly getState: () => StreamState;
   readonly subscribe: (listener: () => void) => () => void;
 }
 
-/** Runs a feed and keeps the folded state for React to read. */
-export const startSpectator = (feed: WorldFeed) => {
-  let state = initialFeedState("connecting");
+/** Runs a stream and keeps the folded state for React to read. */
+export const startSpectator = (stream: WorldStream) => {
+  let state = initialStreamState("connecting");
   const listeners = new Set<() => void>();
 
-  const publish = (next: FeedState) => {
+  const publish = (next: StreamState) => {
     if (next === state) {
       return;
     }
@@ -31,7 +31,7 @@ export const startSpectator = (feed: WorldFeed) => {
     }
   };
 
-  feed({
+  stream({
     onConnection: (connection) => {
       publish(withConnection(state, connection));
     },
@@ -56,10 +56,10 @@ export const startSpectator = (feed: WorldFeed) => {
 
 export const SpectatorContext = createContext(Option.none<SpectatorStore>());
 
-export const useFeedState = () => {
+export const useStreamState = () => {
   const store = Option.getOrThrowWith(
     use(SpectatorContext),
-    () => new Error("useFeedState needs a SpectatorContext provider")
+    () => new Error("useStreamState needs a SpectatorContext provider")
   );
 
   return useSyncExternalStore(store.subscribe, store.getState);

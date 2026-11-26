@@ -1,6 +1,7 @@
-import { FeedFrame } from "@agent-crossing/world/feed/frame";
 import * as Refusal from "@agent-crossing/world/Refusal";
 import * as Schema from "effect/Schema";
+
+import * as StreamFrame from "../StreamFrame.ts";
 
 /** What the World object answers to a command. */
 export const Verdict = Schema.TaggedUnion({
@@ -9,8 +10,8 @@ export const Verdict = Schema.TaggedUnion({
   Refused: { refusal: Refusal.Refusal },
 });
 
-/** What the World object's feed carries: frames for spectators, and heartbeats that keep the call open. */
-export const FeedItem = Schema.TaggedUnion({
-  Frame: { frame: FeedFrame },
+/** What the World object's stream carries: its frames, and heartbeats that keep the call open. */
+export const StreamItem = Schema.TaggedUnion({
+  Frame: { frame: StreamFrame.StreamFrame },
   Heartbeat: {},
 });
