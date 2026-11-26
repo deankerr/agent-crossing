@@ -1,9 +1,9 @@
 import * as Prefabs from "@agent-crossing/definitions/Prefabs";
 
-import { biome } from "../../schema/biome.ts";
+import * as Biome from "../../Biome.ts";
 
 /** Bare patches of earth. */
-export const Dirt = biome({
+export const Dirt = Biome.make({
   name: "dirt",
   floor: Prefabs.Terrain.Dirt,
   grows: [

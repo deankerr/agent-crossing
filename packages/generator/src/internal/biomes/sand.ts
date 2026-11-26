@@ -1,9 +1,9 @@
 import * as Prefabs from "@agent-crossing/definitions/Prefabs";
 
-import { biome } from "../../schema/biome.ts";
+import * as Biome from "../../Biome.ts";
 
 /** The sandy land beside water. */
-export const Sand = biome({
+export const Sand = Biome.make({
   name: "sand",
   floor: Prefabs.Terrain.Sand,
   grows: [

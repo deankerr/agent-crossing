@@ -9,8 +9,8 @@ import * as Result from "effect/Result";
 import * as Cell from "../src/Cell.ts";
 import * as Command from "../src/Command.ts";
 import * as Entity from "../src/Entity.ts";
-import { seededRandom } from "../src/generation/random.ts";
-import type { SeededRandom } from "../src/generation/random.ts";
+import { seededRandom } from "../src/internal/random.ts";
+import type { SeededRandom } from "../src/internal/random.ts";
 import * as Region from "../src/Region.ts";
 import * as World from "../src/World.ts";
 
@@ -107,13 +107,6 @@ const anyCommand = (random: SeededRandom) =>
         removing: Command.Clearing.cases.Prefab.make({
           prefab: one(random, Prefabs.Name.literals),
         }),
-      }),
-    () =>
-      Command.Command.cases.GenerateWorld.make({
-        height: 8,
-        origin: anyCell(random),
-        seed: random.integer(1000),
-        width: 8,
       }),
   ])();
 

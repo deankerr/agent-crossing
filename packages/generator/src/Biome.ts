@@ -29,6 +29,6 @@ export interface Biome {
 }
 
 /** A biome, keeping its name as a literal type. */
-export const biome = <const Name extends string>(
+export const make = <const Name extends string>(
   definition: Biome & { readonly name: Name }
 ) => definition;

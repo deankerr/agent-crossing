@@ -1,0 +1,23 @@
+{
+  "name": "@agent-crossing/generator",
+  "version": "0.0.0",
+  "private": true,
+  "license": "MIT",
+  "type": "module",
+  "sideEffects": false,
+  "scripts": {
+    "generate": "bun scripts/generate.ts",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@agent-crossing/definitions": "workspace:*",
+    "@agent-crossing/world": "workspace:*",
+    "@effect/platform-bun": "catalog:",
+    "effect": "catalog:"
+  },
+  "devDependencies": {
+    "@effect/vitest": "catalog:",
+    "@types/node": "catalog:",
+    "vitest": "catalog:"
+  }
+}

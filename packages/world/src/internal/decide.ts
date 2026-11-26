@@ -9,15 +9,15 @@ import type * as Cell from "../Cell.ts";
 import type * as Command from "../Command.ts";
 import * as Entity from "../Entity.ts";
 import * as Event from "../Event.ts";
-import { generateLandscape } from "../generation/landscape.ts";
-import type { NewEntity } from "../generation/landscape.ts";
-import { seededRandom } from "../generation/random.ts";
 import * as Refusal from "../Refusal.ts";
 import * as Region from "../Region.ts";
 import * as World from "../World.ts";
 import { ensurePlaceable, misfitsIn } from "./placement.ts";
+import { seededRandom } from "./random.ts";
 
 type Present = typeof Entity.Entity.Type;
+
+type NewEntity = Omit<Present, "id">;
 
 type Id = typeof Entity.Id.Type;
 
@@ -316,21 +316,6 @@ export const clear = (
         : removing._tag === "Terrain" || entity.prefab === removing.prefab
     )
   );
-
-export const generate = (
-  world: World.World,
-  edit: Edit,
-  command: typeof Command.GenerateWorld.Type
-) => {
-  const cells = Region.cells(
-    Region.sized(command.origin, command.width, command.height)
-  );
-
-  return outcome(
-    entitiesIn(world, cells),
-    spawned(edit, numbered(world, generateLandscape(command)))
-  );
-};
 
 export const settled = (
   world: World.World,

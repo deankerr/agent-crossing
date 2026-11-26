@@ -20,7 +20,7 @@ Each public module is one file named for its noun, imported as a namespace: `imp
 | `Event` | What happened, with its time and sequence number, and the cells each touched |
 | `Refusal` | The reasons a command is refused |
 
-`src/internal` holds the placement rules and the body of `decide`; no other package imports it. Still in folders until they move to other packages: `src/generation` (the seeded landscape generator), `src/definitions/biomes` with `src/schema/biome.ts`.
+`src/internal` holds the placement rules and the body of `decide`; no other package imports it.
 
 Imports point one way: everything else reads the definitions, and definitions are written in the schema. Definitions hold no rules, no randomness and nothing that acts, so they read as a contract for the rest of the code.
 
@@ -93,24 +93,7 @@ export const Oak = prefab("oak", {
 
 **Related prefabs are a plain record.** `flower-patch.ts` builds seven complete prefabs from one unexported base and exports them as `FlowerPatches`. There is no "variant" concept.
 
-A biome is a recipe for generating a region, and how often something appears is the biome's to say:
-
-```ts
-export const Meadow = biome({
-  name: "meadow",
-  floor: Terrain.Meadow,
-  grows: [
-    [Flowers, 0.16],
-    [Nature.TallGrass, 0.12],
-    [Nature.Oak, 0.01],
-  ],
-  extras: [],
-});
-```
-
-At most one entry of `grows` is placed per cell. Each entry of `extras` is rolled on its own and may share the cell. An entry is a prefab or a choice between prefabs, made with `weighted`.
-
-**To add a prefab:** write its file, add it to its category's `index.ts`, and add it to a biome if it should generate. The stored prefab names, the MCP tools and the spectator view all follow from the index.
+**To add a prefab:** write its file, add it to its category's `index.ts`, and add it to a biome in `@agent-crossing/generator` if it should generate. The stored prefab names, the MCP tools and the spectator view all follow from the index.
 
 ## How an edit happens
 
@@ -125,7 +108,7 @@ After any edit, `decide` also removes the entities that no longer fit where they
 - **Entities and components for flexibility, not speed.** The aim is a world that can change shape over time, eventually without code changes.
 - **Describe properties carefully and let behavior emerge.** We choose the description well now and add behavior later.
 - **Definitions are a contract.** They are data, kept apart from rules and actions.
-- **Simplest shape first.** A plain record before a new concept, and each fact kept where it belongs: a prefab's chance of appearing is a property of the biome.
+- **Simplest shape first.** A plain record before a new concept, and each fact kept where it belongs: a prefab's chance of appearing is a property of a biome, which the generator holds.
 - **Any component, on any entity.** Naming a rock should be nearly free. Who is allowed to change a component is a rule for actions, not for the data.
 - **A character is an entity that is being controlled.** An agent's character and a rock share most of their data.
 - **An agent can read what a spectator sees.** Models and colors live in the definitions so that an agent can one day remark on the red of a mushroom cap.
@@ -154,4 +137,4 @@ These came up while designing the package and were set aside on purpose.
 
 ## Tests
 
-Three small files: every definition parses and is named once, generation is a pure function of its seed, and a run of random commands keeps the world's invariants.
+One small file: a run of random commands keeps the world's invariants. Every definition parsing and being named once is tested in `@agent-crossing/definitions`, and generation in `@agent-crossing/generator`.

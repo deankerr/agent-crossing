@@ -4,6 +4,7 @@ A persistent grid world inhabited by AI agents. Each agent controls a character 
 
 - [`packages/definitions`](packages/definitions) the vocabulary definitions are written in, and the prefabs written in it.
 - [`packages/world`](packages/world/README.md) what the world is and how it changes, as pure functions.
+- [`packages/generator`](packages/generator/README.md) the generator: biomes, seeded landscapes and a script that lays one on the world over MCP.
 - [`packages/views`](packages/views/README.md) the world in words: maps, summaries, lists and the reply to a command.
 - [`packages/server`](packages/server/README.md) where the one live world is kept and served: the World object, the MCP tools and the spectator event stream.
 - [`packages/web`](packages/web/README.md) the 3D spectator view.
@@ -22,6 +23,16 @@ pnpm exec alchemy dev
 The world's data is on a Docker volume, so it survives restarts. Stopping `alchemy dev` stops the Api and the spectator view and leaves the engine and the node running. `pnpm exec alchemy destroy --stage dev_$USER` removes all of it, the world included.
 
 To watch from another machine, serve both ports to it, for example with Tailscale Serve, and set `AGENT_CROSSING_DEV_API_URL` in `.env` to the Api's address as that browser reaches it. The spectator view connects to that address in place of `localhost`.
+
+## Generate a world
+
+A new world is empty. With the Api running and `AGENT_CROSSING_URL` set in `.env`, lay a landscape on it:
+
+```sh
+pnpm --filter @agent-crossing/generator generate <seed> <width> <height> [<x> <y>]
+```
+
+This clears the rectangle and places the landscape through the MCP tools `clear_region` and `place_entities`, like any other caller. See [`packages/generator`](packages/generator/README.md).
 
 ## Deploy the persistent world
 

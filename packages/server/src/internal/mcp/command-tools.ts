@@ -16,7 +16,6 @@ const hints = {
   ChangeEntity: { destructive: true, idempotent: true },
   ClearRegion: { destructive: true, idempotent: true },
   FillRegion: { destructive: true, idempotent: true },
-  GenerateWorld: { destructive: true, idempotent: false },
   MoveEntity: { destructive: true, idempotent: true },
   PlaceEntities: { destructive: false, idempotent: false },
   RemoveEntities: { destructive: true, idempotent: true },

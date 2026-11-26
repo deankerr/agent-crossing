@@ -1,11 +1,11 @@
 import * as Prefabs from "@agent-crossing/definitions/Prefabs";
 
-import { weighted } from "../../schema/biome.ts";
+import * as Biome from "../../Biome.ts";
 
 const { FlowerPatches } = Prefabs.Nature;
 
 /** A flower patch of any bloom, pinks and yellows the most common. */
-export const Flowers = weighted([
+export const Flowers = Biome.weighted([
   [FlowerPatches.pink, 3],
   [FlowerPatches.yellow, 3],
   [FlowerPatches.white, 2],

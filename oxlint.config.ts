@@ -129,6 +129,7 @@ export default defineConfig({
     {
       files: [
         "packages/definitions/src/*.ts",
+        "packages/generator/src/*.ts",
         "packages/server/src/*.ts",
         "packages/views/src/*.ts",
         "packages/world/src/*.ts",
@@ -161,7 +162,25 @@ export default defineConfig({
             patterns: [
               {
                 message:
-                  "The world package reads only definitions; views, server and web read world, never the other way.",
+                  "The world package reads only definitions; generator, views, server and web read world, never the other way.",
+                regex: "^@agent-crossing/(generator|server|views|web)(/|$)",
+              },
+            ],
+          },
+        ],
+      },
+    },
+    {
+      files: ["packages/generator/**"],
+      rules: {
+        "no-restricted-imports": [
+          "error",
+          {
+            patterns: [
+              noInternals,
+              {
+                message:
+                  "The generator reads only definitions and world, and reaches the live world over MCP like any other caller.",
                 regex: "^@agent-crossing/(server|views|web)(/|$)",
               },
             ],

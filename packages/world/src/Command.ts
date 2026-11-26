@@ -11,8 +11,6 @@ import type * as Refusal from "./Refusal.ts";
 import * as Region from "./Region.ts";
 import type * as World from "./World.ts";
 
-export const GENERATE_MIN_SIZE = 8;
-export const GENERATE_MAX_SIZE = 256;
 export const SCATTER_MAX_PREFABS = 16;
 export const PLACE_MAX_ENTITIES = 4096;
 
@@ -132,33 +130,6 @@ export const ClearRegion = Schema.TaggedStruct("ClearRegion", {
     "Removes entities from a region: what stands on the terrain, the entities of one prefab, or everything with the terrain. Entities that may no longer stay where they are go too.",
 });
 
-const size = Schema.Int.check(
-  Schema.isBetween({ maximum: GENERATE_MAX_SIZE, minimum: GENERATE_MIN_SIZE })
-).annotate({
-  description: `Cells a side, ${GENERATE_MIN_SIZE} to ${GENERATE_MAX_SIZE}.`,
-});
-
-export const GenerateWorld = Schema.TaggedStruct("GenerateWorld", {
-  seed: Seed,
-  width: size,
-  height: size,
-  origin: Cell.Cell.annotate({
-    description: "The north-west corner of the rectangle.",
-  }),
-})
-  .check(
-    Schema.makeFilter(
-      ({ height, origin, width }) =>
-        (origin.x + width - 1 <= Cell.LIMIT &&
-          origin.y + height - 1 <= Cell.LIMIT) ||
-        "the landscape must fit inside the coordinate range"
-    )
-  )
-  .annotate({
-    description:
-      "Lays a generated landscape of floors, water, hills and plants over the width by height rectangle from origin, replacing every entity already there.",
-  });
-
 /** What may be asked of the world. */
 export const Command = Schema.Union([
   PlaceEntities,
@@ -168,7 +139,6 @@ export const Command = Schema.Union([
   ChangeEntity,
   RemoveEntities,
   ClearRegion,
-  GenerateWorld,
 ]).pipe(Schema.toTaggedUnion("_tag"));
 
 /**
@@ -190,8 +160,6 @@ export const decide = (
         Result.succeed(Decide.clear(world, region, removing)),
       FillRegion: (filling) =>
         Result.succeed(Decide.fill(world, edit, filling)),
-      GenerateWorld: (generating) =>
-        Result.succeed(Decide.generate(world, edit, generating)),
       MoveEntity: ({ entity, to }) => Decide.move(world, edit, entity, to),
       PlaceEntities: ({ entities }) => Decide.place(world, edit, entities),
       RemoveEntities: ({ entities }) => Decide.remove(world, entities),

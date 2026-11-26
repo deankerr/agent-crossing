@@ -1,8 +1,8 @@
+import * as Cell from "@agent-crossing/world/Cell";
 import { describe, expect, it } from "@effect/vitest";
 import * as Option from "effect/Option";
 
-import * as Cell from "../src/Cell.ts";
-import { generateLandscape } from "../src/generation/landscape.ts";
+import * as Landscape from "../src/Landscape.ts";
 
 const spec = (seed: number) => ({
   height: 40,
@@ -13,11 +13,11 @@ const spec = (seed: number) => ({
 
 describe("generating a landscape", () => {
   it("is a pure function of its seed", () => {
-    expect(generateLandscape(spec(7))).toStrictEqual(
-      generateLandscape(spec(7))
+    expect(Landscape.entities(spec(7))).toStrictEqual(
+      Landscape.entities(spec(7))
     );
-    expect(generateLandscape(spec(7))).not.toStrictEqual(
-      generateLandscape(spec(8))
+    expect(Landscape.entities(spec(7))).not.toStrictEqual(
+      Landscape.entities(spec(8))
     );
   });
 });

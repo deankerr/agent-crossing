@@ -1,0 +1,27 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "plugins": [
+      {
+        "name": "@effect/language-service",
+        "diagnostics": false,
+        "allowedExperimentalApis": ["effect/ai/McpClient"],
+        "allowedUnstableApis": [
+          "@effect/platform-bun/BunFileSystem",
+          "@effect/platform-bun/BunRuntime",
+          "@effect/vitest",
+          "effect/ai/McpProtocol",
+          "effect/ai/McpSchema",
+          "effect/ConfigProvider",
+          "effect/http/FetchHttpClient"
+        ]
+      }
+    ]
+  },
+  "include": [
+    "src/**/*.ts",
+    "test/**/*.ts",
+    "scripts/**/*.ts",
+    "vitest.config.ts"
+  ]
+}

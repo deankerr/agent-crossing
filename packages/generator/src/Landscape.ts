@@ -2,15 +2,21 @@ import type * as Components from "@agent-crossing/definitions/Components";
 import * as Level from "@agent-crossing/definitions/Level";
 import type * as Prefab from "@agent-crossing/definitions/Prefab";
 import * as Prefabs from "@agent-crossing/definitions/Prefabs";
+import * as Cell from "@agent-crossing/world/Cell";
 import * as Arr from "effect/Array";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 
-import * as Cell from "../Cell.ts";
-import { Biomes } from "../definitions/biomes/index.ts";
-import type { Biome, Choice } from "../schema/biome.ts";
-import { pickWeighted, seededRandom } from "./random.ts";
-import type { SeededRandom } from "./random.ts";
+import type * as Biome from "./Biome.ts";
+import * as Biomes from "./Biomes.ts";
+import { pickWeighted, seededRandom } from "./internal/random.ts";
+import type { SeededRandom } from "./internal/random.ts";
+
+/** The fewest cells a side a landscape may have. */
+export const MIN_SIZE = 8;
+
+/** The most cells a side a landscape may have. */
+export const MAX_SIZE = 256;
 
 /** An entity before it has an id: a prefab, a cell and its own components. */
 export interface NewEntity {
@@ -19,7 +25,8 @@ export interface NewEntity {
   readonly components: typeof Components.Components.Type;
 }
 
-interface LandscapeSpec {
+/** What a landscape is made from: a seed, its size and its north-west corner. */
+export interface Spec {
   readonly seed: number;
   readonly width: number;
   readonly height: number;
@@ -373,10 +380,10 @@ const layPath = (plan: Plan, water: ReadonlySet<number>, target: Point) => {
   return path;
 };
 
-const isChoice = (grown: Prefab.Prefab | Choice): grown is Choice =>
+const isChoice = (grown: Prefab.Prefab | Biome.Choice): grown is Biome.Choice =>
   "options" in grown;
 
-const picked = (random: SeededRandom, grown: Prefab.Prefab | Choice) =>
+const picked = (random: SeededRandom, grown: Prefab.Prefab | Biome.Choice) =>
   isChoice(grown)
     ? Option.map(Arr.head(grown.options), ([first]) =>
         pickWeighted(random, grown.options, first)
@@ -385,7 +392,7 @@ const picked = (random: SeededRandom, grown: Prefab.Prefab | Choice) =>
 
 const nameOf = Schema.decodeUnknownOption(Prefabs.Name);
 
-const growthOn = (random: SeededRandom, biome: Biome) => {
+const growthOn = (random: SeededRandom, biome: Biome.Biome) => {
   const roll = random.next();
   let sofar = 0;
   const found: Prefab.Prefab[] = [];
@@ -452,7 +459,7 @@ const landBiome = (relief: Relief, index: number) => {
 
 const biomeAt = (relief: Relief, at: Point, index: number) => {
   const { plan } = relief;
-  let biome: Biome = landBiome(relief, index);
+  let biome: Biome.Biome = landBiome(relief, index);
 
   if (relief.water.has(index)) {
     const shore = Arr.some(STEPS, ([dx, dy]) =>
@@ -486,7 +493,7 @@ const newEntityIn = (
 
 const cellEntities = (
   random: SeededRandom,
-  biome: Biome,
+  biome: Biome.Biome,
   cell: typeof Cell.Cell.Type,
   level: number
 ) => {
@@ -514,7 +521,7 @@ const cellEntities = (
  * land in the middle with a path towards the water. Each cell gets a floor,
  * then any liquid, then what grows there. Pure in the seed.
  */
-export const generateLandscape = (spec: LandscapeSpec) => {
+export const entities = (spec: Spec) => {
   const { height, width } = spec;
   const random = seededRandom(spec.seed);
   const short = Math.min(width, height);
@@ -570,7 +577,7 @@ export const generateLandscape = (spec: LandscapeSpec) => {
     water,
   };
 
-  const entities: NewEntity[] = [];
+  const placed: NewEntity[] = [];
 
   for (let y = 0; y < height; y += 1) {
     for (let x = 0; x < width; x += 1) {
@@ -579,12 +586,12 @@ export const generateLandscape = (spec: LandscapeSpec) => {
       if (Option.isSome(cell)) {
         const index = y * width + x;
         const biome = biomeAt(relief, [x, y], index);
-        entities.push(
+        placed.push(
           ...cellEntities(random, biome, cell.value, levels[index] ?? 0)
         );
       }
     }
   }
 
-  return entities;
+  return placed;
 };

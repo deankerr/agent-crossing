@@ -1,9 +1,9 @@
 import * as Prefabs from "@agent-crossing/definitions/Prefabs";
 
-import { biome } from "../../schema/biome.ts";
+import * as Biome from "../../Biome.ts";
 
 /** Rocky heights. */
-export const Stone = biome({
+export const Stone = Biome.make({
   name: "stone",
   floor: Prefabs.Terrain.Stone,
   grows: [

@@ -1,10 +1,10 @@
 import * as Prefabs from "@agent-crossing/definitions/Prefabs";
 
-import { biome } from "../../schema/biome.ts";
+import * as Biome from "../../Biome.ts";
 import { Flowers } from "./flowers.ts";
 
 /** Open grass with the odd flower, bush or tree. */
-export const Grassland = biome({
+export const Grassland = Biome.make({
   name: "grassland",
   floor: Prefabs.Terrain.Grass,
   grows: [

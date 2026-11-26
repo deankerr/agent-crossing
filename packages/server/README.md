@@ -39,7 +39,6 @@ Edits: one tool for each command of `@agent-crossing/world/Command`, named for i
 - `change_entity {entity, components}` replaces the entity's own components
 - `remove_entities {entities}` removes the listed entities
 - `clear_region {region, removing?}` removes what stands on the terrain; with `{"_tag":"Prefab","prefab":"oak"}` only that prefab; with `{"_tag":"Terrain"}` the terrain too, so the cells leave the world
-- `generate_world {seed, width, height, origin}` 8 to 256 cells a side, from the north-west corner `origin`
 
 ## Connect Claude Code
 

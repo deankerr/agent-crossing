@@ -1,10 +1,10 @@
 import * as Prefabs from "@agent-crossing/definitions/Prefabs";
 
-import { biome } from "../../schema/biome.ts";
+import * as Biome from "../../Biome.ts";
 import { Flowers } from "./flowers.ts";
 
 /** Dry, sunny land thick with flowers and tall grass. */
-export const Meadow = biome({
+export const Meadow = Biome.make({
   name: "meadow",
   floor: Prefabs.Terrain.Meadow,
   grows: [

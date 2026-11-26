@@ -1,14 +1,14 @@
 import * as Prefabs from "@agent-crossing/definitions/Prefabs";
 
-import { biome, weighted } from "../../schema/biome.ts";
+import * as Biome from "../../Biome.ts";
 
 /** Woodland on low land, mostly oaks. */
-export const Forest = biome({
+export const Forest = Biome.make({
   name: "forest",
   floor: Prefabs.Terrain.ForestFloor,
   grows: [
     [
-      weighted([
+      Biome.weighted([
         [Prefabs.Nature.Oak, 0.42],
         [Prefabs.Nature.Pine, 0.25],
         [Prefabs.Nature.Birch, 0.25],

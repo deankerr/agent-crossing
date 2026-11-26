@@ -1,9 +1,9 @@
 import * as Prefabs from "@agent-crossing/definitions/Prefabs";
 
-import { biome } from "../../schema/biome.ts";
+import * as Biome from "../../Biome.ts";
 
 /** Water away from the shore, over dirt, with lily pads. */
-export const OpenWater = biome({
+export const OpenWater = Biome.make({
   name: "open-water",
   floor: Prefabs.Terrain.Dirt,
   liquid: Prefabs.Terrain.Water,

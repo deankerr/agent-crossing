@@ -50,9 +50,10 @@ These are guidelines. An exception is fine when the commit says why.
 One world, kept in one place, with a door for each role: a spectator watches and an editor shapes it.
 
 - `packages/definitions` The vocabulary definitions are written in and the prefabs written in it, as data: `Components`, `Level`, `Model`, `Palette`, `Prefab` and `Prefabs`
-- `packages/world` What the world is and how it changes, as pure functions: `Cell`, `Region`, `Entity`, `World`, `Command` (with `decide`), `Event` and `Refusal`; still in folders until they move out: `generation` and the biomes
+- `packages/world` What the world is and how it changes, as pure functions: `Cell`, `Region`, `Entity`, `World`, `Command` (with `decide`), `Event` and `Refusal`
+- `packages/generator` A generator, outside the world: `Biome`, the biomes written in it (`Biomes`) and `Landscape` (a seed and a rectangle in, the entities to place out), and a script that lays a landscape on the live world over MCP with ordinary commands
 - `packages/views` The world in words, as pure functions from the world or its events to text: `View` (what can be asked to see, and the one function that renders any of it), `SummaryView`, `CellView`, `EventText` (one event as a sentence) and `ReplyView` (the reply to an accepted command); the other views are internal
 - `packages/server` Where the one live world is kept and served: the World Durable Object that orders commands and stores rows (`WorldObject`, called through `WorldClient`), the MCP tools (`McpServer`) and the event stream (`EventStream`) with its frames (`StreamFrame`, the package's one public module), routed by a Cloudflare Worker (`Api`) on the cluster of `Cluster`
 - `packages/web` The read-only 3D spectator view of the world, drawn from each prefab's model (`stream`, `scene`, `ui`)
 
-Imports point one way: `definitions` ← `world` ← `views` ← `server/WorldObject` ← `server/McpServer` and `server/EventStream` ← `server/Api`, and `web` reads `world`, `views` and `server/StreamFrame`. The world package holds no wording, and no text in `views` names an MCP tool.
+Imports point one way: `definitions` ← `world` ← `views` ← `server/WorldObject` ← `server/McpServer` and `server/EventStream` ← `server/Api`, and `web` reads `world`, `views` and `server/StreamFrame`. `generator` reads `definitions` and `world` and reaches the live world only over MCP. The world package holds no wording, and no text in `views` names an MCP tool.
