@@ -1,14 +1,9 @@
+import type * as Cell from "@agent-crossing/world/Cell";
+import type * as Entity from "@agent-crossing/world/Entity";
+import * as Event from "@agent-crossing/world/Event";
 import { FeedFrame } from "@agent-crossing/world/feed/frame";
-import { evolve, WorldEvent } from "@agent-crossing/world/history/event";
-import type { Cell } from "@agent-crossing/world/schema/cell";
-import type { EntityId } from "@agent-crossing/world/state/entity";
-import {
-  applyAll,
-  emptyWorld,
-  entityOf,
-} from "@agent-crossing/world/state/world";
-import type { World } from "@agent-crossing/world/state/world";
 import { eventText } from "@agent-crossing/world/text/event";
+import * as World from "@agent-crossing/world/World";
 import * as Arr from "effect/Array";
 import * as Option from "effect/Option";
 
@@ -20,15 +15,15 @@ export type Connection = "connecting" | "live" | "reconnecting";
 export interface HistoryEntry {
   readonly key: string;
   readonly at: number;
-  readonly kind: (typeof WorldEvent.Type)["_tag"];
+  readonly kind: (typeof Event.Event.Type)["_tag"];
   readonly sentence: string;
   /** Where it happened, to look at when the entry is picked. */
-  readonly cell: Option.Option<typeof Cell.Type>;
+  readonly cell: Option.Option<typeof Cell.Cell.Type>;
 }
 
 /** A complete world, as of the event numbered `cursor`. */
 interface Shown {
-  readonly world: World;
+  readonly world: World.World;
   readonly cursor: number;
   /** Counts the snapshots received, so keys stay unique across reconnects. */
   readonly generation: number;
@@ -37,7 +32,7 @@ interface Shown {
 export interface FeedState {
   readonly connection: Connection;
   /** The snapshot arriving since the last `Reset`, until its `Ready`. */
-  readonly loading: Option.Option<World>;
+  readonly loading: Option.Option<World.World>;
   /** The last complete world; kept on screen while a new snapshot loads. */
   readonly shown: Option.Option<Shown>;
   /** Newest first. */
@@ -58,11 +53,11 @@ export const initialFeedState = (connection: Connection) => {
 export const withConnection = (state: FeedState, connection: Connection) =>
   ({ ...state, connection }) satisfies FeedState;
 
-const cellOfEntity = (world: World, id: typeof EntityId.Type) =>
-  Option.map(entityOf(world, id), (entity) => entity.cell);
+const cellOfEntity = (world: World.World, id: typeof Entity.Id.Type) =>
+  Option.map(World.entity(world, id), (entity) => entity.cell);
 
-const eventCell = (world: World, event: typeof WorldEvent.Type) =>
-  WorldEvent.match(event, {
+const eventCell = (world: World.World, event: typeof Event.Event.Type) =>
+  Event.Event.match(event, {
     Changed: ({ entity }) => cellOfEntity(world, entity),
     Moved: ({ to }) => Option.some(to),
     Removed: ({ entities }) => cellOfEntity(world, entities[0]),
@@ -74,7 +69,7 @@ const happened = (
   state: FeedState,
   shown: Shown,
   seq: number,
-  event: typeof WorldEvent.Type
+  event: typeof Event.Event.Type
 ) => {
   if (seq <= shown.cursor) {
     return state;
@@ -94,7 +89,7 @@ const happened = (
     shown: Option.some({
       ...shown,
       cursor: seq,
-      world: evolve(shown.world, event),
+      world: Event.evolve(shown.world, event),
     }),
   };
 
@@ -119,7 +114,7 @@ export const receive = (state: FeedState, frame: typeof FeedFrame.Type) => {
         onNone: () => state,
         onSome: (world) => ({
           ...state,
-          loading: Option.some(applyAll(world, changes)),
+          loading: Option.some(World.applyAll(world, changes)),
         }),
       }),
     Happened: ({ event, seq }) =>
@@ -142,7 +137,7 @@ export const receive = (state: FeedState, frame: typeof FeedFrame.Type) => {
           }),
         }),
       }),
-    Reset: () => ({ ...state, loading: Option.some(emptyWorld) }),
+    Reset: () => ({ ...state, loading: Option.some(World.empty) }),
   });
 
   return next;

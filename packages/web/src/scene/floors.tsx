@@ -1,5 +1,5 @@
-import type { Cell } from "@agent-crossing/world/schema/cell";
-import type { World } from "@agent-crossing/world/state/world";
+import type * as Cell from "@agent-crossing/world/Cell";
+import type * as World from "@agent-crossing/world/World";
 import type { ThreeEvent } from "@react-three/fiber";
 import * as Arr from "effect/Array";
 import * as HashMap from "effect/HashMap";
@@ -86,9 +86,9 @@ const paintColumn: Paint<Column> = (column, color) => {
 };
 
 interface CellPicking {
-  readonly onHover: (cell: typeof Cell.Type) => void;
+  readonly onHover: (cell: typeof Cell.Cell.Type) => void;
   readonly onLeave: () => void;
-  readonly onSelect: (cell: typeof Cell.Type) => void;
+  readonly onSelect: (cell: typeof Cell.Cell.Type) => void;
 }
 
 /**
@@ -103,7 +103,7 @@ export const Floors = ({
   onLeave,
   onSelect,
   world,
-}: CellPicking & { readonly world: World }) => {
+}: CellPicking & { readonly world: World.World }) => {
   const groups = useMemo(
     () => floorColumns(HashMap.values(world.entities)),
     [world.entities]

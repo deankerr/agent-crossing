@@ -1,7 +1,7 @@
 import * as Prefabs from "@agent-crossing/definitions/Prefabs";
 import * as Arr from "effect/Array";
 
-import { habitatOf } from "../rules/placement.ts";
+import * as Entity from "../Entity.ts";
 
 const prefabLine = ({ components, name }: (typeof Prefabs.all)[number]) => {
   const { label, layer } = components;
@@ -12,7 +12,7 @@ const prefabLine = ({ components, name }: (typeof Prefabs.all)[number]) => {
       layer === undefined ? "no layer" : `layer ${layer}`,
       layer === "floor" || layer === "liquid"
         ? ""
-        : `habitat ${Arr.join(habitatOf(components), " and ")}`,
+        : `habitat ${Arr.join(Entity.habitat(components), " and ")}`,
       components.obstacle === true ? "obstacle" : "",
     ],
     (part) => part !== ""

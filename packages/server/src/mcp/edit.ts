@@ -1,4 +1,4 @@
-import type { Command } from "@agent-crossing/world/editing/command";
+import type * as Command from "@agent-crossing/world/Command";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as Random from "effect/Random";
@@ -6,7 +6,7 @@ import type * as Result from "effect/Result";
 
 import { WorldClient } from "../world-object/client.ts";
 import type { Verdict } from "../world-object/wire.ts";
-import { rejectionText } from "./refusal.ts";
+import { refusalText } from "./refusal.ts";
 import { editText, framedOf } from "./replies.ts";
 import { parsed, refused } from "./tool.ts";
 
@@ -24,7 +24,7 @@ export const randomSeed = Random.nextIntBetween(0, 2_147_483_647);
 export const editing = Effect.map(WorldClient, (world) => {
   const answered = (verdict: typeof Verdict.Type) =>
     verdict._tag === "Rejected"
-      ? refused(`Refused: ${rejectionText(verdict.rejection)}`)
+      ? refused(`Refused: ${refusalText(verdict.rejection)}`)
       : Effect.map(
           Option.match(framedOf(verdict), {
             onNone: () => Effect.succeedNone,
@@ -37,7 +37,7 @@ export const editing = Effect.map(WorldClient, (world) => {
           (shown) => editText(verdict, shown)
         );
 
-  return (command: Result.Result<typeof Command.Type, string>) =>
+  return (command: Result.Result<typeof Command.Command.Type, string>) =>
     Effect.flatMap(parsed(command), (parsedCommand) =>
       Effect.flatMap(world.act(parsedCommand), answered)
     );

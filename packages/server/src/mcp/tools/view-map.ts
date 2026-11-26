@@ -1,4 +1,4 @@
-import { Area } from "@agent-crossing/world/state/area";
+import * as Span from "@agent-crossing/world/Span";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as Result from "effect/Result";
@@ -22,7 +22,7 @@ export const ViewMap = queryTool("view_map", {
   parameters: ViewMapInput,
 });
 
-const decodeArea = Schema.decodeUnknownResult(Area);
+const decodeArea = Schema.decodeUnknownResult(Span.Area);
 
 const areaFor = ({ x1, x2, y1, y2 }: typeof ViewMapInput.Type) => {
   if (

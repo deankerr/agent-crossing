@@ -1,11 +1,10 @@
 import * as Components from "@agent-crossing/definitions/Components";
 import * as Prefabs from "@agent-crossing/definitions/Prefabs";
-import { Seq, WorldEvent } from "@agent-crossing/world/history/event";
-import { Coordinate } from "@agent-crossing/world/schema/cell";
-import { Change } from "@agent-crossing/world/state/change";
-import { EntityId } from "@agent-crossing/world/state/entity";
-import type { Entity } from "@agent-crossing/world/state/entity";
-import type { WorldSnapshot } from "@agent-crossing/world/state/snapshot";
+import * as Cell from "@agent-crossing/world/Cell";
+import * as Change from "@agent-crossing/world/Change";
+import * as Entity from "@agent-crossing/world/Entity";
+import * as Event from "@agent-crossing/world/Event";
+import type * as World from "@agent-crossing/world/World";
 import * as Arr from "effect/Array";
 import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
@@ -23,8 +22,8 @@ export const SCHEMA = [
 
 /** A stored event, as `history` reads it back. */
 export const EventRow = Schema.Struct({
-  seq: Seq,
-  event: Schema.fromJsonString(WorldEvent),
+  seq: Event.Seq,
+  event: Schema.fromJsonString(Event.Event),
 });
 
 type SqlValue = string | number;
@@ -65,16 +64,16 @@ interface Write {
 }
 
 const EntityRow = Schema.Struct({
-  id: EntityId,
+  id: Entity.Id,
   prefab: Prefabs.Name,
-  x: Coordinate,
-  y: Coordinate,
+  x: Cell.Coordinate,
+  y: Cell.Coordinate,
   components: Schema.fromJsonString(Components.Components),
 });
 
 const encodeEntityRow = Schema.encodeEffect(EntityRow);
 
-const rowOfEntity = (entity: typeof Entity.Type) =>
+const rowOfEntity = (entity: typeof Entity.Entity.Type) =>
   ({
     components: entity.components,
     id: entity.id,
@@ -83,8 +82,8 @@ const rowOfEntity = (entity: typeof Entity.Type) =>
     y: entity.cell.y,
   }) satisfies typeof EntityRow.Type;
 
-const writeOf = (change: typeof Change.Type) =>
-  Change.match(change, {
+const writeOf = (change: typeof Change.Change.Type) =>
+  Change.Change.match(change, {
     EntityDropped: ({ id }) =>
       Effect.succeed({
         op: "delete",
@@ -175,7 +174,7 @@ const statementOfRun = (run: readonly Write[]) => {
  * same table with the same operation share one multi-row statement, because
  * each statement is a round trip to the database.
  */
-export const statementsOf = (changes: readonly (typeof Change.Type)[]) =>
+export const statementsOf = (changes: readonly (typeof Change.Change.Type)[]) =>
   Effect.map(Effect.forEach(changes, writeOf), (writes) =>
     Arr.map(runsOf(writes), statementOfRun)
   );
@@ -190,7 +189,7 @@ const entityOfRow = (row: typeof EntityRow.Type) =>
     components: row.components,
     id: row.id,
     prefab: row.prefab,
-  }) satisfies typeof Entity.Type;
+  }) satisfies typeof Entity.Entity.Type;
 
 /** What the stored rows hold, before parsing. */
 interface StoredRows {
@@ -207,7 +206,7 @@ export const snapshotOfRows = (rows: StoredRows) =>
     const entities = yield* decodeEntityRows(rows.entities);
     const meta = yield* decodeMetaRows(rows.meta);
 
-    const snapshot: typeof WorldSnapshot.Type = {
+    const snapshot: typeof World.Snapshot.Type = {
       entities: Arr.map(entities, entityOfRow),
       spawned: meta[0]?.spawned ?? 0,
     };

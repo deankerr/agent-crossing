@@ -6,17 +6,16 @@ import * as Arr from "effect/Array";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 
+import * as Cell from "../Cell.ts";
 import { Biomes } from "../definitions/biomes/index.ts";
 import type { Biome, Choice } from "../schema/biome.ts";
-import { cellAt } from "../schema/cell.ts";
-import type { Cell } from "../schema/cell.ts";
 import { pickWeighted, seededRandom } from "./random.ts";
 import type { SeededRandom } from "./random.ts";
 
 /** An entity before it has an id: a prefab, a cell and its own components. */
 export interface NewEntity {
   readonly prefab: typeof Prefabs.Name.Type;
-  readonly cell: typeof Cell.Type;
+  readonly cell: typeof Cell.Cell.Type;
   readonly components: typeof Components.Components.Type;
 }
 
@@ -24,7 +23,7 @@ interface LandscapeSpec {
   readonly seed: number;
   readonly width: number;
   readonly height: number;
-  readonly origin: typeof Cell.Type;
+  readonly origin: typeof Cell.Cell.Type;
 }
 
 type Point = readonly [number, number];
@@ -476,7 +475,7 @@ const biomeAt = (relief: Relief, at: Point, index: number) => {
 };
 
 const newEntityIn = (
-  cell: typeof Cell.Type,
+  cell: typeof Cell.Cell.Type,
   prefab: Prefab.Prefab,
   components: typeof Components.Components.Type
 ) =>
@@ -488,7 +487,7 @@ const newEntityIn = (
 const cellEntities = (
   random: SeededRandom,
   biome: Biome,
-  cell: typeof Cell.Type,
+  cell: typeof Cell.Cell.Type,
   level: number
 ) => {
   const { liquid } = biome;
@@ -575,7 +574,7 @@ export const generateLandscape = (spec: LandscapeSpec) => {
 
   for (let y = 0; y < height; y += 1) {
     for (let x = 0; x < width; x += 1) {
-      const cell = cellAt(spec.origin.x + x, spec.origin.y + y);
+      const cell = Cell.at(spec.origin.x + x, spec.origin.y + y);
 
       if (Option.isSome(cell)) {
         const index = y * width + x;

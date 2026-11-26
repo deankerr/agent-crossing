@@ -1,8 +1,7 @@
 import type * as Components from "@agent-crossing/definitions/Components";
 import type * as Model from "@agent-crossing/definitions/Model";
 import * as Palette from "@agent-crossing/definitions/Palette";
-import { componentsOf } from "@agent-crossing/world/state/entity";
-import type { Entity } from "@agent-crossing/world/state/entity";
+import * as Entity from "@agent-crossing/world/Entity";
 import * as Arr from "effect/Array";
 import * as Hash from "effect/Hash";
 import * as Option from "effect/Option";
@@ -71,8 +70,8 @@ const colorsKey = (colors: typeof Components.Colors.Type | undefined) =>
   );
 
 /** The entity's model with its colors settled. */
-export const paintedModelOf = (entity: typeof Entity.Type) => {
-  const { colors, model } = componentsOf(entity);
+export const paintedModelOf = (entity: typeof Entity.Entity.Type) => {
+  const { colors, model } = Entity.components(entity);
 
   const source =
     entity.components.model === undefined

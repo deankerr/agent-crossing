@@ -1,4 +1,4 @@
-import { EntityId } from "@agent-crossing/world/state/entity";
+import * as Entity from "@agent-crossing/world/Entity";
 import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
 
@@ -7,7 +7,7 @@ import { parsedCommand, X, Y } from "../inputs.ts";
 import { editTool } from "../tool.ts";
 
 const MoveInput = Schema.Struct({
-  id: EntityId.annotate({ description: "The entity's id, like e12." }),
+  id: Entity.Id.annotate({ description: "The entity's id, like e12." }),
   x: X,
   y: Y,
 });

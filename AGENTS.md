@@ -50,7 +50,7 @@ These are guidelines. An exception is fine when the commit says why.
 One world, kept in one place, with a door for each role: a spectator watches and an editor shapes it.
 
 - `packages/definitions` The vocabulary definitions are written in and the prefabs written in it, as data: `Components`, `Level`, `Model`, `Palette`, `Prefab` and `Prefabs`
-- `packages/world` What the world is and how it changes, as pure functions: `schema` (the vocabulary definitions are written in), `definitions` (prefabs and biomes, as data only), `state` and `rules` (what exists and what may), `history` (events), `editing` (the editor's commands), `generation`, `text` (the world in words) and `feed` (the frames spectators receive)
+- `packages/world` What the world is and how it changes, as pure functions: `Cell`, `Region`, `Entity`, `World`, `Command` (with `decide`), `Event` and `Refusal`, plus `Change`, `Span` and `Tally` for now; still in folders until they move out: `generation`, the biomes, `text` (the world in words) and `feed` (the frames spectators receive)
 - `packages/server` Where the one live world is kept and served: the World Durable Object that orders commands and stores rows (`world-object`), the MCP tools (`mcp`) and the spectator event stream (`stream`), routed by a Cloudflare Worker (`api.ts`)
 - `packages/web` The read-only 3D spectator view of the world, drawn from each prefab's model (`feed`, `scene`, `ui`)
 

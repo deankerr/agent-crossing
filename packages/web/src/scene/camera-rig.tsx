@@ -1,4 +1,4 @@
-import type { Span } from "@agent-crossing/world/state/span";
+import type * as Span from "@agent-crossing/world/Span";
 import { MapControls } from "@react-three/drei";
 import { useFrame, useThree } from "@react-three/fiber";
 import * as Option from "effect/Option";
@@ -33,7 +33,7 @@ interface Size {
   readonly height: number;
 }
 
-const fittingZoom = (span: Span, size: Size) => {
+const fittingZoom = (span: Span.Span, size: Size) => {
   const wide = span.maxX - span.minX + 1 + MARGIN * 2;
 
   const deep = (span.maxY - span.minY + 1) * DEPTH_SHARE + TALLEST + MARGIN * 2;
@@ -41,7 +41,7 @@ const fittingZoom = (span: Span, size: Size) => {
   return Math.max(0.5, Math.min(size.width / wide, size.height / deep));
 };
 
-const cameraDistance = (span: Span) =>
+const cameraDistance = (span: Span.Span) =>
   Math.max(MIN_DISTANCE, diagonalOf(span) * DISTANCE_PER_DIAGONAL);
 
 interface Rig {
@@ -62,7 +62,7 @@ export const CameraRig = ({
   focus,
   span,
 }: {
-  readonly span: Span;
+  readonly span: Span.Span;
   readonly focus: Option.Option<FocusRequest>;
 }) => {
   const controls = useRef<ComponentRef<typeof MapControls>>(null);

@@ -1,11 +1,4 @@
-import { areaOfSpan } from "@agent-crossing/world/state/area";
-import type { Area } from "@agent-crossing/world/state/area";
-import {
-  spanHeight,
-  spanOf,
-  spanWidth,
-} from "@agent-crossing/world/state/span";
-import type { Span } from "@agent-crossing/world/state/span";
+import * as Span from "@agent-crossing/world/Span";
 import * as Arr from "effect/Array";
 import * as Option from "effect/Option";
 import * as Str from "effect/String";
@@ -19,13 +12,13 @@ const EDIT_MAP_PADDING = 2;
 const EDIT_MAP_MAX_SIDE = 48;
 
 interface Framed {
-  readonly area: typeof Area.Type;
+  readonly area: typeof Span.Area.Type;
   readonly cut: boolean;
-  readonly edited: Span;
+  readonly edited: Span.Span;
 }
 
-const framedEdit = (edited: Span) => {
-  const padded: Span = {
+const framedEdit = (edited: Span.Span) => {
+  const padded: Span.Span = {
     maxX: edited.maxX + EDIT_MAP_PADDING,
     maxY: edited.maxY + EDIT_MAP_PADDING,
     minX: edited.minX - EDIT_MAP_PADDING,
@@ -33,11 +26,11 @@ const framedEdit = (edited: Span) => {
   };
 
   const cut =
-    spanWidth(padded) > EDIT_MAP_MAX_SIDE ||
-    spanHeight(padded) > EDIT_MAP_MAX_SIDE;
+    Span.width(padded) > EDIT_MAP_MAX_SIDE ||
+    Span.height(padded) > EDIT_MAP_MAX_SIDE;
 
   const framed: Framed = {
-    area: areaOfSpan({
+    area: Span.toArea({
       ...padded,
       maxX: Math.min(padded.maxX, padded.minX + EDIT_MAP_MAX_SIDE - 1),
       maxY: Math.min(padded.maxY, padded.minY + EDIT_MAP_MAX_SIDE - 1),
@@ -51,14 +44,15 @@ const framedEdit = (edited: Span) => {
 
 type Accepted = Extract<typeof Verdict.Type, { readonly _tag: "Accepted" }>;
 
-const spanText = (span: Span) =>
+const spanText = (span: Span.Span) =>
   `x ${span.minX} to ${span.maxX}, y ${span.minY} to ${span.maxY}`;
 
 /** The area to map after an edit, if it touched any cells. */
 export const framedOf = (accepted: Accepted) =>
   Option.map(
     Option.fromNullishOr(accepted.edited),
-    (edited: typeof Area.Type) => framedEdit(spanOf(edited.from, edited.to))
+    (edited: typeof Span.Area.Type) =>
+      framedEdit(Span.of(edited.from, edited.to))
   );
 
 const plural = (count: number, one: string, many: string) =>

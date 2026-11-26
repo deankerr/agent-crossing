@@ -1,6 +1,5 @@
-import type { Cell } from "@agent-crossing/world/schema/cell";
-import { cellCount } from "@agent-crossing/world/state/world";
-import type { World } from "@agent-crossing/world/state/world";
+import type * as Cell from "@agent-crossing/world/Cell";
+import * as World from "@agent-crossing/world/World";
 import { Canvas } from "@react-three/fiber";
 import * as Option from "effect/Option";
 import { useEffect, useState } from "react";
@@ -15,6 +14,8 @@ import { WorldScene } from "../scene/world-scene.tsx";
 import { SidePanel } from "./side-panel.tsx";
 import { useFeedState } from "./store.ts";
 
+type At = typeof Cell.Cell.Type;
+
 const INITIAL_DISTANCE = 40;
 
 const TEXT_FIELDS = new Set(["INPUT", "SELECT", "TEXTAREA"]);
@@ -23,7 +24,7 @@ const takesTyping = (target: EventTarget | null) =>
   target instanceof HTMLElement &&
   (target.isContentEditable || TEXT_FIELDS.has(target.tagName));
 
-const focusPoint = (world: World, cell: typeof Cell.Type) =>
+const focusPoint = (world: World.World, cell: At) =>
   [
     cell.x,
     Option.getOrElse(standingSurfaceAt(world, cell), () => levelSurface(0)),
@@ -39,7 +40,7 @@ const stageNotice = (state: FeedState) =>
           : "Loading the world…"
       ),
     onSome: ({ world }) =>
-      cellCount(world) === 0
+      World.cellCount(world) === 0
         ? Option.some(
             "Nothing painted yet. The world appears here as soon as someone paints a floor."
           )
@@ -48,7 +49,7 @@ const stageNotice = (state: FeedState) =>
 
 export const App = () => {
   const state = useFeedState();
-  const [selected, setSelected] = useState(Option.none<typeof Cell.Type>());
+  const [selected, setSelected] = useState(Option.none<At>());
   const [focus, setFocus] = useState(Option.none<FocusRequest>());
   const [overlay, setOverlay] = useState<HTMLElement | null>(null);
   const notice = stageNotice(state);
@@ -71,7 +72,7 @@ export const App = () => {
     };
   }, []);
 
-  const pick = (cell: typeof Cell.Type) => {
+  const pick = (cell: At) => {
     setSelected(Option.some(cell));
 
     Option.map(state.shown, ({ world }) => {

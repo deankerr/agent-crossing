@@ -1,10 +1,7 @@
 import type * as Model from "@agent-crossing/definitions/Model";
-import { cellKey } from "@agent-crossing/world/schema/cell";
-import type { Cell, CellKey } from "@agent-crossing/world/schema/cell";
-import { componentsOf, entitySerial } from "@agent-crossing/world/state/entity";
-import type { Entity, EntityId } from "@agent-crossing/world/state/entity";
-import { isFloor, isLiquid } from "@agent-crossing/world/state/world";
-import type { World } from "@agent-crossing/world/state/world";
+import * as Cell from "@agent-crossing/world/Cell";
+import * as Entity from "@agent-crossing/world/Entity";
+import type * as World from "@agent-crossing/world/World";
 import * as HashMap from "effect/HashMap";
 import * as Option from "effect/Option";
 
@@ -13,12 +10,12 @@ import { standingSurface } from "./layout.ts";
 import { paintedModelOf } from "./model-geometry.ts";
 import type { PaintedModel } from "./model-geometry.ts";
 
-type Id = typeof EntityId.Type;
+type Id = typeof Entity.Id.Type;
 
 /** One entity as its model's instanced mesh draws it. */
 export interface EntityInstance {
   readonly id: Id;
-  readonly cell: typeof Cell.Type;
+  readonly cell: typeof Cell.Cell.Type;
   readonly x: number;
   readonly y: number;
   readonly z: number;
@@ -55,18 +52,18 @@ const QUARTER = Math.PI / 2;
 const TURN = Math.PI * 2;
 
 interface CellContents {
-  floor: Option.Option<typeof Entity.Type>;
-  liquid: Option.Option<typeof Entity.Type>;
+  floor: Option.Option<typeof Entity.Entity.Type>;
+  liquid: Option.Option<typeof Entity.Entity.Type>;
   object: boolean;
   cover: boolean;
   readonly loose: Id[];
 }
 
-const contentsOf = (entities: Iterable<typeof Entity.Type>) => {
-  const cells = new Map<typeof CellKey.Type, CellContents>();
+const contentsOf = (entities: Iterable<typeof Entity.Entity.Type>) => {
+  const cells = new Map<typeof Cell.Key.Type, CellContents>();
 
   for (const entity of entities) {
-    const key = cellKey(entity.cell);
+    const key = Cell.key(entity.cell);
 
     const contents = cells.get(key) ?? {
       cover: false,
@@ -76,7 +73,7 @@ const contentsOf = (entities: Iterable<typeof Entity.Type>) => {
       object: false,
     };
 
-    const { layer } = componentsOf(entity);
+    const { layer } = Entity.components(entity);
 
     if (layer === "floor") {
       contents.floor = Option.some(entity);
@@ -94,7 +91,7 @@ const contentsOf = (entities: Iterable<typeof Entity.Type>) => {
   }
 
   for (const contents of cells.values()) {
-    contents.loose.sort((a, b) => entitySerial(a) - entitySerial(b));
+    contents.loose.sort((a, b) => Entity.serial(a) - Entity.serial(b));
   }
 
   return cells;
@@ -114,8 +111,11 @@ const corner = (index: number, aside: number, scale: number) => {
   return { dx: cx * aside, dz: cz * aside, scale } satisfies Offset;
 };
 
-const offsetOf = (entity: typeof Entity.Type, contents: CellContents) => {
-  const { layer } = componentsOf(entity);
+const offsetOf = (
+  entity: typeof Entity.Entity.Type,
+  contents: CellContents
+) => {
+  const { layer } = Entity.components(entity);
   const first = Math.floor(cellNoise(entity.cell.x, entity.cell.y) * 4);
 
   if (layer === "object") {
@@ -171,10 +171,13 @@ const jitterOf = (id: Id, pose: typeof Model.Pose.Type) => {
   }
 };
 
-const neighborKey = (cell: typeof Cell.Type, dx: number, dy: number) =>
+const neighborKey = (cell: typeof Cell.Cell.Type, dx: number, dy: number) =>
   `${cell.x + dx},${cell.y + dy}`;
 
-const fenceHeading = (cell: typeof Cell.Type, fences: ReadonlySet<string>) => {
+const fenceHeading = (
+  cell: typeof Cell.Cell.Type,
+  fences: ReadonlySet<string>
+) => {
   const eastWest =
     fences.has(neighborKey(cell, 1, 0)) || fences.has(neighborKey(cell, -1, 0));
 
@@ -184,13 +187,13 @@ const fenceHeading = (cell: typeof Cell.Type, fences: ReadonlySet<string>) => {
   return northSouth && !eastWest ? QUARTER : 0;
 };
 
-const fenceCellsOf = (entities: Iterable<typeof Entity.Type>) => {
+const fenceCellsOf = (entities: Iterable<typeof Entity.Entity.Type>) => {
   const byPrefab = new Map<string, Set<string>>();
 
   for (const entity of entities) {
-    if (componentsOf(entity).model.pose === "fence") {
+    if (Entity.components(entity).model.pose === "fence") {
       const cells = byPrefab.get(entity.prefab) ?? new Set<string>();
-      cells.add(cellKey(entity.cell));
+      cells.add(Cell.key(entity.cell));
       byPrefab.set(entity.prefab, cells);
     }
   }
@@ -205,7 +208,7 @@ const noFences: ReadonlySet<string> = new Set();
  * of the liquid when there is one) and grouped by the painted model that
  * draws it. Entities on cells without a floor or liquid are left out.
  */
-export const entityInstances = (world: Pick<World, "entities">) => {
+export const entityInstances = (world: Pick<World.World, "entities">) => {
   const entities = [...HashMap.values(world.entities)];
   const cells = contentsOf(entities);
   const fences = fenceCellsOf(entities);
@@ -216,10 +219,12 @@ export const entityInstances = (world: Pick<World, "entities">) => {
   >();
 
   for (const entity of entities) {
-    const contents = cells.get(cellKey(entity.cell));
+    const contents = cells.get(Cell.key(entity.cell));
 
     const surface =
-      contents === undefined || isFloor(entity) || isLiquid(entity)
+      contents === undefined ||
+      Entity.isFloor(entity) ||
+      Entity.isLiquid(entity)
         ? Option.none<number>()
         : standingSurface(contents.floor, contents.liquid);
 

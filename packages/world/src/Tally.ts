@@ -2,10 +2,9 @@ import * as Arr from "effect/Array";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 
-import type { Entity } from "../state/entity.ts";
-import { entityOf, isFloor, isLiquid } from "../state/world.ts";
-import type { World } from "../state/world.ts";
-import { WorldEvent } from "./event.ts";
+import * as Entity from "./Entity.ts";
+import * as Event from "./Event.ts";
+import * as World from "./World.ts";
 
 const Count = Schema.Int.check(Schema.isGreaterThanOrEqualTo(0));
 
@@ -22,7 +21,7 @@ export const Tally = Schema.Struct({
 
 type Counts = typeof Tally.Type;
 
-export const noTally: Counts = {
+export const none: Counts = {
   changed: 0,
   erased: 0,
   moved: 0,
@@ -32,13 +31,15 @@ export const noTally: Counts = {
   removed: 0,
 };
 
+type Present = typeof Entity.Entity.Type;
+
 const countOf = (
-  entities: readonly (typeof Entity.Type)[],
-  keep: (entity: typeof Entity.Type) => boolean
+  entities: readonly Present[],
+  keep: (entity: Present) => boolean
 ) => Arr.filter(entities, keep).length;
 
-const isOther = (entity: typeof Entity.Type) =>
-  !isFloor(entity) && !isLiquid(entity);
+const isOther = (entity: Present) =>
+  !Entity.isFloor(entity) && !Entity.isLiquid(entity);
 
 /**
  * The tally with one more event, given the world it happens to. Removed
@@ -46,15 +47,15 @@ const isOther = (entity: typeof Entity.Type) =>
  */
 export const tallied = (
   tally: Counts,
-  world: World,
-  event: typeof WorldEvent.Type
+  world: World.World,
+  event: typeof Event.Event.Type
 ) =>
-  WorldEvent.match(event, {
+  Event.Event.match(event, {
     Changed: () => ({ ...tally, changed: tally.changed + 1 }),
     Moved: () => ({ ...tally, moved: tally.moved + 1 }),
     Removed: ({ entities }) => {
       const floors = Arr.filter(entities, (id) =>
-        Option.exists(entityOf(world, id), isFloor)
+        Option.exists(World.entity(world, id), Entity.isFloor)
       ).length;
 
       return {
@@ -65,13 +66,14 @@ export const tallied = (
     },
     Spawned: ({ entities }) => ({
       ...tally,
-      painted: tally.painted + countOf(entities, isFloor),
+      painted: tally.painted + countOf(entities, Entity.isFloor),
       placed: tally.placed + countOf(entities, isOther),
-      poured: tally.poured + countOf(entities, isLiquid),
+      poured: tally.poured + countOf(entities, Entity.isLiquid),
     }),
     Updated: ({ entities }) => ({
       ...tally,
-      changed: tally.changed + countOf(entities, (entity) => !isFloor(entity)),
-      painted: tally.painted + countOf(entities, isFloor),
+      changed:
+        tally.changed + countOf(entities, (entity) => !Entity.isFloor(entity)),
+      painted: tally.painted + countOf(entities, Entity.isFloor),
     }),
   }) satisfies Counts;

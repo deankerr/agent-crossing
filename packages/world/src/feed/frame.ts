@@ -1,7 +1,7 @@
 import * as Schema from "effect/Schema";
 
-import { Seq, WorldEvent } from "../history/event.ts";
-import { Change } from "../state/change.ts";
+import * as Change from "../Change.ts";
+import * as Event from "../Event.ts";
 
 /**
  * Frames of the spectator stream. A spectator starts from the empty world on
@@ -10,7 +10,7 @@ import { Change } from "../state/change.ts";
  */
 export const FeedFrame = Schema.TaggedUnion({
   Reset: {},
-  Changes: { changes: Schema.Array(Change) },
-  Ready: { cursor: Seq },
-  Happened: { seq: Seq, event: WorldEvent },
+  Changes: { changes: Schema.Array(Change.Change) },
+  Ready: { cursor: Event.Seq },
+  Happened: { seq: Event.Seq, event: Event.Event },
 });

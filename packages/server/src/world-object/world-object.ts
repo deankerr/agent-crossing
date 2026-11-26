@@ -1,28 +1,12 @@
 import * as Prefabs from "@agent-crossing/definitions/Prefabs";
-import { Command } from "@agent-crossing/world/editing/command";
-import { decide } from "@agent-crossing/world/editing/decide";
-import { Region } from "@agent-crossing/world/editing/region";
+import * as Cell from "@agent-crossing/world/Cell";
+import * as Command from "@agent-crossing/world/Command";
+import * as Event from "@agent-crossing/world/Event";
 import { FeedFrame } from "@agent-crossing/world/feed/frame";
 import { openingFrames } from "@agent-crossing/world/feed/opening";
-import {
-  changesOf,
-  Seq,
-  WorldEvent,
-} from "@agent-crossing/world/history/event";
-import { noTally, tallied } from "@agent-crossing/world/history/tally";
-import type { Tally } from "@agent-crossing/world/history/tally";
-import { Cell } from "@agent-crossing/world/schema/cell";
-import { Area, areaOfSpan } from "@agent-crossing/world/state/area";
-import { fromSnapshot } from "@agent-crossing/world/state/snapshot";
-import { spanOfCells, widen } from "@agent-crossing/world/state/span";
-import type { Span } from "@agent-crossing/world/state/span";
-import {
-  applyAll,
-  cellCount,
-  entityCount,
-  touchedBy,
-} from "@agent-crossing/world/state/world";
-import type { World } from "@agent-crossing/world/state/world";
+import * as Region from "@agent-crossing/world/Region";
+import * as Span from "@agent-crossing/world/Span";
+import * as Tally from "@agent-crossing/world/Tally";
 import { eventText } from "@agent-crossing/world/text/event";
 import { findText } from "@agent-crossing/world/text/find";
 import {
@@ -32,6 +16,7 @@ import {
 import { inspectText } from "@agent-crossing/world/text/inspect";
 import { mapIfAny } from "@agent-crossing/world/text/map";
 import { summaryText } from "@agent-crossing/world/text/summary";
+import * as World from "@agent-crossing/world/World";
 import * as Rivet from "@alchemy.run/rivet";
 import * as Arr from "effect/Array";
 import * as Clock from "effect/Clock";
@@ -57,27 +42,27 @@ const HEARTBEAT_INTERVAL = Duration.seconds(15);
 const COMMIT_TIMEOUT = Duration.minutes(5);
 
 interface Happened {
-  readonly seq: typeof Seq.Type;
-  readonly event: typeof WorldEvent.Type;
+  readonly seq: typeof Event.Seq.Type;
+  readonly event: typeof Event.Event.Type;
 }
 
 interface Recorded {
-  readonly world: World;
+  readonly world: World.World;
   readonly happened: readonly Happened[];
   readonly changeCount: number;
-  readonly edited: Option.Option<Span>;
-  readonly tally: typeof Tally.Type;
+  readonly edited: Option.Option<Span.Span>;
+  readonly tally: typeof Tally.Tally.Type;
 }
 
-const decodeCommand = Schema.decodeUnknownEffect(Command);
-const decodeCell = Schema.decodeUnknownEffect(Cell);
-const decodeArea = Schema.decodeUnknownEffect(Schema.NullOr(Area));
-const decodeRegion = Schema.decodeUnknownEffect(Schema.NullOr(Region));
+const decodeCommand = Schema.decodeUnknownEffect(Command.Command);
+const decodeCell = Schema.decodeUnknownEffect(Cell.Cell);
+const decodeArea = Schema.decodeUnknownEffect(Schema.NullOr(Span.Area));
+const decodeRegion = Schema.decodeUnknownEffect(Schema.NullOr(Region.Region));
 const decodePrefab = Schema.decodeUnknownEffect(Schema.NullOr(Prefabs.Name));
-const decodeSeq = Schema.decodeUnknownEffect(Seq);
+const decodeSeq = Schema.decodeUnknownEffect(Event.Seq);
 const decodeEventRows = Schema.decodeUnknownEffect(Schema.Array(EventRow));
 
-const encodeEventJson = Schema.encodeEffect(Schema.fromJsonString(WorldEvent));
+const encodeEventJson = Schema.encodeEffect(Schema.fromJsonString(Event.Event));
 const encodeVerdict = Schema.encodeEffect(Verdict);
 const encodeFeedItem = Schema.encodeEffect(FeedItem);
 
@@ -116,17 +101,17 @@ const instance = Effect.gen(function* () {
     (rows) => Effect.orDie(decodeSeq(rows[0]?.head ?? 0))
   );
 
-  const awake = fromSnapshot(loaded);
-  const world = yield* Ref.make<World>(awake);
-  const head = yield* Ref.make<typeof Seq.Type>(yield* lastSeq);
+  const awake = World.fromSnapshot(loaded);
+  const world = yield* Ref.make<World.World>(awake);
+  const head = yield* Ref.make<typeof Event.Seq.Type>(yield* lastSeq);
   const live = yield* PubSub.unbounded<Happened>();
   const serialised = Semaphore.withPermits(yield* Semaphore.make(1), 1);
 
   yield* Effect.logInfo(
-    `World awake: ${cellCount(awake)} cells, ${entityCount(awake)} entities, ${yield* Ref.get(head)} events.`
+    `World awake: ${World.cellCount(awake)} cells, ${World.entityCount(awake)} entities, ${yield* Ref.get(head)} events.`
   );
 
-  const step = (sofar: Recorded, event: typeof WorldEvent.Type) =>
+  const step = (sofar: Recorded, event: typeof Event.Event.Type) =>
     Effect.gen(function* () {
       const rows = yield* run<{ seq: number }>(
         "INSERT INTO events (event) VALUES (?) RETURNING seq",
@@ -134,7 +119,7 @@ const instance = Effect.gen(function* () {
       );
 
       const seq = yield* decodeSeq(rows[0]?.seq);
-      const changes = changesOf(sofar.world, event);
+      const changes = Event.changes(sofar.world, event);
 
       yield* Effect.forEach(
         yield* statementsOf(changes),
@@ -144,30 +129,35 @@ const instance = Effect.gen(function* () {
 
       const recorded: Recorded = {
         changeCount: sofar.changeCount + changes.length,
-        edited: widen(
+        edited: Span.widen(
           sofar.edited,
-          spanOfCells(
-            Arr.flatMap(changes, (change) => touchedBy(sofar.world, change))
+          Span.ofCells(
+            Arr.flatMap(changes, (change) =>
+              World.touchedBy(sofar.world, change)
+            )
           )
         ),
         happened: [...sofar.happened, { event, seq }],
-        tally: tallied(sofar.tally, sofar.world, event),
-        world: applyAll(sofar.world, changes),
+        tally: Tally.tallied(sofar.tally, sofar.world, event),
+        world: World.applyAll(sofar.world, changes),
       };
 
       return recorded;
     });
 
-  const record = (before: World, events: readonly (typeof WorldEvent.Type)[]) =>
+  const record = (
+    before: World.World,
+    events: readonly (typeof Event.Event.Type)[]
+  ) =>
     storage.transaction(
       Effect.reduce(
         events,
         () =>
           ({
             changeCount: 0,
-            edited: Option.none<Span>(),
+            edited: Option.none<Span.Span>(),
             happened: [],
-            tally: noTally,
+            tally: Tally.none,
             world: before,
           }) satisfies Recorded,
         step
@@ -175,12 +165,12 @@ const instance = Effect.gen(function* () {
       { timeout: COMMIT_TIMEOUT }
     );
 
-  const commit = (command: typeof Command.Type) =>
+  const commit = (command: typeof Command.Command.Type) =>
     serialised(
       Effect.gen(function* () {
         const now = yield* Clock.currentTimeMillis;
         const before = yield* Ref.get(world);
-        const decision = decide(before, command, now);
+        const decision = Command.decide(before, command, now);
 
         if (Result.isFailure(decision)) {
           return Verdict.cases.Rejected.make({ rejection: decision.failure });
@@ -201,17 +191,17 @@ const instance = Effect.gen(function* () {
           tally: outcome.tally,
           ...Option.match(outcome.edited, {
             onNone: () => ({}),
-            onSome: (span) => ({ edited: areaOfSpan(span) }),
+            onSome: (span) => ({ edited: Span.toArea(span) }),
           }),
         });
       })
     );
 
-  const reading = <A>(read: (current: World) => A) =>
+  const reading = <A>(read: (current: World.World) => A) =>
     Effect.map(Ref.get(world), read);
 
   return {
-    act: (command: typeof Command.Encoded) =>
+    act: (command: typeof Command.Command.Encoded) =>
       Effect.gen(function* () {
         const verdict = yield* commit(yield* decodeCommand(command));
 
@@ -250,7 +240,7 @@ const instance = Effect.gen(function* () {
         })
       ),
     find: (
-      region: typeof Region.Encoded | null,
+      region: typeof Region.Region.Encoded | null,
       prefab: string | null,
       limit: number
     ) =>
@@ -276,11 +266,11 @@ const instance = Effect.gen(function* () {
 
         return historyText(yield* decodeEventRows(rows), yield* Ref.get(head));
       }).pipe(Effect.orDie),
-    inspect: (cell: typeof Cell.Encoded) =>
+    inspect: (cell: typeof Cell.Cell.Encoded) =>
       Effect.flatMap(Effect.orDie(decodeCell(cell)), (at) =>
         reading((current) => inspectText(current, at))
       ),
-    map: (area: typeof Area.Encoded | null) =>
+    map: (area: typeof Span.Area.Encoded | null) =>
       Effect.flatMap(Effect.orDie(decodeArea(area)), (shown) =>
         reading((current) =>
           Option.getOrNull(mapIfAny(current, Option.fromNullishOr(shown)))

@@ -1,14 +1,12 @@
 import * as Arr from "effect/Array";
 
-import { WorldEvent } from "../history/event.ts";
-import { formatCell } from "../schema/cell.ts";
-import { nounOf } from "../state/entity.ts";
-import type { Entity } from "../state/entity.ts";
-import { isFloor, isLiquid } from "../state/world.ts";
+import * as Cell from "../Cell.ts";
+import * as Entity from "../Entity.ts";
+import * as Event from "../Event.ts";
 import { article, cellsWord, entitiesWord } from "./words.ts";
 
-const painted = (floors: readonly (typeof Entity.Type)[]) => {
-  const nouns = Arr.dedupe(Arr.map(floors, nounOf));
+const painted = (floors: readonly (typeof Entity.Entity.Type)[]) => {
+  const nouns = Arr.dedupe(Arr.map(floors, Entity.nounOf));
   const [only] = nouns;
 
   return nouns.length === 1
@@ -16,8 +14,8 @@ const painted = (floors: readonly (typeof Entity.Type)[]) => {
     : `Painted ${cellsWord(floors.length)}`;
 };
 
-const poured = (liquids: readonly (typeof Entity.Type)[]) => {
-  const nouns = Arr.dedupe(Arr.map(liquids, nounOf));
+const poured = (liquids: readonly (typeof Entity.Entity.Type)[]) => {
+  const nouns = Arr.dedupe(Arr.map(liquids, Entity.nounOf));
   const [only] = nouns;
 
   return nouns.length === 1
@@ -26,29 +24,29 @@ const poured = (liquids: readonly (typeof Entity.Type)[]) => {
 };
 
 /** One sentence for the history log. */
-export const eventText = (event: typeof WorldEvent.Type) =>
-  WorldEvent.match(event, {
+export const eventText = (event: typeof Event.Event.Type) =>
+  Event.Event.match(event, {
     Changed: ({ entity }) => `Changed ${entity}`,
-    Moved: ({ entity, to }) => `Moved ${entity} to ${formatCell(to)}`,
+    Moved: ({ entity, to }) => `Moved ${entity} to ${Cell.format(to)}`,
     Removed: ({ entities }) =>
       entities.length === 1
         ? `Removed ${entities[0]}`
         : `Removed ${entitiesWord(entities.length)}`,
     Spawned: ({ entities }) => {
-      if (Arr.every(entities, isFloor)) {
+      if (Arr.every(entities, Entity.isFloor)) {
         return painted(entities);
       }
 
-      if (Arr.every(entities, isLiquid)) {
+      if (Arr.every(entities, Entity.isLiquid)) {
         return poured(entities);
       }
 
       return entities.length === 1
-        ? `Put ${article(nounOf(entities[0]))} at ${formatCell(entities[0].cell)}`
+        ? `Put ${article(Entity.nounOf(entities[0]))} at ${Cell.format(entities[0].cell)}`
         : `Placed ${entitiesWord(entities.length)}`;
     },
     Updated: ({ entities }) => {
-      if (Arr.every(entities, isFloor)) {
+      if (Arr.every(entities, Entity.isFloor)) {
         return painted(entities);
       }
 

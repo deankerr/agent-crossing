@@ -1,7 +1,5 @@
-import { cellKey } from "@agent-crossing/world/schema/cell";
-import type { Cell, CellKey } from "@agent-crossing/world/schema/cell";
-import { componentsOf, storedLevel } from "@agent-crossing/world/state/entity";
-import type { Entity } from "@agent-crossing/world/state/entity";
+import * as Cell from "@agent-crossing/world/Cell";
+import * as Entity from "@agent-crossing/world/Entity";
 import { Color } from "three";
 
 import { cellNoise } from "./hash.ts";
@@ -13,7 +11,7 @@ type Rgb = readonly [number, number, number];
 
 /** A box filling one cell, from `bottom` to `top` in scene units. */
 export interface Column {
-  readonly cell: typeof Cell.Type;
+  readonly cell: typeof Cell.Cell.Type;
   readonly bottom: number;
   readonly top: number;
   readonly color: Rgb;
@@ -40,17 +38,17 @@ const shaded = (hex: string, factor: number) => {
   return rgb;
 };
 
-const cellShade = (cell: typeof Cell.Type, variation: number) =>
+const cellShade = (cell: typeof Cell.Cell.Type, variation: number) =>
   1 +
   (cellNoise(cell.x, cell.y) * 2 - 1) * variation +
   ((cell.x + cell.y) % 2 === 0 ? CHECKER : -CHECKER) * variation * 4;
 
-const floorSurfaces = (entities: Iterable<typeof Entity.Type>) => {
-  const surfaces = new Map<typeof CellKey.Type, number>();
+const floorSurfaces = (entities: Iterable<typeof Entity.Entity.Type>) => {
+  const surfaces = new Map<typeof Cell.Key.Type, number>();
 
   for (const entity of entities) {
-    if (componentsOf(entity).layer === "floor") {
-      surfaces.set(cellKey(entity.cell), surfaceOf(entity));
+    if (Entity.components(entity).layer === "floor") {
+      surfaces.set(Cell.key(entity.cell), surfaceOf(entity));
     }
   }
 
@@ -63,21 +61,21 @@ const floorSurfaces = (entities: Iterable<typeof Entity.Type>) => {
  * a floor's fill reaches the bottom of the world and a liquid's the floor
  * beneath it. Floors brighten their slabs and darken their fills with level.
  */
-export const floorColumns = (entities: Iterable<typeof Entity.Type>) => {
+export const floorColumns = (entities: Iterable<typeof Entity.Entity.Type>) => {
   const all = [...entities];
   const floors = floorSurfaces(all);
   const groups = new Map<string, ColumnGroup & { columns: Column[] }>();
 
   for (const entity of all) {
-    const { colors, layer, model } = componentsOf(entity);
+    const { colors, layer, model } = Entity.components(entity);
     const liquid = layer === "liquid";
 
     if (layer === "floor" || liquid) {
       const surface = surfaceOf(entity);
-      const level = storedLevel(entity);
+      const level = Entity.level(entity);
 
       const beneath = liquid
-        ? (floors.get(cellKey(entity.cell)) ?? WORLD_BOTTOM)
+        ? (floors.get(Cell.key(entity.cell)) ?? WORLD_BOTTOM)
         : WORLD_BOTTOM;
 
       for (const part of model.parts) {

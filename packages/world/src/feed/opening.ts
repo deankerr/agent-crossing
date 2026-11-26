@@ -1,7 +1,6 @@
 import * as Arr from "effect/Array";
 
-import { changesFor } from "../state/snapshot.ts";
-import type { World } from "../state/world.ts";
+import * as World from "../World.ts";
 import { FeedFrame } from "./frame.ts";
 
 const FRAME_MAX_CHANGES = 1000;
@@ -11,11 +10,12 @@ const FRAME_MAX_CHANGES = 1000;
  * the empty world, then `Ready` with the sequence number of the last event
  * the world includes.
  */
-export const openingFrames = (world: World, cursor: number) => {
+export const openingFrames = (world: World.World, cursor: number) => {
   const frames: readonly (typeof FeedFrame.Type)[] = [
     FeedFrame.cases.Reset.make({}),
-    ...Arr.map(Arr.chunksOf(changesFor(world), FRAME_MAX_CHANGES), (changes) =>
-      FeedFrame.cases.Changes.make({ changes })
+    ...Arr.map(
+      Arr.chunksOf(World.changesFor(world), FRAME_MAX_CHANGES),
+      (changes) => FeedFrame.cases.Changes.make({ changes })
     ),
     FeedFrame.cases.Ready.make({ cursor }),
   ];

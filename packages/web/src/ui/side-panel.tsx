@@ -1,8 +1,7 @@
-import { formatCell } from "@agent-crossing/world/schema/cell";
-import type { Cell } from "@agent-crossing/world/schema/cell";
-import type { World } from "@agent-crossing/world/state/world";
+import * as Cell from "@agent-crossing/world/Cell";
 import { inspectText } from "@agent-crossing/world/text/inspect";
 import { summaryText } from "@agent-crossing/world/text/summary";
+import type * as World from "@agent-crossing/world/World";
 import * as Arr from "effect/Array";
 import * as DateTime from "effect/DateTime";
 import * as Option from "effect/Option";
@@ -36,13 +35,13 @@ const CellDetails = ({
   onClose,
   world,
 }: {
-  readonly world: World;
-  readonly cell: typeof Cell.Type;
+  readonly world: World.World;
+  readonly cell: typeof Cell.Cell.Type;
   readonly onClose: () => void;
 }) => (
   <section className="panel-section">
     <header className="section-header">
-      <h2>Cell {formatCell(cell)}</h2>
+      <h2>Cell {Cell.format(cell)}</h2>
       <button
         aria-label="Close the cell"
         className="close"
@@ -56,7 +55,7 @@ const CellDetails = ({
   </section>
 );
 
-const Summary = ({ world }: { readonly world: World }) => (
+const Summary = ({ world }: { readonly world: World.World }) => (
   <section className="panel-section">
     <h2>The world</h2>
     <pre className="panel-text">{summaryText(world)}</pre>
@@ -68,7 +67,7 @@ const History = ({
   onPick,
 }: {
   readonly history: readonly HistoryEntry[];
-  readonly onPick: (cell: typeof Cell.Type) => void;
+  readonly onPick: (cell: typeof Cell.Cell.Type) => void;
 }) => (
   <section className="panel-section">
     <h2>What’s happening</h2>
@@ -105,8 +104,8 @@ export const SidePanel = ({
   state,
 }: {
   readonly state: FeedState;
-  readonly selected: Option.Option<typeof Cell.Type>;
-  readonly onPick: (cell: typeof Cell.Type) => void;
+  readonly selected: Option.Option<typeof Cell.Cell.Type>;
+  readonly onPick: (cell: typeof Cell.Cell.Type) => void;
   readonly onClose: () => void;
 }) => (
   <aside className="side-panel">

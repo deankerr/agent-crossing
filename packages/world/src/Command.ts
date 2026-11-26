@@ -1,11 +1,16 @@
 import * as Components from "@agent-crossing/definitions/Components";
 import * as Level from "@agent-crossing/definitions/Level";
 import * as Prefabs from "@agent-crossing/definitions/Prefabs";
+import * as Result from "effect/Result";
 import * as Schema from "effect/Schema";
 
-import { Cell, COORDINATE_LIMIT } from "../schema/cell.ts";
-import { EntityId, prefabComponents } from "../state/entity.ts";
-import { Region, REGION_MAX_AREA } from "./region.ts";
+import * as Cell from "./Cell.ts";
+import * as Entity from "./Entity.ts";
+import type * as Event from "./Event.ts";
+import * as Decide from "./internal/decide.ts";
+import type * as Refusal from "./Refusal.ts";
+import * as Region from "./Region.ts";
+import type * as World from "./World.ts";
 
 export const GENERATE_MIN_SIZE = 8;
 export const GENERATE_MAX_SIZE = 256;
@@ -15,7 +20,8 @@ const prefabIn = (layer: typeof Components.Layer.Type) =>
   Prefabs.Name.check(
     Schema.makeFilter(
       (name) =>
-        prefabComponents(name).layer === layer || `must name a ${layer} prefab`
+        Entity.prefabComponents(name).layer === layer ||
+        `must name a ${layer} prefab`
     )
   );
 
@@ -31,7 +37,7 @@ export const LiquidName = prefabIn("liquid");
  * Cells without a floor join the world only when a floor is given.
  */
 export const Paint = Schema.TaggedStruct("Paint", {
-  region: Region,
+  region: Region.Region,
   floor: Schema.optionalKey(FloorName),
   level: Schema.optionalKey(Level.Level),
 }).check(
@@ -49,17 +55,17 @@ export const Paint = Schema.TaggedStruct("Paint", {
  * when given. Floors already at the lowest level are skipped.
  */
 export const Pour = Schema.TaggedStruct("Pour", {
-  region: Region,
+  region: Region.Region,
   liquid: LiquidName,
   bed: Schema.optionalKey(FloorName),
 });
 
 /** Removes every entity in a region, floors included. */
-export const Erase = Schema.TaggedStruct("Erase", { region: Region });
+export const Erase = Schema.TaggedStruct("Erase", { region: Region.Region });
 
 export const Spawn = Schema.TaggedStruct("Spawn", {
   prefab: Prefabs.Name,
-  cell: Cell,
+  cell: Cell.Cell,
   components: Schema.optionalKey(Components.Components),
 });
 
@@ -71,23 +77,26 @@ export const Scatter = Schema.TaggedStruct("Scatter", {
   prefabs: Schema.NonEmptyArray(Prefabs.Name).check(
     Schema.isMaxLength(SCATTER_MAX_PREFABS)
   ),
-  region: Region,
+  region: Region.Region,
   density: Schema.Finite.check(Schema.isBetween({ maximum: 1, minimum: 0 })),
   seed: Schema.Int,
   components: Schema.optionalKey(Components.Components),
 });
 
-export const Move = Schema.TaggedStruct("Move", { entity: EntityId, to: Cell });
+export const Move = Schema.TaggedStruct("Move", {
+  entity: Entity.Id,
+  to: Cell.Cell,
+});
 
 /** Replaces an entity's own components; its prefab's still apply beneath. */
 export const Change = Schema.TaggedStruct("Change", {
-  entity: EntityId,
+  entity: Entity.Id,
   components: Components.Components,
 });
 
 export const Remove = Schema.TaggedStruct("Remove", {
-  entities: Schema.NonEmptyArray(EntityId).check(
-    Schema.isMaxLength(REGION_MAX_AREA)
+  entities: Schema.NonEmptyArray(Entity.Id).check(
+    Schema.isMaxLength(Region.MAX_AREA)
   ),
 });
 
@@ -96,7 +105,7 @@ export const Remove = Schema.TaggedStruct("Remove", {
  * entity there but the floors and liquids.
  */
 export const RemoveIn = Schema.TaggedStruct("RemoveIn", {
-  region: Region,
+  region: Region.Region,
   prefab: Schema.optionalKey(Prefabs.Name),
 });
 
@@ -112,12 +121,12 @@ export const Generate = Schema.TaggedStruct("Generate", {
   seed: Schema.Int,
   width: size,
   height: size,
-  origin: Cell,
+  origin: Cell.Cell,
 }).check(
   Schema.makeFilter(
     ({ height, origin, width }) =>
-      (origin.x + width - 1 <= COORDINATE_LIMIT &&
-        origin.y + height - 1 <= COORDINATE_LIMIT) ||
+      (origin.x + width - 1 <= Cell.LIMIT &&
+        origin.y + height - 1 <= Cell.LIMIT) ||
       "the landscape must fit inside the coordinate range"
   )
 );
@@ -135,3 +144,42 @@ export const Command = Schema.Union([
   RemoveIn,
   Generate,
 ]).pipe(Schema.toTaggedUnion("_tag"));
+
+/**
+ * Decides what a command does to the world: the events to record, or
+ * why nothing happens. Every event of one decision happens at `now`.
+ */
+export const decide = (
+  world: World.World,
+  command: typeof Command.Type,
+  now: typeof Event.Timestamp.Type
+) => {
+  const edit: Decide.Edit = { at: now };
+
+  const decided: Result.Result<Decide.Outcome, typeof Refusal.Refusal.Type> =
+    Command.match(command, {
+      Change: ({ components, entity }) =>
+        Decide.change(world, edit, entity, components),
+      Erase: ({ region }) => Result.succeed(Decide.erase(world, region)),
+      Generate: (generating) =>
+        Result.succeed(Decide.generate(world, edit, generating)),
+      Move: ({ entity, to }) => Decide.move(world, edit, entity, to),
+      Paint: ({ floor, level, region }) =>
+        Result.succeed(Decide.paint(world, edit, region, floor, level)),
+      Pour: (pouring) => Result.succeed(Decide.pour(world, edit, pouring)),
+      Remove: ({ entities }) => Decide.remove(world, entities),
+      RemoveIn: ({ prefab, region }) =>
+        Result.succeed(Decide.removeIn(world, region, prefab)),
+      Scatter: (scattering) =>
+        Result.succeed(Decide.scatter(world, edit, scattering)),
+      Spawn: ({ cell, components, prefab }) =>
+        Decide.spawn(world, edit, prefab, cell, components ?? {}),
+    });
+
+  const decision: Result.Result<
+    readonly (typeof Event.Event.Type)[],
+    typeof Refusal.Refusal.Type
+  > = Result.map(decided, (done) => Decide.settled(world, edit, done));
+
+  return decision;
+};

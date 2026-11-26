@@ -1,8 +1,7 @@
 import * as Prefabs from "@agent-crossing/definitions/Prefabs";
-import { habitatOf } from "@agent-crossing/world/rules/placement";
-import type { Rejection } from "@agent-crossing/world/rules/rejection";
-import { formatCell } from "@agent-crossing/world/schema/cell";
-import { nounOf } from "@agent-crossing/world/state/entity";
+import * as Cell from "@agent-crossing/world/Cell";
+import * as Entity from "@agent-crossing/world/Entity";
+import type * as Refusal from "@agent-crossing/world/Refusal";
 import * as Arr from "effect/Array";
 import * as Match from "effect/Match";
 
@@ -27,22 +26,22 @@ const waterDwellers = namesWhere(
   (components) =>
     components.layer !== "floor" &&
     components.layer !== "liquid" &&
-    habitatOf(components).includes("water")
+    Entity.habitat(components).includes("water")
 );
 
 /** Why a command did nothing, and what would work instead. */
-export const rejectionText = (rejection: typeof Rejection.Type) =>
-  Match.value(rejection).pipe(
+export const refusalText = (refusal: typeof Refusal.Refusal.Type) =>
+  Match.value(refusal).pipe(
     Match.tagsExhaustive({
       LayerTaken: ({ cell, layer, occupant }) =>
-        `The ${layer} layer of cell ${formatCell(cell)} is taken by ${occupant.id}, ${article(nounOf(occupant))} (${occupant.prefab}). Each cell holds at most one entity per layer (floor, liquid, cover or object). Choose another cell, or move or remove ${occupant.id} first; to change a floor, use paint_floor. Entities with no layer (${listed(unlayered)}) may share any cell.`,
+        `The ${layer} layer of cell ${Cell.format(cell)} is taken by ${occupant.id}, ${article(Entity.nounOf(occupant))} (${occupant.prefab}). Each cell holds at most one entity per layer (floor, liquid, cover or object). Choose another cell, or move or remove ${occupant.id} first; to change a floor, use paint_floor. Entities with no layer (${listed(unlayered)}) may share any cell.`,
       NoFloor: ({ cell }) =>
-        `Cell ${formatCell(cell)} has no floor, so it is outside the world. Choose a cell inside the world (world_summary gives its extent), or lay a floor there first with paint_floor.`,
+        `Cell ${Cell.format(cell)} has no floor, so it is outside the world. Choose a cell inside the world (world_summary gives its extent), or lay a floor there first with paint_floor.`,
       UnknownEntity: ({ entity }) =>
         `There is no entity ${entity}: it may have been removed. find_entities and inspect_cell list the ids of what is there.`,
       UnsuitablePlace: ({ cell, habitat, place }) =>
         place === "water"
-          ? `Cell ${formatCell(cell)} is water, and that entity's habitat is ${Arr.join(habitat, " and ")}. Only entities whose habitat includes water (${listed(waterDwellers)}) may be in water. Choose land, or remove the liquid (${listed(liquids)}) there first with remove_entities and a prefab.`
-          : `Cell ${formatCell(cell)} is land, and that entity's habitat is ${Arr.join(habitat, " and ")}. Choose a water cell, or pour a liquid there first with pour_liquid.`,
+          ? `Cell ${Cell.format(cell)} is water, and that entity's habitat is ${Arr.join(habitat, " and ")}. Only entities whose habitat includes water (${listed(waterDwellers)}) may be in water. Choose land, or remove the liquid (${listed(liquids)}) there first with remove_entities and a prefab.`
+          : `Cell ${Cell.format(cell)} is land, and that entity's habitat is ${Arr.join(habitat, " and ")}. Choose a water cell, or pour a liquid there first with pour_liquid.`,
     })
   );

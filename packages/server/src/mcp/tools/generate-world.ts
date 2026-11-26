@@ -1,7 +1,4 @@
-import {
-  GENERATE_MAX_SIZE,
-  GENERATE_MIN_SIZE,
-} from "@agent-crossing/world/editing/command";
+import * as Command from "@agent-crossing/world/Command";
 import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
 
@@ -11,10 +8,10 @@ import { editTool } from "../tool.ts";
 
 const GenerateInput = Schema.Struct({
   width: Schema.Int.annotate({
-    description: `Width in cells, ${GENERATE_MIN_SIZE} to ${GENERATE_MAX_SIZE}.`,
+    description: `Width in cells, ${Command.GENERATE_MIN_SIZE} to ${Command.GENERATE_MAX_SIZE}.`,
   }),
   height: Schema.Int.annotate({
-    description: `Height in cells, ${GENERATE_MIN_SIZE} to ${GENERATE_MAX_SIZE}.`,
+    description: `Height in cells, ${Command.GENERATE_MIN_SIZE} to ${Command.GENERATE_MAX_SIZE}.`,
   }),
   x: Schema.optionalKey(
     X.annotate({ description: "x of the north-west corner; default 0." })

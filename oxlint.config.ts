@@ -38,12 +38,19 @@ const effectPromiseBoundaries = {
   "typescript/promise-function-async": "off",
 } satisfies Rules;
 
+const noInternals = {
+  message:
+    "Only the modules a package lists in its exports are public; internal/ is for the package itself.",
+  regex: "^@agent-crossing/[^/]+/internal/",
+};
+
 const importsPointOneWay = (doors: readonly string[], message: string) =>
   ({
     "no-restricted-imports": [
       "error",
       {
         patterns: [
+          noInternals,
           {
             message,
             regex: `^(\\.\\./)+(${Arr.join(doors, "|")})/|^(\\.\\./)+api(\\.ts)?$`,
@@ -70,6 +77,12 @@ export default defineConfig({
       rules: react.rules,
     },
     {
+      files: ["packages/server/**", "packages/web/**"],
+      rules: {
+        "no-restricted-imports": ["error", { patterns: [noInternals] }],
+      },
+    },
+    {
       files: ["packages/server/src/world-object/**"],
       rules: importsPointOneWay(
         ["mcp", "stream"],
@@ -91,7 +104,7 @@ export default defineConfig({
       ),
     },
     {
-      files: ["packages/definitions/src/*.ts"],
+      files: ["packages/definitions/src/*.ts", "packages/world/src/*.ts"],
       rules: { "unicorn/filename-case": ["error", { case: "pascalCase" }] },
     },
     {

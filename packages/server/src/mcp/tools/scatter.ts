@@ -1,4 +1,4 @@
-import { SCATTER_MAX_PREFABS } from "@agent-crossing/world/editing/command";
+import * as Command from "@agent-crossing/world/Command";
 import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
 
@@ -15,7 +15,7 @@ import { editTool } from "../tool.ts";
 
 const ScatterInput = Schema.Struct({
   prefabs: Schema.NonEmptyArray(Prefab).annotate({
-    description: `1 to ${SCATTER_MAX_PREFABS} prefabs, chosen at random for each placement.`,
+    description: `1 to ${Command.SCATTER_MAX_PREFABS} prefabs, chosen at random for each placement.`,
   }),
   region: RegionInput,
   density: Schema.Finite.annotate({

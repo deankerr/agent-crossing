@@ -1,4 +1,4 @@
-import type { World } from "@agent-crossing/world/state/world";
+import type * as World from "@agent-crossing/world/World";
 import * as Arr from "effect/Array";
 import * as Option from "effect/Option";
 import { useMemo } from "react";
@@ -77,7 +77,7 @@ const ModelInstances = ({ group }: { readonly group: ModelGroup }) => {
  * painted model and material rather than one component per entity. Rebuilt
  * only when the entities change.
  */
-export const Entities = ({ world }: { readonly world: World }) => {
+export const Entities = ({ world }: { readonly world: World.World }) => {
   const { entities } = world;
   const groups = useMemo(() => entityInstances({ entities }), [entities]);
 

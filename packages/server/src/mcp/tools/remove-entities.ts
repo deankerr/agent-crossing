@@ -1,5 +1,5 @@
 import * as Prefabs from "@agent-crossing/definitions/Prefabs";
-import { EntityId } from "@agent-crossing/world/state/entity";
+import * as Entity from "@agent-crossing/world/Entity";
 import * as Effect from "effect/Effect";
 import * as Result from "effect/Result";
 import * as Schema from "effect/Schema";
@@ -10,7 +10,7 @@ import { editTool } from "../tool.ts";
 
 const RemoveInput = Schema.Struct({
   ids: Schema.optionalKey(
-    Schema.NonEmptyArray(EntityId).annotate({
+    Schema.NonEmptyArray(Entity.Id).annotate({
       description: 'The ids of the entities to remove, like ["e3", "e7"].',
     })
   ),

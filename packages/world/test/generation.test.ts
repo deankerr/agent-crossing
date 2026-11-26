@@ -1,12 +1,12 @@
 import { describe, expect, it } from "@effect/vitest";
 import * as Option from "effect/Option";
 
+import * as Cell from "../src/Cell.ts";
 import { generateLandscape } from "../src/generation/landscape.ts";
-import { cellAt } from "../src/schema/cell.ts";
 
 const spec = (seed: number) => ({
   height: 40,
-  origin: Option.getOrThrow(cellAt(-5, 3)),
+  origin: Option.getOrThrow(Cell.at(-5, 3)),
   seed,
   width: 48,
 });

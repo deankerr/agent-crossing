@@ -1,14 +1,6 @@
-import { formatCell } from "@agent-crossing/world/schema/cell";
-import type { Cell } from "@agent-crossing/world/schema/cell";
-import { componentsOf, nounOf } from "@agent-crossing/world/state/entity";
-import {
-  entitiesAt,
-  floorAt,
-  isFloor,
-  isLiquid,
-  liquidAt,
-} from "@agent-crossing/world/state/world";
-import type { World } from "@agent-crossing/world/state/world";
+import * as Cell from "@agent-crossing/world/Cell";
+import * as Entity from "@agent-crossing/world/Entity";
+import * as World from "@agent-crossing/world/World";
 import { Edges } from "@react-three/drei";
 import * as Arr from "effect/Array";
 import { constVoid } from "effect/Function";
@@ -52,20 +44,20 @@ const tones: Readonly<
   },
 };
 
-const cellLabel = (world: World, cell: typeof Cell.Type) => {
+const cellLabel = (world: World.World, cell: typeof Cell.Cell.Type) => {
   const entities = Arr.filter(
-    entitiesAt(world, cell),
-    (entity) => !isFloor(entity) && !isLiquid(entity)
+    World.entitiesAt(world, cell),
+    (entity) => !Entity.isFloor(entity) && !Entity.isLiquid(entity)
   );
 
   return {
     noun: Arr.join(
       [
-        Option.match(floorAt(world, cell), {
+        Option.match(World.floorAt(world, cell), {
           onNone: () => "no floor",
-          onSome: nounOf,
+          onSome: Entity.nounOf,
         }),
-        ...Arr.map(Arr.fromOption(liquidAt(world, cell)), nounOf),
+        ...Arr.map(Arr.fromOption(World.liquidAt(world, cell)), Entity.nounOf),
       ],
       " · "
     ),
@@ -81,7 +73,7 @@ const cellLabel = (world: World, cell: typeof Cell.Type) => {
     ),
     writing: Arr.getSomes(
       Arr.map(entities, (entity) =>
-        Option.fromNullishOr(componentsOf(entity).text)
+        Option.fromNullishOr(Entity.components(entity).text)
       )
     ),
   };
@@ -93,9 +85,9 @@ export const CellMarker = ({
   tone,
   world,
 }: {
-  readonly cell: typeof Cell.Type;
+  readonly cell: typeof Cell.Cell.Type;
   readonly tone: MarkerTone;
-  readonly world: World;
+  readonly world: World.World;
 }) => {
   const label = cellLabel(world, cell);
   const { edge, fill } = tones[tone];
@@ -124,7 +116,7 @@ export const CellMarker = ({
           ))}
           {tone === "hover" ? (
             <span className="cell-chip">
-              {formatCell(cell)} · {label.noun}
+              {Cell.format(cell)} · {label.noun}
             </span>
           ) : null}
         </div>

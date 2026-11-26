@@ -5,16 +5,11 @@ import * as Option from "effect/Option";
 import * as Order from "effect/Order";
 import * as Str from "effect/String";
 
-import type { Rect } from "../editing/region.ts";
-import { cellAt } from "../schema/cell.ts";
-import type { Cell } from "../schema/cell.ts";
-import type { Area } from "../state/area.ts";
-import { componentsOf, labelOf, storedLevel } from "../state/entity.ts";
-import type { Entity } from "../state/entity.ts";
-import { spanOf } from "../state/span.ts";
-import type { Span } from "../state/span.ts";
-import { bounds, entitiesAt, floorAt, liquidAt } from "../state/world.ts";
-import type { World } from "../state/world.ts";
+import * as Cell from "../Cell.ts";
+import * as Entity from "../Entity.ts";
+import type * as Region from "../Region.ts";
+import * as Span from "../Span.ts";
+import * as World from "../World.ts";
 import { listed, spanText } from "./words.ts";
 
 const MAP_MAX_SIDE = 128;
@@ -29,9 +24,12 @@ const DRAWN_ORDER: readonly (typeof Components.Layer.Type | undefined)[] = [
   "floor",
 ];
 
-const shown = (entities: readonly (typeof Entity.Type)[]) =>
+const shown = (entities: readonly (typeof Entity.Entity.Type)[]) =>
   Arr.findFirst(DRAWN_ORDER, (layer) =>
-    Arr.findFirst(entities, (entity) => componentsOf(entity).layer === layer)
+    Arr.findFirst(
+      entities,
+      (entity) => Entity.components(entity).layer === layer
+    )
   );
 
 interface Drawn {
@@ -39,23 +37,23 @@ interface Drawn {
   readonly noun: string;
 }
 
-const drawnAt = (world: World, cell: typeof Cell.Type) =>
-  Option.map(floorAt(world, cell), (floor) =>
-    Option.match(shown(entitiesAt(world, cell)), {
-      onNone: () => labelOf(floor),
-      onSome: labelOf,
+const drawnAt = (world: World.World, cell: typeof Cell.Cell.Type) =>
+  Option.map(World.floorAt(world, cell), (floor) =>
+    Option.match(shown(World.entitiesAt(world, cell)), {
+      onNone: () => Entity.labelOf(floor),
+      onSome: Entity.labelOf,
     })
   );
 
-const levelAt = (world: World, cell: typeof Cell.Type) =>
-  Option.match(floorAt(world, cell), {
+const levelAt = (world: World.World, cell: typeof Cell.Cell.Type) =>
+  Option.match(World.floorAt(world, cell), {
     onNone: () => BLANK,
     onSome: (floor) => {
-      if (Option.isSome(liquidAt(world, cell))) {
+      if (Option.isSome(World.liquidAt(world, cell))) {
         return "~";
       }
 
-      const level = storedLevel(floor);
+      const level = Entity.level(floor);
 
       return level < 0 ? "_" : `${level}`;
     },
@@ -74,7 +72,7 @@ const placeLabel = (row: string[], column: number, label: string) => {
   }
 };
 
-const columnHeaders = (span: Span, margin: string) => {
+const columnHeaders = (span: Span.Span, margin: string) => {
   const xs = Arr.range(span.minX, span.maxX);
   const labels = Arr.makeBy(xs.length, () => BLANK);
 
@@ -94,14 +92,17 @@ const columnHeaders = (span: Span, margin: string) => {
   ];
 };
 
-const grid = (span: Span, characterAt: (cell: typeof Cell.Type) => string) => {
+const grid = (
+  span: Span.Span,
+  characterAt: (cell: typeof Cell.Cell.Type) => string
+) => {
   const width = Math.max(`${span.minY}`.length, `${span.maxY}`.length);
   const margin = Str.repeat(width + 1)(BLANK);
 
   const rows = Arr.map(Arr.range(span.minY, span.maxY), (y) => {
     const line = Arr.join(
       Arr.map(Arr.range(span.minX, span.maxX), (x) =>
-        Option.match(cellAt(x, y), {
+        Option.match(Cell.at(x, y), {
           onNone: () => BLANK,
           onSome: characterAt,
         })
@@ -151,7 +152,7 @@ const legendOf = (drawn: readonly Drawn[]) => {
  * The glyph map of the span, the level map of the same cells and a legend of
  * the glyphs that appear.
  */
-export const renderMap = (world: World, span: Span) => {
+export const renderMap = (world: World.World, span: Span.Span) => {
   const drawn: Drawn[] = [];
 
   const glyphs = grid(span, (cell) =>
@@ -181,16 +182,19 @@ export const renderMap = (world: World, span: Span) => {
 export const AXES =
   "x grows east (right) and y grows south (down). The first header row labels x every 10 columns, the second gives the last digit of each column's x, and each row starts with its y. One character per cell; blank cells are outside the world.";
 
-const clamped = (span: Span) =>
+const clamped = (span: Span.Span) =>
   ({
     maxX: Math.min(span.maxX, span.minX + MAP_MAX_SIDE - 1),
     maxY: Math.min(span.maxY, span.minY + MAP_MAX_SIDE - 1),
     minX: span.minX,
     minY: span.minY,
-  }) satisfies Span;
+  }) satisfies Span.Span;
 
-const mapText = (world: World, rect: Pick<typeof Rect.Type, "from" | "to">) => {
-  const asked = spanOf(rect.from, rect.to);
+const mapText = (
+  world: World.World,
+  rect: Pick<typeof Region.Rect.Type, "from" | "to">
+) => {
+  const asked = Span.of(rect.from, rect.to);
   const span = clamped(asked);
 
   const cut =
@@ -210,13 +214,16 @@ const mapText = (world: World, rect: Pick<typeof Rect.Type, "from" | "to">) => {
  * A map of the area, or of the whole world when none is given; none when
  * no area is given and no cell has a floor.
  */
-export const mapIfAny = (world: World, area: Option.Option<typeof Area.Type>) =>
+export const mapIfAny = (
+  world: World.World,
+  area: Option.Option<typeof Span.Area.Type>
+) =>
   Option.map(
     Option.orElse(area, () =>
-      Option.flatMap(bounds(world), (span) =>
+      Option.flatMap(World.bounds(world), (span) =>
         Option.all({
-          from: cellAt(span.minX, span.minY),
-          to: cellAt(span.maxX, span.maxY),
+          from: Cell.at(span.minX, span.minY),
+          to: Cell.at(span.maxX, span.maxY),
         })
       )
     ),

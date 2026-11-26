@@ -4,19 +4,20 @@ import * as HashMap from "effect/HashMap";
 import * as HashSet from "effect/HashSet";
 import * as Option from "effect/Option";
 import * as Order from "effect/Order";
+import * as Schema from "effect/Schema";
 
-import { cellKey } from "../schema/cell.ts";
-import type { Cell, CellKey } from "../schema/cell.ts";
-import { Change } from "./change.ts";
-import { componentsOf, entitySerial } from "./entity.ts";
-import type { Entity, EntityId } from "./entity.ts";
-import type { Span } from "./span.ts";
+import * as Cell from "./Cell.ts";
+import * as Change from "./Change.ts";
+import * as Entity from "./Entity.ts";
+import type * as Span from "./Span.ts";
 
-type Id = typeof EntityId.Type;
+type Id = typeof Entity.Id.Type;
 
-type Key = typeof CellKey.Type;
+type Key = typeof Cell.Key.Type;
 
-type At = typeof Cell.Type;
+type At = typeof Cell.Cell.Type;
+
+type Present = typeof Entity.Entity.Type;
 
 /**
  * The world in memory: its entities and how many were ever spawned.
@@ -24,13 +25,13 @@ type At = typeof Cell.Type;
  * {@link apply}.
  */
 export interface World {
-  readonly entities: HashMap.HashMap<Id, typeof Entity.Type>;
+  readonly entities: HashMap.HashMap<Id, Present>;
   readonly entitiesByCell: HashMap.HashMap<Key, HashSet.HashSet<Id>>;
   /** How many entities were ever spawned; the next id is one more. */
   readonly spawned: number;
 }
 
-export const emptyWorld: World = {
+export const empty: World = {
   entities: HashMap.empty(),
   entitiesByCell: HashMap.empty(),
   spawned: 0,
@@ -61,25 +62,25 @@ const withIndexed = (index: World["entitiesByCell"], key: Key, id: Id) =>
 const unindexed = (world: World, id: Id) =>
   Option.match(HashMap.get(world.entities, id), {
     onNone: () => world.entitiesByCell,
-    onSome: (entity) =>
-      withoutIndexed(world.entitiesByCell, cellKey(entity.cell), id),
+    onSome: (present) =>
+      withoutIndexed(world.entitiesByCell, Cell.key(present.cell), id),
   });
 
 /** The only function that modifies a world. */
-export const apply = (world: World, change: typeof Change.Type) => {
-  const next: World = Change.match(change, {
+export const apply = (world: World, change: typeof Change.Change.Type) => {
+  const next: World = Change.Change.match(change, {
     EntityDropped: ({ id }) => ({
       ...world,
       entities: HashMap.remove(world.entities, id),
       entitiesByCell: unindexed(world, id),
     }),
-    EntityPut: ({ entity }) => ({
+    EntityPut: ({ entity: put }) => ({
       ...world,
-      entities: HashMap.set(world.entities, entity.id, entity),
+      entities: HashMap.set(world.entities, put.id, put),
       entitiesByCell: withIndexed(
-        unindexed(world, entity.id),
-        cellKey(entity.cell),
-        entity.id
+        unindexed(world, put.id),
+        Cell.key(put.cell),
+        put.id
       ),
     }),
     SpawnCounted: ({ spawned }) => ({
@@ -91,33 +92,32 @@ export const apply = (world: World, change: typeof Change.Type) => {
   return next;
 };
 
-export const applyAll = (world: World, changes: Iterable<typeof Change.Type>) =>
-  Arr.reduce(Arr.fromIterable(changes), world, apply);
+export const applyAll = (
+  world: World,
+  changes: Iterable<typeof Change.Change.Type>
+) => Arr.reduce(Arr.fromIterable(changes), world, apply);
 
 /** Rebuilds the cell index from the entities alone. */
-export const indexEntities = (entities: World["entities"]) =>
+export const indexEntities = (all: World["entities"]) =>
   HashMap.reduce(
-    entities,
+    all,
     HashMap.empty<Key, HashSet.HashSet<Id>>(),
-    (index, entity) => withIndexed(index, cellKey(entity.cell), entity.id)
+    (index, present) => withIndexed(index, Cell.key(present.cell), present.id)
   );
 
-export const entityOf = (world: World, id: Id) =>
-  HashMap.get(world.entities, id);
+export const entity = (world: World, id: Id) => HashMap.get(world.entities, id);
 
-const bySerial = Order.mapInput(Order.Number, (entity: typeof Entity.Type) =>
-  entitySerial(entity.id)
+const bySerial = Order.mapInput(Order.Number, (present: Present) =>
+  Entity.serial(present.id)
 );
 
 /** The entities in a cell, oldest first. */
 export const entitiesAt = (world: World, cell: At) =>
-  Option.match(HashMap.get(world.entitiesByCell, cellKey(cell)), {
-    onNone: () => Arr.empty<typeof Entity.Type>(),
+  Option.match(HashMap.get(world.entitiesByCell, Cell.key(cell)), {
+    onNone: () => Arr.empty<Present>(),
     onSome: (ids) =>
       Arr.sort(
-        Arr.getSomes(
-          Arr.map(Arr.fromIterable(ids), (id) => entityOf(world, id))
-        ),
+        Arr.getSomes(Arr.map(Arr.fromIterable(ids), (id) => entity(world, id))),
         bySerial
       ),
   });
@@ -129,7 +129,7 @@ const occupantOf = (
 ) =>
   Arr.findFirst(
     entitiesAt(world, cell),
-    (entity) => componentsOf(entity).layer === layer
+    (present) => Entity.components(present).layer === layer
   );
 
 export const floorAt = (world: World, cell: At) =>
@@ -151,16 +151,10 @@ export const placeAt = (world: World, cell: At) =>
   });
 
 /** Every entity, oldest first. */
-export const allEntities = (world: World) =>
+export const entities = (world: World) =>
   Arr.sort(Arr.fromIterable(HashMap.values(world.entities)), bySerial);
 
-export const isFloor = (entity: typeof Entity.Type) =>
-  componentsOf(entity).layer === "floor";
-
-export const isLiquid = (entity: typeof Entity.Type) =>
-  componentsOf(entity).layer === "liquid";
-
-const allFloors = (world: World) => Arr.filter(allEntities(world), isFloor);
+const allFloors = (world: World) => Arr.filter(entities(world), Entity.isFloor);
 
 /** How many cells are in the world. */
 export const cellCount = (world: World) => allFloors(world).length;
@@ -169,7 +163,7 @@ export const entityCount = (world: World) => HashMap.size(world.entities);
 
 /** The smallest span holding every floor, or none for an empty world. */
 export const bounds = (world: World) =>
-  Arr.reduce(allFloors(world), Option.none<Span>(), (span, { cell }) =>
+  Arr.reduce(allFloors(world), Option.none<Span.Span>(), (span, { cell }) =>
     Option.some(
       Option.match(span, {
         onNone: () => ({
@@ -196,13 +190,13 @@ export interface Count {
 
 /** How many entities share each key, most first, then by key. */
 export const countsBy = (
-  entities: Iterable<typeof Entity.Type>,
-  keyOf: (entity: typeof Entity.Type) => string
+  counted: Iterable<Present>,
+  keyOf: (present: Present) => string
 ) => {
   const counts = new Map<string, number>();
 
-  for (const entity of entities) {
-    const key = keyOf(entity);
+  for (const present of counted) {
+    const key = keyOf(present);
     counts.set(key, (counts.get(key) ?? 0) + 1);
   }
 
@@ -216,15 +210,44 @@ export const countsBy = (
 };
 
 const oldCell = (world: World, id: Id) =>
-  Arr.fromOption(Option.map(entityOf(world, id), (entity) => entity.cell));
+  Arr.fromOption(Option.map(entity(world, id), (present) => present.cell));
 
 /** The cells a change touches, given the world it applies to: where entities were and where they are now. */
-export const touchedBy = (world: World, change: typeof Change.Type) => {
-  const cells: readonly (typeof Cell.Type)[] = Change.match(change, {
+export const touchedBy = (world: World, change: typeof Change.Change.Type) => {
+  const cells: readonly At[] = Change.Change.match(change, {
     EntityDropped: ({ id }) => oldCell(world, id),
-    EntityPut: ({ entity }) => [entity.cell, ...oldCell(world, entity.id)],
+    EntityPut: ({ entity: put }) => [put.cell, ...oldCell(world, put.id)],
     SpawnCounted: () => [],
   });
 
   return cells;
 };
+
+/** The whole world as JSON-ready data. */
+export const Snapshot = Schema.Struct({
+  entities: Schema.Array(Entity.Entity),
+  spawned: Schema.Int.check(Schema.isGreaterThanOrEqualTo(0)),
+});
+
+const toSnapshot = (world: World) =>
+  ({
+    entities: entities(world),
+    spawned: world.spawned,
+  }) satisfies typeof Snapshot.Type;
+
+const snapshotChanges = (snapshot: typeof Snapshot.Type) => {
+  const changes: readonly (typeof Change.Change.Type)[] = [
+    ...Arr.map(snapshot.entities, (present) =>
+      Change.Change.cases.EntityPut.make({ entity: present })
+    ),
+    Change.Change.cases.SpawnCounted.make({ spawned: snapshot.spawned }),
+  ];
+
+  return changes;
+};
+
+/** The changes that rebuild `world` from the empty world: entities oldest first, then the spawn count. */
+export const changesFor = (world: World) => snapshotChanges(toSnapshot(world));
+
+export const fromSnapshot = (snapshot: typeof Snapshot.Type) =>
+  applyAll(empty, snapshotChanges(snapshot));

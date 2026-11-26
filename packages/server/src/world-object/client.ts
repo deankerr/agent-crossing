@@ -1,8 +1,8 @@
 import * as Prefabs from "@agent-crossing/definitions/Prefabs";
-import { Command } from "@agent-crossing/world/editing/command";
-import { Region } from "@agent-crossing/world/editing/region";
-import { Cell } from "@agent-crossing/world/schema/cell";
-import { Area } from "@agent-crossing/world/state/area";
+import * as Cell from "@agent-crossing/world/Cell";
+import * as Command from "@agent-crossing/world/Command";
+import * as Region from "@agent-crossing/world/Region";
+import * as Span from "@agent-crossing/world/Span";
 import * as Context from "effect/Context";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
@@ -21,10 +21,10 @@ const decodeMaybeText = Schema.decodeUnknownEffect(
   Schema.NullOr(Schema.String)
 );
 
-const encodeCommand = Schema.encodeEffect(Command);
-const encodeCell = Schema.encodeEffect(Cell);
-const encodeArea = Schema.encodeEffect(Schema.NullOr(Area));
-const encodeRegion = Schema.encodeEffect(Schema.NullOr(Region));
+const encodeCommand = Schema.encodeEffect(Command.Command);
+const encodeCell = Schema.encodeEffect(Cell.Cell);
+const encodeArea = Schema.encodeEffect(Schema.NullOr(Span.Area));
+const encodeRegion = Schema.encodeEffect(Schema.NullOr(Region.Region));
 const encodePrefab = Schema.encodeEffect(Schema.NullOr(Prefabs.Name));
 
 /** The World object as typed calls: decoded values in and out, for the one world every caller shares. */
@@ -32,16 +32,16 @@ export class WorldClient extends Context.Service<
   WorldClient,
   {
     readonly act: (
-      command: typeof Command.Type
+      command: typeof Command.Command.Type
     ) => Effect.Effect<typeof Verdict.Type>;
     readonly summary: Effect.Effect<string>;
     /** The map of the area, or of the whole world; none when no area is given and the world is empty. */
     readonly map: (
-      area: Option.Option<typeof Area.Type>
+      area: Option.Option<typeof Span.Area.Type>
     ) => Effect.Effect<Option.Option<string>>;
-    readonly inspect: (cell: typeof Cell.Type) => Effect.Effect<string>;
+    readonly inspect: (cell: typeof Cell.Cell.Type) => Effect.Effect<string>;
     readonly find: (
-      region: Option.Option<typeof Region.Type>,
+      region: Option.Option<typeof Region.Region.Type>,
       prefab: Option.Option<typeof Prefabs.Name.Type>,
       limit: number
     ) => Effect.Effect<string>;

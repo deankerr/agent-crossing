@@ -1,16 +1,8 @@
 import * as Components from "@agent-crossing/definitions/Components";
 import * as Prefabs from "@agent-crossing/definitions/Prefabs";
-import {
-  Command,
-  FloorName,
-  LiquidName,
-} from "@agent-crossing/world/editing/command";
-import {
-  DISC_MAX_RADIUS,
-  Region,
-  REGION_MAX_AREA,
-} from "@agent-crossing/world/editing/region";
-import { cellAt, COORDINATE_LIMIT } from "@agent-crossing/world/schema/cell";
+import * as Cell from "@agent-crossing/world/Cell";
+import * as Command from "@agent-crossing/world/Command";
+import * as Region from "@agent-crossing/world/Region";
 import * as Arr from "effect/Array";
 import * as Effect from "effect/Effect";
 import * as Match from "effect/Match";
@@ -39,7 +31,7 @@ export const RegionInput = Schema.Union([
     x: X,
     y: Y,
     radius: Schema.Int.annotate({
-      description: `Cells within this straight-line distance of the center, 0 to ${DISC_MAX_RADIUS}.`,
+      description: `Cells within this straight-line distance of the center, 0 to ${Region.DISC_MAX_RADIUS}.`,
     }),
   }),
   Schema.Struct({
@@ -49,7 +41,7 @@ export const RegionInput = Schema.Union([
     }),
   }),
 ]).annotate({
-  description: `Which cells: {"type":"rect","x1":0,"y1":0,"x2":9,"y2":9}, {"type":"disc","x":5,"y":5,"radius":3} or {"type":"cells","cells":[{"x":1,"y":2}]}. At most ${REGION_MAX_AREA} cells.`,
+  description: `Which cells: {"type":"rect","x1":0,"y1":0,"x2":9,"y2":9}, {"type":"disc","x":5,"y":5,"radius":3} or {"type":"cells","cells":[{"x":1,"y":2}]}. At most ${Region.MAX_AREA} cells.`,
 });
 
 export const ComponentsInput = Components.Components.annotate({
@@ -61,11 +53,11 @@ export const Prefab = Prefabs.Name.annotate({
   description: "A prefab; list_prefabs describes them all.",
 });
 
-export const Floor = FloorName.annotate({
+export const Floor = Command.FloorName.annotate({
   description: "A floor prefab; list_prefabs describes them all.",
 });
 
-export const Liquid = LiquidName.annotate({
+export const Liquid = Command.LiquidName.annotate({
   description: "A liquid prefab; list_prefabs describes them all.",
 });
 
@@ -74,7 +66,7 @@ export const Seed = Schema.Int.annotate({
     "Seed for the random choices; the same seed gives the same result. Random when left out.",
 });
 
-/** A region input in the encoded form of a `Region`, still to be parsed. */
+/** A region input in the encoded form of a `Region.Region`, still to be parsed. */
 export const regionOf = (input: typeof RegionInput.Type) =>
   Match.value(input).pipe(
     Match.discriminatorsExhaustive("type")({
@@ -82,24 +74,24 @@ export const regionOf = (input: typeof RegionInput.Type) =>
         ({
           _tag: "Cells",
           cells: Arr.map(cells, ({ x, y }) => ({ x, y })),
-        }) satisfies typeof Region.Encoded,
+        }) satisfies typeof Region.Region.Encoded,
       disc: ({ radius, x, y }) =>
         ({
           _tag: "Disc",
           center: { x, y },
           radius,
-        }) satisfies typeof Region.Encoded,
+        }) satisfies typeof Region.Region.Encoded,
       rect: ({ x1, x2, y1, y2 }) =>
         ({
           _tag: "Rect",
           from: { x: x1, y: y1 },
           to: { x: x2, y: y2 },
-        }) satisfies typeof Region.Encoded,
+        }) satisfies typeof Region.Region.Encoded,
     })
   );
 
-const decodeCommand = Schema.decodeUnknownResult(Command);
-const decodeRegion = Schema.decodeUnknownResult(Region);
+const decodeCommand = Schema.decodeUnknownResult(Command.Command);
+const decodeRegion = Schema.decodeUnknownResult(Region.Region);
 
 /** Parses a region input, or says in words what was wrong with it. */
 export const parsedRegion = (input: typeof RegionInput.Type) =>
@@ -112,7 +104,7 @@ export const parsedRegion = (input: typeof RegionInput.Type) =>
  * Parses what a tool asked for into a command, or says in words what was
  * wrong with it.
  */
-export const parsedCommand = (encoded: typeof Command.Encoded) =>
+export const parsedCommand = (encoded: typeof Command.Command.Encoded) =>
   Result.mapError(
     decodeCommand(encoded),
     (issue) => `The edit is not valid: ${issue.message}`
@@ -120,10 +112,10 @@ export const parsedCommand = (encoded: typeof Command.Encoded) =>
 
 /** The cell at x, y, or a refusal when it is outside the coordinate range. */
 export const cellFor = (x: number, y: number) =>
-  Option.match(cellAt(x, y), {
+  Option.match(Cell.at(x, y), {
     onNone: () =>
       refused(
-        `The cell ${x},${y} is outside the coordinate range: x and y must be between -${COORDINATE_LIMIT} and ${COORDINATE_LIMIT}.`
+        `The cell ${x},${y} is outside the coordinate range: x and y must be between -${Cell.LIMIT} and ${Cell.LIMIT}.`
       ),
     onSome: (cell) => Effect.succeed(cell),
   });

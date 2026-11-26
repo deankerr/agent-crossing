@@ -4,7 +4,7 @@ import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 import * as Str from "effect/String";
 
-import { Seq, WorldEvent } from "../history/event.ts";
+import * as Event from "../Event.ts";
 import { eventText } from "./event.ts";
 
 /** {@link historyText} shows at most this many events. */
@@ -12,8 +12,8 @@ export const HISTORY_MAX_LIMIT = 200;
 export const HISTORY_DEFAULT_LIMIT = 20;
 
 const HistoryEntry = Schema.Struct({
-  seq: Seq,
-  event: WorldEvent,
+  seq: Event.Seq,
+  event: Event.Event,
 });
 
 const timeOf = (at: number) =>

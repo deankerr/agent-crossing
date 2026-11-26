@@ -1,4 +1,4 @@
-import { EntityId } from "@agent-crossing/world/state/entity";
+import * as Entity from "@agent-crossing/world/Entity";
 import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
 
@@ -7,7 +7,7 @@ import { ComponentsInput, parsedCommand } from "../inputs.ts";
 import { editTool } from "../tool.ts";
 
 const ChangeInput = Schema.Struct({
-  id: EntityId.annotate({ description: "The entity's id, like e12." }),
+  id: Entity.Id.annotate({ description: "The entity's id, like e12." }),
   components: ComponentsInput.annotate({
     description:
       'The entity\'s own components, replacing those it had; its prefab\'s still apply beneath. {} resets it to its prefab. Example: {"text":"Gone fishing","colors":{"board":"blue"}}.',

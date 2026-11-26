@@ -1,8 +1,6 @@
-import { sameCell } from "@agent-crossing/world/schema/cell";
-import type { Cell } from "@agent-crossing/world/schema/cell";
-import type { Span } from "@agent-crossing/world/state/span";
-import { bounds, emptyWorld } from "@agent-crossing/world/state/world";
-import type { World } from "@agent-crossing/world/state/world";
+import * as Cell from "@agent-crossing/world/Cell";
+import type * as Span from "@agent-crossing/world/Span";
+import * as World from "@agent-crossing/world/World";
 import { useCursor } from "@react-three/drei";
 import * as Option from "effect/Option";
 import { useLayoutEffect, useMemo, useRef, useState } from "react";
@@ -20,7 +18,7 @@ const SUN_DIRECTION = [-0.11, 0.88, 0.47] as const;
 const SHADOW_MARGIN = 4;
 const SHADOW_MAP = 2048;
 
-const Lights = ({ span }: { readonly span: Span }) => {
+const Lights = ({ span }: { readonly span: Span.Span }) => {
   const sun = useRef<DirectionalLight>(null);
   const target = useMemo(() => new Object3D(), []);
   const { x, z } = centerOf(span);
@@ -64,7 +62,7 @@ const Lights = ({ span }: { readonly span: Span }) => {
   );
 };
 
-const ORIGIN_SPAN: Span = { maxX: 0, maxY: 0, minX: 0, minY: 0 };
+const ORIGIN_SPAN: Span.Span = { maxX: 0, maxY: 0, minX: 0, minY: 0 };
 
 export const WorldScene = ({
   focus,
@@ -72,24 +70,24 @@ export const WorldScene = ({
   selected,
   world,
 }: {
-  readonly world: World;
+  readonly world: World.World;
   readonly focus: Option.Option<FocusRequest>;
-  readonly selected: Option.Option<typeof Cell.Type>;
-  readonly onSelect: (cell: typeof Cell.Type) => void;
+  readonly selected: Option.Option<typeof Cell.Cell.Type>;
+  readonly onSelect: (cell: typeof Cell.Cell.Type) => void;
 }) => {
-  const [hovered, setHovered] = useState(Option.none<typeof Cell.Type>());
+  const [hovered, setHovered] = useState(Option.none<typeof Cell.Cell.Type>());
   const { entities, entitiesByCell } = world;
 
   const span = useMemo(
-    () => bounds({ ...emptyWorld, entities, entitiesByCell }),
+    () => World.bounds({ ...World.empty, entities, entitiesByCell }),
     [entities, entitiesByCell]
   );
 
   useCursor(Option.isSome(hovered));
 
-  const hover = (cell: typeof Cell.Type) => {
+  const hover = (cell: typeof Cell.Cell.Type) => {
     setHovered((previous) =>
-      Option.exists(previous, (seen) => sameCell(seen, cell))
+      Option.exists(previous, (seen) => Cell.same(seen, cell))
         ? previous
         : Option.some(cell)
     );
@@ -97,7 +95,7 @@ export const WorldScene = ({
 
   const hoverOnly = Option.filter(
     hovered,
-    (cell) => !Option.exists(selected, (chosen) => sameCell(chosen, cell))
+    (cell) => !Option.exists(selected, (chosen) => Cell.same(chosen, cell))
   );
 
   return (

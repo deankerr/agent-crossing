@@ -3,20 +3,17 @@ import * as Arr from "effect/Array";
 import * as Option from "effect/Option";
 import * as Record from "effect/Record";
 
-import { cellsOf } from "../editing/region.ts";
-import type { Region } from "../editing/region.ts";
-import { cellKey, formatCell } from "../schema/cell.ts";
-import { nounOf } from "../state/entity.ts";
-import type { Entity } from "../state/entity.ts";
-import { allEntities, isFloor, isLiquid } from "../state/world.ts";
-import type { World } from "../state/world.ts";
+import * as Cell from "../Cell.ts";
+import * as Entity from "../Entity.ts";
+import * as Region from "../Region.ts";
+import * as World from "../World.ts";
 import { quoted } from "./words.ts";
 
 /** {@link findText} lists at most this many entities. */
 export const FIND_MAX_LIMIT = 500;
 export const FIND_DEFAULT_LIMIT = 100;
 
-type Present = typeof Entity.Type;
+type Present = typeof Entity.Entity.Type;
 
 const entityLine = (entity: Present) => {
   const { colors, level, text } = entity.components;
@@ -38,16 +35,16 @@ const entityLine = (entity: Present) => {
     (part) => part !== ""
   );
 
-  return `${entity.id} ${entity.prefab} (${nounOf(entity)}) at ${formatCell(entity.cell)}${own.length === 0 ? "" : `: ${Arr.join(own, ", ")}`}`;
+  return `${entity.id} ${entity.prefab} (${Entity.nounOf(entity)}) at ${Cell.format(entity.cell)}${own.length === 0 ? "" : `: ${Arr.join(own, ", ")}`}`;
 };
 
-const inRegion = (region: Option.Option<typeof Region.Type>) =>
+const inRegion = (region: Option.Option<typeof Region.Region.Type>) =>
   Option.match(region, {
     onNone: () => () => true,
     onSome: (chosen) => {
-      const keys = new Set<string>(Arr.map(cellsOf(chosen), cellKey));
+      const keys = new Set<string>(Arr.map(Region.cells(chosen), Cell.key));
 
-      return (entity: Present) => keys.has(cellKey(entity.cell));
+      return (entity: Present) => keys.has(Cell.key(entity.cell));
     },
   });
 
@@ -57,8 +54,8 @@ const inRegion = (region: Option.Option<typeof Region.Type>) =>
  * entity but the floors and liquids.
  */
 export const findText = (
-  world: World,
-  region: Option.Option<typeof Region.Type>,
+  world: World.World,
+  region: Option.Option<typeof Region.Region.Type>,
   prefab: Option.Option<typeof Prefabs.Name.Type>,
   limit: number
 ) => {
@@ -66,11 +63,11 @@ export const findText = (
   const isIn = inRegion(region);
 
   const found = Arr.filter(
-    allEntities(world),
+    World.entities(world),
     (entity) =>
       isIn(entity) &&
       Option.match(prefab, {
-        onNone: () => !isFloor(entity) && !isLiquid(entity),
+        onNone: () => !Entity.isFloor(entity) && !Entity.isLiquid(entity),
         onSome: (wanted) => wanted === entity.prefab,
       })
   );

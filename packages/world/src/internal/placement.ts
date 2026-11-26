@@ -3,27 +3,10 @@ import * as Arr from "effect/Array";
 import * as Option from "effect/Option";
 import * as Result from "effect/Result";
 
-import { cellKey } from "../schema/cell.ts";
-import type { Cell } from "../schema/cell.ts";
-import { componentsOf } from "../state/entity.ts";
-import type { Entity, EntityId } from "../state/entity.ts";
-import { entitiesAt } from "../state/world.ts";
-import type { World } from "../state/world.ts";
-import { LayerTaken, NoFloor, UnsuitablePlace } from "./rejection.ts";
-
-type Habitat = readonly [
-  typeof Components.Place.Type,
-  ...(typeof Components.Place.Type)[],
-];
-
-const LAND: Habitat = ["land"];
-
-/** Where an entity can be. One that names no habitat lives on land. */
-export const habitatOf = (components: typeof Components.Components.Type) => {
-  const habitat: Habitat = components.habitat ?? LAND;
-
-  return habitat;
-};
+import * as Cell from "../Cell.ts";
+import * as Entity from "../Entity.ts";
+import * as Refusal from "../Refusal.ts";
+import * as World from "../World.ts";
 
 /**
  * Whether an entity with these effective components may be in the cell.
@@ -33,25 +16,28 @@ export const habitatOf = (components: typeof Components.Components.Type) => {
  * anything but a liquid needs the place to be in its habitat.
  */
 export const ensurePlaceable = (
-  world: World,
-  cell: typeof Cell.Type,
+  world: World.World,
+  cell: typeof Cell.Cell.Type,
   components: typeof Components.Components.Type,
-  self: Option.Option<typeof EntityId.Type> = Option.none()
+  self: Option.Option<typeof Entity.Id.Type> = Option.none()
 ) =>
   Result.gen(function* () {
     const present = Arr.filter(
-      entitiesAt(world, cell),
+      World.entitiesAt(world, cell),
       (entity) => !Option.contains(self, entity.id)
     );
 
     const filling = (layer: typeof Components.Layer.Type) =>
-      Arr.findFirst(present, (entity) => componentsOf(entity).layer === layer);
+      Arr.findFirst(
+        present,
+        (entity) => Entity.components(entity).layer === layer
+      );
 
     const { layer } = components;
 
     if (layer !== "floor") {
       if (Option.isNone(filling("floor"))) {
-        return yield* Result.fail(new NoFloor({ cell }));
+        return yield* Result.fail(new Refusal.NoFloor({ cell }));
       }
 
       if (layer !== "liquid") {
@@ -61,11 +47,11 @@ export const ensurePlaceable = (
           ? "water"
           : "land";
 
-        const habitat = habitatOf(components);
+        const habitat = Entity.habitat(components);
 
         if (!habitat.includes(place)) {
           return yield* Result.fail(
-            new UnsuitablePlace({ cell, habitat, place })
+            new Refusal.UnsuitablePlace({ cell, habitat, place })
           );
         }
       }
@@ -79,32 +65,35 @@ export const ensurePlaceable = (
 
     if (Option.isSome(occupant)) {
       return yield* Result.fail(
-        new LayerTaken({ cell, layer, occupant: occupant.value })
+        new Refusal.LayerTaken({ cell, layer, occupant: occupant.value })
       );
     }
   });
 
-const fits = (world: World, entity: typeof Entity.Type) =>
+const fits = (world: World.World, entity: typeof Entity.Entity.Type) =>
   Result.isSuccess(
     ensurePlaceable(
       world,
       entity.cell,
-      componentsOf(entity),
+      Entity.components(entity),
       Option.some(entity.id)
     )
   );
 
 /** The entities in these cells that may no longer stay there. */
-export const misfitsIn = (world: World, cells: Iterable<typeof Cell.Type>) => {
-  const distinct = new Map<string, typeof Cell.Type>();
+export const misfitsIn = (
+  world: World.World,
+  cells: Iterable<typeof Cell.Cell.Type>
+) => {
+  const distinct = new Map<string, typeof Cell.Cell.Type>();
 
   for (const cell of cells) {
-    distinct.set(cellKey(cell), cell);
+    distinct.set(Cell.key(cell), cell);
   }
 
   return Arr.filter(
     Arr.flatMap(Arr.fromIterable(distinct.values()), (cell) =>
-      entitiesAt(world, cell)
+      World.entitiesAt(world, cell)
     ),
     (entity) => !fits(world, entity)
   );
