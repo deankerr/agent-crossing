@@ -1,11 +1,10 @@
+import * as Components from "@agent-crossing/definitions/Components";
+import * as Prefabs from "@agent-crossing/definitions/Prefabs";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 import * as Str from "effect/String";
 
-import { PrefabName, prefabsByName } from "../definitions/prefabs/index.ts";
 import { Cell } from "../schema/cell.ts";
-import { Components } from "../schema/components.ts";
-import type { Label } from "../schema/components.ts";
 
 export const EntityId = Schema.String.check(
   Schema.isPattern(/^e[1-9]\d{0,8}$/u)
@@ -22,9 +21,9 @@ export const entitySerial = (id: typeof EntityId.Type) =>
  */
 export const Entity = Schema.Struct({
   id: EntityId,
-  prefab: PrefabName,
+  prefab: Prefabs.Name,
   cell: Cell,
-  components: Components,
+  components: Components.Components,
 });
 
 type Described = Pick<typeof Entity.Type, "prefab" | "components">;
@@ -33,15 +32,15 @@ type Described = Pick<typeof Entity.Type, "prefab" | "components">;
  * The components every entity of the prefab starts with. Prefab names are
  * read from the prefabs, so every name has one.
  */
-export const prefabComponents = (prefab: typeof PrefabName.Type) =>
-  Option.getOrThrow(Option.fromUndefinedOr(prefabsByName.get(prefab)))
+export const prefabComponents = (prefab: typeof Prefabs.Name.Type) =>
+  Option.getOrThrow(Option.fromUndefinedOr(Prefabs.byName.get(prefab)))
     .components;
 
 /** `over` wins wherever it says something. */
-export const overlay = <Under extends typeof Components.Type>(
+export const overlay = <Under extends typeof Components.Components.Type>(
   under: Under,
-  over: typeof Components.Type
-) => ({ ...under, ...over }) satisfies typeof Components.Type;
+  over: typeof Components.Components.Type
+) => ({ ...under, ...over }) satisfies typeof Components.Components.Type;
 
 /** The entity's effective components: its prefab's overlaid by its own. */
 export const componentsOf = (entity: Described) =>
@@ -55,5 +54,5 @@ export const labelOf = (entity: Described) => componentsOf(entity).label;
 
 export const nounOf = (entity: Described) => labelOf(entity).noun;
 
-export const pluralOf = (label: typeof Label.Type) =>
+export const pluralOf = (label: typeof Components.Label.Type) =>
   label.plural ?? `${label.noun}s`;

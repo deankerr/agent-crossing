@@ -1,12 +1,6 @@
-import type { Colors } from "@agent-crossing/world/schema/components";
-import type {
-  Form,
-  Part,
-  Pose,
-  Solid,
-} from "@agent-crossing/world/schema/model";
-import { palette } from "@agent-crossing/world/schema/palette";
-import type { Shade } from "@agent-crossing/world/schema/palette";
+import type * as Components from "@agent-crossing/definitions/Components";
+import type * as Model from "@agent-crossing/definitions/Model";
+import * as Palette from "@agent-crossing/definitions/Palette";
 import { componentsOf } from "@agent-crossing/world/state/entity";
 import type { Entity } from "@agent-crossing/world/state/entity";
 import * as Arr from "effect/Array";
@@ -33,7 +27,7 @@ import { mergeGeometries } from "three/addons/utils/BufferGeometryUtils.js";
 interface PaintedPart {
   readonly hex: string;
   readonly glow: boolean;
-  readonly forms: readonly (typeof Form.Type)[];
+  readonly forms: readonly (typeof Model.Form.Type)[];
 }
 
 /**
@@ -42,7 +36,7 @@ interface PaintedPart {
  */
 export interface PaintedModel {
   readonly key: string;
-  readonly pose: typeof Pose.Type;
+  readonly pose: typeof Model.Pose.Type;
   readonly parts: readonly PaintedPart[];
 }
 
@@ -54,12 +48,12 @@ interface ModelGeometry {
 
 /** The hex a part is painted: the entity's color for it, or its own shade. */
 export const partHex = (
-  part: typeof Part.Type,
-  colors: typeof Colors.Type | undefined
+  part: typeof Model.Part.Type,
+  colors: typeof Components.Colors.Type | undefined
 ) => {
-  const shade: typeof Shade.Type = colors?.[part.name] ?? part.shade;
+  const shade: typeof Palette.Shade.Type = colors?.[part.name] ?? part.shade;
 
-  return palette[shade];
+  return Palette.shades[shade];
 };
 
 const byPart = Order.mapInput(
@@ -67,7 +61,7 @@ const byPart = Order.mapInput(
   ([part]: readonly [string, string]) => part
 );
 
-const colorsKey = (colors: typeof Colors.Type | undefined) =>
+const colorsKey = (colors: typeof Components.Colors.Type | undefined) =>
   Arr.join(
     Arr.map(
       Arr.sort(Record.toEntries(colors ?? {}), byPart),
@@ -98,7 +92,7 @@ export const paintedModelOf = (entity: typeof Entity.Type) => {
   return painted;
 };
 
-const solidGeometry = (solid: typeof Solid.Type) => {
+const solidGeometry = (solid: typeof Model.Solid.Type) => {
   if ("box" in solid) {
     return Option.some<BufferGeometry>(new BoxGeometry(...solid.box));
   }
@@ -118,7 +112,7 @@ const solidGeometry = (solid: typeof Solid.Type) => {
   return Option.none<BufferGeometry>();
 };
 
-const formGeometry = (hex: string, form: typeof Form.Type) =>
+const formGeometry = (hex: string, form: typeof Model.Form.Type) =>
   Option.map(solidGeometry(form.solid), (primitive) => {
     const geometry =
       primitive.index === null ? primitive : primitive.toNonIndexed();

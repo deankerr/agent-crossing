@@ -1,7 +1,7 @@
+import * as Components from "@agent-crossing/definitions/Components";
 import * as Schema from "effect/Schema";
 
 import { Cell } from "../schema/cell.ts";
-import { Layer, Place } from "../schema/components.ts";
 import { Entity, EntityId } from "../state/entity.ts";
 
 /** The cell has no floor, so it is not part of the world. */
@@ -16,15 +16,15 @@ export class UnsuitablePlace extends Schema.TaggedError<
   { readonly brand: unique symbol }
 >()("UnsuitablePlace", {
   cell: Cell,
-  place: Place,
-  habitat: Schema.NonEmptyArray(Place),
+  place: Components.Place,
+  habitat: Schema.NonEmptyArray(Components.Place),
 }) {}
 
 /** Another entity already fills that layer of the cell. */
 export class LayerTaken extends Schema.TaggedError<
   LayerTaken,
   { readonly brand: unique symbol }
->()("LayerTaken", { cell: Cell, layer: Layer, occupant: Entity }) {}
+>()("LayerTaken", { cell: Cell, layer: Components.Layer, occupant: Entity }) {}
 
 export class UnknownEntity extends Schema.TaggedError<
   UnknownEntity,

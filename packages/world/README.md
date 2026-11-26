@@ -10,8 +10,8 @@ Run the tests with `pnpm --filter @agent-crossing/world test`.
 
 | Folder | What it holds |
 | --- | --- |
-| `src/schema` | The vocabulary definitions are written in: cells, levels, components, models, prefabs, the palette |
-| `src/definitions` | The authored world, as data only: one file per prefab and one file per biome |
+| `src/schema` | Cells and coordinates, and the biome shape; the rest of the vocabulary is in `@agent-crossing/definitions` |
+| `src/definitions` | The biomes, as data only, one file each; the prefabs are in `@agent-crossing/definitions` |
 | `src/state` | What exists: entities, the in-memory world with its queries, changes, snapshots, spans and areas |
 | `src/rules` | What may exist: whether an entity may be in a cell, and the reasons a command is refused |
 | `src/history` | What happened: events with their time and sequence number, the changes each amounts to, and the tally of an edit |
@@ -26,9 +26,7 @@ Events are kept apart from commands because they outlive them: a command is a wa
 
 The text here describes the world and never names a tool. Advice about which MCP tool to use next belongs to the server's MCP tools.
 
-The palette sits in the schema because shades are words that models are written in.
-
-Other packages import `@agent-crossing/world/schema/*`, `/definitions/prefabs`, `/state/*`, `/rules/*`, `/history/*`, `/editing/*`, `/text/*` and `/feed/*`.
+Other packages import `@agent-crossing/world/schema/*`, `/state/*`, `/rules/*`, `/history/*`, `/editing/*`, `/text/*` and `/feed/*`.
 
 ## How the world is described
 

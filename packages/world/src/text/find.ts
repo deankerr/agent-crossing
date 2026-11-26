@@ -1,8 +1,8 @@
+import type * as Prefabs from "@agent-crossing/definitions/Prefabs";
 import * as Arr from "effect/Array";
 import * as Option from "effect/Option";
 import * as Record from "effect/Record";
 
-import type { PrefabName } from "../definitions/prefabs/index.ts";
 import { cellsOf } from "../editing/region.ts";
 import type { Region } from "../editing/region.ts";
 import { cellKey, formatCell } from "../schema/cell.ts";
@@ -59,7 +59,7 @@ const inRegion = (region: Option.Option<typeof Region.Type>) =>
 export const findText = (
   world: World,
   region: Option.Option<typeof Region.Type>,
-  prefab: Option.Option<typeof PrefabName.Type>,
+  prefab: Option.Option<typeof Prefabs.Name.Type>,
   limit: number
 ) => {
   const cap = Math.max(1, Math.min(FIND_MAX_LIMIT, Math.trunc(limit)));

@@ -1,4 +1,5 @@
-import { PrefabName } from "@agent-crossing/world/definitions/prefabs";
+import * as Components from "@agent-crossing/definitions/Components";
+import * as Prefabs from "@agent-crossing/definitions/Prefabs";
 import {
   Command,
   FloorName,
@@ -10,7 +11,6 @@ import {
   REGION_MAX_AREA,
 } from "@agent-crossing/world/editing/region";
 import { cellAt, COORDINATE_LIMIT } from "@agent-crossing/world/schema/cell";
-import { Components } from "@agent-crossing/world/schema/components";
 import * as Arr from "effect/Array";
 import * as Effect from "effect/Effect";
 import * as Match from "effect/Match";
@@ -52,12 +52,12 @@ export const RegionInput = Schema.Union([
   description: `Which cells: {"type":"rect","x1":0,"y1":0,"x2":9,"y2":9}, {"type":"disc","x":5,"y":5,"radius":3} or {"type":"cells","cells":[{"x":1,"y":2}]}. At most ${REGION_MAX_AREA} cells.`,
 });
 
-export const ComponentsInput = Components.annotate({
+export const ComponentsInput = Components.Components.annotate({
   description:
     'Components of this one entity that differ from its prefab\'s, for example {"text":"Welcome to the glade"} for a sign or {"colors":{"body":"blue"}} for a block. Keys: label ({noun, plural?, glyph}), layer ("floor", "liquid", "cover" or "object"), habitat (["land"], ["water"] or both), obstacle (true), model, colors ({part: shade}), text, level.',
 });
 
-export const Prefab = PrefabName.annotate({
+export const Prefab = Prefabs.Name.annotate({
   description: "A prefab; list_prefabs describes them all.",
 });
 

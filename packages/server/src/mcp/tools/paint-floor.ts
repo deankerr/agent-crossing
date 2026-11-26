@@ -1,4 +1,4 @@
-import { MAX_LEVEL, MIN_LEVEL } from "@agent-crossing/world/schema/cell";
+import * as Level from "@agent-crossing/definitions/Level";
 import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
 
@@ -11,7 +11,7 @@ const PaintInput = Schema.Struct({
   floor: Schema.optionalKey(Floor),
   level: Schema.optionalKey(
     Schema.Int.annotate({
-      description: `Level ${MIN_LEVEL} (low) to ${MAX_LEVEL} (high). Floors keep their level when left out; new floors start at 0.`,
+      description: `Level ${Level.MIN} (low) to ${Level.MAX} (high). Floors keep their level when left out; new floors start at 0.`,
     })
   ),
 });

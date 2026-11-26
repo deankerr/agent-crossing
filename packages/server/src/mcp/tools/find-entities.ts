@@ -1,4 +1,4 @@
-import { PrefabName } from "@agent-crossing/world/definitions/prefabs";
+import * as Prefabs from "@agent-crossing/definitions/Prefabs";
 import {
   FIND_DEFAULT_LIMIT,
   FIND_MAX_LIMIT,
@@ -13,7 +13,7 @@ import { parsed, queryTool } from "../tool.ts";
 
 const FindEntitiesInput = Schema.Struct({
   region: Schema.optionalKey(RegionInput),
-  prefab: Schema.optionalKey(PrefabName),
+  prefab: Schema.optionalKey(Prefabs.Name),
   limit: Schema.optionalKey(Schema.Int),
 });
 

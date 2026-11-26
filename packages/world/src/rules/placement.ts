@@ -1,22 +1,25 @@
+import type * as Components from "@agent-crossing/definitions/Components";
 import * as Arr from "effect/Array";
 import * as Option from "effect/Option";
 import * as Result from "effect/Result";
 
 import { cellKey } from "../schema/cell.ts";
 import type { Cell } from "../schema/cell.ts";
-import type { Components, Layer, Place } from "../schema/components.ts";
 import { componentsOf } from "../state/entity.ts";
 import type { Entity, EntityId } from "../state/entity.ts";
 import { entitiesAt } from "../state/world.ts";
 import type { World } from "../state/world.ts";
 import { LayerTaken, NoFloor, UnsuitablePlace } from "./rejection.ts";
 
-type Habitat = readonly [typeof Place.Type, ...(typeof Place.Type)[]];
+type Habitat = readonly [
+  typeof Components.Place.Type,
+  ...(typeof Components.Place.Type)[],
+];
 
 const LAND: Habitat = ["land"];
 
 /** Where an entity can be. One that names no habitat lives on land. */
-export const habitatOf = (components: typeof Components.Type) => {
+export const habitatOf = (components: typeof Components.Components.Type) => {
   const habitat: Habitat = components.habitat ?? LAND;
 
   return habitat;
@@ -32,7 +35,7 @@ export const habitatOf = (components: typeof Components.Type) => {
 export const ensurePlaceable = (
   world: World,
   cell: typeof Cell.Type,
-  components: typeof Components.Type,
+  components: typeof Components.Components.Type,
   self: Option.Option<typeof EntityId.Type> = Option.none()
 ) =>
   Result.gen(function* () {
@@ -41,7 +44,7 @@ export const ensurePlaceable = (
       (entity) => !Option.contains(self, entity.id)
     );
 
-    const filling = (layer: typeof Layer.Type) =>
+    const filling = (layer: typeof Components.Layer.Type) =>
       Arr.findFirst(present, (entity) => componentsOf(entity).layer === layer);
 
     const { layer } = components;
@@ -52,7 +55,9 @@ export const ensurePlaceable = (
       }
 
       if (layer !== "liquid") {
-        const place: typeof Place.Type = Option.isSome(filling("liquid"))
+        const place: typeof Components.Place.Type = Option.isSome(
+          filling("liquid")
+        )
           ? "water"
           : "land";
 

@@ -1,10 +1,11 @@
+import * as Components from "@agent-crossing/definitions/Components";
+import * as Prefabs from "@agent-crossing/definitions/Prefabs";
 import { describe, expect, it } from "@effect/vitest";
 import * as Arr from "effect/Array";
 import * as Equal from "effect/Equal";
 import * as Option from "effect/Option";
 import * as Result from "effect/Result";
 
-import { PrefabName } from "../src/definitions/prefabs/index.ts";
 import { Command, LiquidName } from "../src/editing/command.ts";
 import { decide } from "../src/editing/decide.ts";
 import { Region } from "../src/editing/region.ts";
@@ -13,7 +14,6 @@ import type { SeededRandom } from "../src/generation/random.ts";
 import { evolveAll } from "../src/history/event.ts";
 import { habitatOf } from "../src/rules/placement.ts";
 import { Cell, Coordinate, formatCell } from "../src/schema/cell.ts";
-import { Layer } from "../src/schema/components.ts";
 import {
   componentsOf,
   entityIdFor,
@@ -39,7 +39,7 @@ const one = <A>(random: SeededRandom, options: readonly A[]) =>
   Option.getOrThrow(Arr.get(options, random.integer(options.length)));
 
 const floors = Arr.filter(
-  PrefabName.literals,
+  Prefabs.Name.literals,
   (name) => prefabComponents(name).layer === "floor"
 );
 
@@ -76,14 +76,14 @@ const anyCommand = (random: SeededRandom) =>
     () =>
       Command.cases.Spawn.make({
         cell: anyCell(random),
-        prefab: one(random, PrefabName.literals),
+        prefab: one(random, Prefabs.Name.literals),
       }),
     () =>
       Command.cases.Scatter.make({
         density: random.next(),
         prefabs: [
-          one(random, PrefabName.literals),
-          one(random, PrefabName.literals),
+          one(random, Prefabs.Name.literals),
+          one(random, Prefabs.Name.literals),
         ],
         region: anyRegion(random),
         seed: random.integer(1000),
@@ -97,7 +97,7 @@ const anyCommand = (random: SeededRandom) =>
       Command.cases.Change.make({
         components: random.chance(0.5)
           ? { habitat: ["water"] }
-          : { layer: one(random, Layer.literals) },
+          : { layer: one(random, Components.Layer.literals) },
         entity: entityIdFor(1 + random.integer(200)),
       }),
     () =>
@@ -142,7 +142,7 @@ const problemsOf = (world: World) => {
       problems.push(`${where} is numbered beyond the spawn count`);
     }
 
-    for (const layer of Layer.literals) {
+    for (const layer of Components.Layer.literals) {
       const filling = Arr.filter(
         entitiesAt(world, entity.cell),
         (other) => componentsOf(other).layer === layer

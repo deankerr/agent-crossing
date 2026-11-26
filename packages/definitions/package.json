@@ -1,0 +1,27 @@
+{
+  "name": "@agent-crossing/definitions",
+  "version": "0.0.0",
+  "private": true,
+  "license": "MIT",
+  "type": "module",
+  "sideEffects": false,
+  "exports": {
+    "./Components": "./src/Components.ts",
+    "./Level": "./src/Level.ts",
+    "./Model": "./src/Model.ts",
+    "./Palette": "./src/Palette.ts",
+    "./Prefab": "./src/Prefab.ts",
+    "./Prefabs": "./src/Prefabs.ts"
+  },
+  "scripts": {
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "effect": "catalog:"
+  },
+  "devDependencies": {
+    "@effect/vitest": "catalog:",
+    "@types/node": "catalog:",
+    "vitest": "catalog:"
+  }
+}

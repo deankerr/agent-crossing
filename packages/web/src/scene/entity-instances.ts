@@ -1,6 +1,6 @@
+import type * as Model from "@agent-crossing/definitions/Model";
 import { cellKey } from "@agent-crossing/world/schema/cell";
 import type { Cell, CellKey } from "@agent-crossing/world/schema/cell";
-import type { Pose } from "@agent-crossing/world/schema/model";
 import { componentsOf, entitySerial } from "@agent-crossing/world/state/entity";
 import type { Entity, EntityId } from "@agent-crossing/world/state/entity";
 import { isFloor, isLiquid } from "@agent-crossing/world/state/world";
@@ -140,7 +140,7 @@ const offsetOf = (entity: typeof Entity.Type, contents: CellContents) => {
     : centered;
 };
 
-const jitterOf = (id: Id, pose: typeof Pose.Type) => {
+const jitterOf = (id: Id, pose: typeof Model.Pose.Type) => {
   const heading = unitOf(id, 1);
   const size = unitOf(id, 2);
 

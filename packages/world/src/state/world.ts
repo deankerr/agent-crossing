@@ -1,3 +1,4 @@
+import type * as Components from "@agent-crossing/definitions/Components";
 import * as Arr from "effect/Array";
 import * as HashMap from "effect/HashMap";
 import * as HashSet from "effect/HashSet";
@@ -6,7 +7,6 @@ import * as Order from "effect/Order";
 
 import { cellKey } from "../schema/cell.ts";
 import type { Cell, CellKey } from "../schema/cell.ts";
-import type { Layer, Place } from "../schema/components.ts";
 import { Change } from "./change.ts";
 import { componentsOf, entitySerial } from "./entity.ts";
 import type { Entity, EntityId } from "./entity.ts";
@@ -122,7 +122,11 @@ export const entitiesAt = (world: World, cell: At) =>
       ),
   });
 
-const occupantOf = (world: World, cell: At, layer: typeof Layer.Type) =>
+const occupantOf = (
+  world: World,
+  cell: At,
+  layer: typeof Components.Layer.Type
+) =>
   Arr.findFirst(
     entitiesAt(world, cell),
     (entity) => componentsOf(entity).layer === layer
@@ -137,7 +141,9 @@ export const liquidAt = (world: World, cell: At) =>
 /** Land when the cell has a floor and no liquid, water with both, none without a floor. */
 export const placeAt = (world: World, cell: At) =>
   Option.map(floorAt(world, cell), () => {
-    const place: typeof Place.Type = Option.isSome(liquidAt(world, cell))
+    const place: typeof Components.Place.Type = Option.isSome(
+      liquidAt(world, cell)
+    )
       ? "water"
       : "land";
 

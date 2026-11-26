@@ -5,6 +5,7 @@
   "license": "MIT",
   "type": "module",
   "dependencies": {
+    "@agent-crossing/definitions": "workspace:*",
     "@agent-crossing/world": "workspace:*",
     "@react-three/drei": "catalog:",
     "@react-three/fiber": "catalog:",

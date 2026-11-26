@@ -1,6 +1,6 @@
-import type { Prefab } from "./prefab.ts";
+import type * as Prefab from "@agent-crossing/definitions/Prefab";
 
-type WeightedPrefab = readonly [Prefab, number];
+type WeightedPrefab = readonly [Prefab.Prefab, number];
 
 /** A weighted set of prefabs, one of which is picked. */
 export interface Choice {
@@ -11,14 +11,14 @@ export interface Choice {
 export const weighted = (options: readonly WeightedPrefab[]) =>
   ({ options }) satisfies Choice;
 
-type Growth = readonly [Prefab | Choice, number];
+type Growth = readonly [Prefab.Prefab | Choice, number];
 
 /** A recipe for generating an area. It is not stored in the world. */
 export interface Biome {
   readonly name: string;
-  readonly floor: Prefab;
+  readonly floor: Prefab.Prefab;
   /** A liquid over the floor, making the area water. */
-  readonly liquid?: Prefab;
+  readonly liquid?: Prefab.Prefab;
   /**
    * At most one of these is placed per cell. The chances are slices of a
    * single roll, so they sum to at most 1.

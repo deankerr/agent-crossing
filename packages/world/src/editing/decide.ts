@@ -1,8 +1,10 @@
+import type * as Components from "@agent-crossing/definitions/Components";
+import * as Level from "@agent-crossing/definitions/Level";
+import type * as Prefabs from "@agent-crossing/definitions/Prefabs";
 import * as Arr from "effect/Array";
 import * as Option from "effect/Option";
 import * as Result from "effect/Result";
 
-import type { PrefabName } from "../definitions/prefabs/index.ts";
 import { generateLandscape } from "../generation/landscape.ts";
 import type { NewEntity } from "../generation/landscape.ts";
 import { seededRandom } from "../generation/random.ts";
@@ -11,9 +13,7 @@ import { EVENT_MAX_ITEMS, evolveAll, WorldEvent } from "../history/event.ts";
 import { ensurePlaceable, misfitsIn } from "../rules/placement.ts";
 import { UnknownEntity } from "../rules/rejection.ts";
 import type { Rejection } from "../rules/rejection.ts";
-import { MIN_LEVEL } from "../schema/cell.ts";
-import type { Cell, Level } from "../schema/cell.ts";
-import type { Components } from "../schema/components.ts";
+import type { Cell } from "../schema/cell.ts";
 import { Change } from "../state/change.ts";
 import {
   componentsOf,
@@ -47,9 +47,9 @@ type At = typeof Cell.Type;
 
 type Event = typeof WorldEvent.Type;
 
-type Bag = typeof Components.Type;
+type Bag = typeof Components.Components.Type;
 
-type Name = typeof PrefabName.Type;
+type Name = typeof Prefabs.Name.Type;
 
 type Decision = Result.Result<readonly Event[], typeof Rejection.Type>;
 
@@ -101,7 +101,7 @@ const paint = (
   edit: Edit,
   region: typeof Region.Type,
   floor: Name | undefined,
-  level: typeof Level.Type | undefined
+  level: typeof Level.Level.Type | undefined
 ) => {
   const laid: NewEntity[] = [];
   const repainted: Present[] = [];
@@ -146,7 +146,7 @@ const pour = (
     if (
       Option.isSome(floor) &&
       Option.isNone(liquidAt(world, cell)) &&
-      storedLevel(floor.value) > MIN_LEVEL
+      storedLevel(floor.value) > Level.MIN
     ) {
       const level = storedLevel(floor.value);
       liquids.push({ cell, components: { level }, prefab: liquid });

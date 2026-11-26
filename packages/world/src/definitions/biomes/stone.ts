@@ -1,16 +1,17 @@
+import * as Prefabs from "@agent-crossing/definitions/Prefabs";
+
 import { biome } from "../../schema/biome.ts";
-import { Nature, Terrain } from "../prefabs/index.ts";
 
 /** Rocky heights. */
 export const Stone = biome({
   name: "stone",
-  floor: Terrain.Stone,
+  floor: Prefabs.Terrain.Stone,
   grows: [
-    [Nature.Rock, 0.1],
-    [Nature.Boulder, 0.05],
-    [Nature.Pebbles, 0.07],
-    [Nature.Pine, 0.03],
-    [Nature.DeadTree, 0.02],
+    [Prefabs.Nature.Rock, 0.1],
+    [Prefabs.Nature.Boulder, 0.05],
+    [Prefabs.Nature.Pebbles, 0.07],
+    [Prefabs.Nature.Pine, 0.03],
+    [Prefabs.Nature.DeadTree, 0.02],
   ],
   extras: [],
 });

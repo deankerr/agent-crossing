@@ -1,13 +1,13 @@
+import type * as Components from "@agent-crossing/definitions/Components";
+import * as Prefabs from "@agent-crossing/definitions/Prefabs";
 import * as Arr from "effect/Array";
 import * as Option from "effect/Option";
 import * as Order from "effect/Order";
 import * as Str from "effect/String";
 
-import { prefabs } from "../definitions/prefabs/index.ts";
 import type { Rect } from "../editing/region.ts";
 import { cellAt } from "../schema/cell.ts";
 import type { Cell } from "../schema/cell.ts";
-import type { Layer } from "../schema/components.ts";
 import type { Area } from "../state/area.ts";
 import { componentsOf, labelOf, storedLevel } from "../state/entity.ts";
 import type { Entity } from "../state/entity.ts";
@@ -21,7 +21,7 @@ const MAP_MAX_SIDE = 128;
 
 const BLANK = " ";
 
-const DRAWN_ORDER: readonly (typeof Layer.Type | undefined)[] = [
+const DRAWN_ORDER: readonly (typeof Components.Layer.Type | undefined)[] = [
   "object",
   "cover",
   undefined,
@@ -115,7 +115,7 @@ const grid = (span: Span, characterAt: (cell: typeof Cell.Type) => string) => {
   return [...columnHeaders(span, margin), ...rows];
 };
 
-const terrainGlyphs: readonly string[] = Arr.flatMap(prefabs, (prefab) => {
+const terrainGlyphs: readonly string[] = Arr.flatMap(Prefabs.all, (prefab) => {
   const { label, layer } = prefab.components;
 
   return layer === "floor" || layer === "liquid" ? [label.glyph] : [];

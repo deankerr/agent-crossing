@@ -1,4 +1,4 @@
-import { PrefabName } from "@agent-crossing/world/definitions/prefabs";
+import * as Prefabs from "@agent-crossing/definitions/Prefabs";
 import { EntityId } from "@agent-crossing/world/state/entity";
 import * as Effect from "effect/Effect";
 import * as Result from "effect/Result";
@@ -16,7 +16,7 @@ const RemoveInput = Schema.Struct({
   ),
   region: Schema.optionalKey(RegionInput),
   prefab: Schema.optionalKey(
-    PrefabName.annotate({
+    Prefabs.Name.annotate({
       description:
         "With region: remove only entities of this prefab, floors and liquids included.",
     })

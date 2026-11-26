@@ -1,4 +1,4 @@
-import { PrefabName } from "@agent-crossing/world/definitions/prefabs";
+import * as Prefabs from "@agent-crossing/definitions/Prefabs";
 import { Command } from "@agent-crossing/world/editing/command";
 import { decide } from "@agent-crossing/world/editing/decide";
 import { Region } from "@agent-crossing/world/editing/region";
@@ -73,7 +73,7 @@ const decodeCommand = Schema.decodeUnknownEffect(Command);
 const decodeCell = Schema.decodeUnknownEffect(Cell);
 const decodeArea = Schema.decodeUnknownEffect(Schema.NullOr(Area));
 const decodeRegion = Schema.decodeUnknownEffect(Schema.NullOr(Region));
-const decodePrefab = Schema.decodeUnknownEffect(Schema.NullOr(PrefabName));
+const decodePrefab = Schema.decodeUnknownEffect(Schema.NullOr(Prefabs.Name));
 const decodeSeq = Schema.decodeUnknownEffect(Seq);
 const decodeEventRows = Schema.decodeUnknownEffect(Schema.Array(EventRow));
 

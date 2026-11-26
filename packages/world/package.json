@@ -7,7 +7,6 @@
   "sideEffects": false,
   "exports": {
     "./schema/*": "./src/schema/*.ts",
-    "./definitions/prefabs": "./src/definitions/prefabs/index.ts",
     "./state/*": "./src/state/*.ts",
     "./rules/*": "./src/rules/*.ts",
     "./history/*": "./src/history/*.ts",
@@ -19,6 +18,7 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@agent-crossing/definitions": "workspace:*",
     "effect": "catalog:"
   },
   "devDependencies": {

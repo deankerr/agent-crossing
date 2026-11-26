@@ -1,4 +1,4 @@
-import { PrefabName } from "@agent-crossing/world/definitions/prefabs";
+import * as Prefabs from "@agent-crossing/definitions/Prefabs";
 import { Command } from "@agent-crossing/world/editing/command";
 import { Region } from "@agent-crossing/world/editing/region";
 import { Cell } from "@agent-crossing/world/schema/cell";
@@ -25,7 +25,7 @@ const encodeCommand = Schema.encodeEffect(Command);
 const encodeCell = Schema.encodeEffect(Cell);
 const encodeArea = Schema.encodeEffect(Schema.NullOr(Area));
 const encodeRegion = Schema.encodeEffect(Schema.NullOr(Region));
-const encodePrefab = Schema.encodeEffect(Schema.NullOr(PrefabName));
+const encodePrefab = Schema.encodeEffect(Schema.NullOr(Prefabs.Name));
 
 /** The World object as typed calls: decoded values in and out, for the one world every caller shares. */
 export class WorldClient extends Context.Service<
@@ -42,7 +42,7 @@ export class WorldClient extends Context.Service<
     readonly inspect: (cell: typeof Cell.Type) => Effect.Effect<string>;
     readonly find: (
       region: Option.Option<typeof Region.Type>,
-      prefab: Option.Option<typeof PrefabName.Type>,
+      prefab: Option.Option<typeof Prefabs.Name.Type>,
       limit: number
     ) => Effect.Effect<string>;
     readonly history: (limit: number) => Effect.Effect<string>;

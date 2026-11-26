@@ -1,22 +1,23 @@
+import type * as Components from "@agent-crossing/definitions/Components";
+import * as Level from "@agent-crossing/definitions/Level";
+import type * as Prefab from "@agent-crossing/definitions/Prefab";
+import * as Prefabs from "@agent-crossing/definitions/Prefabs";
 import * as Arr from "effect/Array";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 
 import { Biomes } from "../definitions/biomes/index.ts";
-import { PrefabName } from "../definitions/prefabs/index.ts";
 import type { Biome, Choice } from "../schema/biome.ts";
-import { cellAt, MAX_LEVEL } from "../schema/cell.ts";
+import { cellAt } from "../schema/cell.ts";
 import type { Cell } from "../schema/cell.ts";
-import type { Components } from "../schema/components.ts";
-import type { Prefab } from "../schema/prefab.ts";
 import { pickWeighted, seededRandom } from "./random.ts";
 import type { SeededRandom } from "./random.ts";
 
 /** An entity before it has an id: a prefab, a cell and its own components. */
 export interface NewEntity {
-  readonly prefab: typeof PrefabName.Type;
+  readonly prefab: typeof Prefabs.Name.Type;
   readonly cell: typeof Cell.Type;
-  readonly components: typeof Components.Type;
+  readonly components: typeof Components.Components.Type;
 }
 
 interface LandscapeSpec {
@@ -252,7 +253,7 @@ const runStream = (
 };
 
 const levelOf = (elevation: number) =>
-  clamp(Math.floor(elevation ** 1.15 * (MAX_LEVEL + 0.99)), 0, MAX_LEVEL);
+  clamp(Math.floor(elevation ** 1.15 * (Level.MAX + 0.99)), 0, Level.MAX);
 
 const waterLevels = (plan: Plan, water: ReadonlySet<number>, raw: number[]) => {
   const seen = new Set<number>();
@@ -373,22 +374,22 @@ const layPath = (plan: Plan, water: ReadonlySet<number>, target: Point) => {
   return path;
 };
 
-const isChoice = (grown: Prefab | Choice): grown is Choice =>
+const isChoice = (grown: Prefab.Prefab | Choice): grown is Choice =>
   "options" in grown;
 
-const picked = (random: SeededRandom, grown: Prefab | Choice) =>
+const picked = (random: SeededRandom, grown: Prefab.Prefab | Choice) =>
   isChoice(grown)
     ? Option.map(Arr.head(grown.options), ([first]) =>
         pickWeighted(random, grown.options, first)
       )
     : Option.some(grown);
 
-const nameOf = Schema.decodeUnknownOption(PrefabName);
+const nameOf = Schema.decodeUnknownOption(Prefabs.Name);
 
 const growthOn = (random: SeededRandom, biome: Biome) => {
   const roll = random.next();
   let sofar = 0;
-  const found: Prefab[] = [];
+  const found: Prefab.Prefab[] = [];
 
   for (const [grown, share] of biome.grows) {
     if (found.length === 0 && roll >= sofar && roll < sofar + share) {
@@ -476,8 +477,8 @@ const biomeAt = (relief: Relief, at: Point, index: number) => {
 
 const newEntityIn = (
   cell: typeof Cell.Type,
-  prefab: Prefab,
-  components: typeof Components.Type
+  prefab: Prefab.Prefab,
+  components: typeof Components.Components.Type
 ) =>
   Option.map(
     nameOf(prefab.name),

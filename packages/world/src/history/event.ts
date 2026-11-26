@@ -1,9 +1,9 @@
+import * as Components from "@agent-crossing/definitions/Components";
 import * as Arr from "effect/Array";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 
 import { Cell } from "../schema/cell.ts";
-import { Components } from "../schema/components.ts";
 import { Change } from "../state/change.ts";
 import { Entity, EntityId, entitySerial } from "../state/entity.ts";
 import { applyAll, entityOf } from "../state/world.ts";
@@ -31,7 +31,7 @@ export const WorldEvent = Schema.TaggedUnion({
   Updated: { ...edit, entities: upToLimit(Entity) },
   Moved: { ...edit, entity: EntityId, to: Cell },
   /** Replaces the entity's own components. */
-  Changed: { ...edit, entity: EntityId, components: Components },
+  Changed: { ...edit, entity: EntityId, components: Components.Components },
   Removed: { ...edit, entities: upToLimit(EntityId) },
 });
 

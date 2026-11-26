@@ -8,6 +8,7 @@
     "mcp": "bun scripts/mcp.ts"
   },
   "dependencies": {
+    "@agent-crossing/definitions": "workspace:*",
     "@agent-crossing/world": "workspace:*",
     "@alchemy.run/cloudflare": "catalog:",
     "@alchemy.run/docker": "catalog:",

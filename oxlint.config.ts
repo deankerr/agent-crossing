@@ -91,6 +91,27 @@ export default defineConfig({
       ),
     },
     {
+      files: ["packages/definitions/src/*.ts"],
+      rules: { "unicorn/filename-case": ["error", { case: "pascalCase" }] },
+    },
+    {
+      files: ["packages/definitions/**"],
+      rules: {
+        "no-restricted-imports": [
+          "error",
+          {
+            patterns: [
+              {
+                message:
+                  "The definitions package reads no other package; world, server and web read definitions, never the other way.",
+                regex: "^@agent-crossing/",
+              },
+            ],
+          },
+        ],
+      },
+    },
+    {
       files: ["packages/world/**"],
       rules: {
         "no-restricted-imports": [

@@ -1,7 +1,7 @@
-import { PrefabName } from "@agent-crossing/world/definitions/prefabs";
+import * as Components from "@agent-crossing/definitions/Components";
+import * as Prefabs from "@agent-crossing/definitions/Prefabs";
 import { Seq, WorldEvent } from "@agent-crossing/world/history/event";
 import { Coordinate } from "@agent-crossing/world/schema/cell";
-import { Components } from "@agent-crossing/world/schema/components";
 import { Change } from "@agent-crossing/world/state/change";
 import { EntityId } from "@agent-crossing/world/state/entity";
 import type { Entity } from "@agent-crossing/world/state/entity";
@@ -66,10 +66,10 @@ interface Write {
 
 const EntityRow = Schema.Struct({
   id: EntityId,
-  prefab: PrefabName,
+  prefab: Prefabs.Name,
   x: Coordinate,
   y: Coordinate,
-  components: Schema.fromJsonString(Components),
+  components: Schema.fromJsonString(Components.Components),
 });
 
 const encodeEntityRow = Schema.encodeEffect(EntityRow);

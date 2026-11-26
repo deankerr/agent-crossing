@@ -1,4 +1,4 @@
-import { prefabs } from "@agent-crossing/world/definitions/prefabs";
+import * as Prefabs from "@agent-crossing/definitions/Prefabs";
 import { habitatOf } from "@agent-crossing/world/rules/placement";
 import type { Rejection } from "@agent-crossing/world/rules/rejection";
 import { formatCell } from "@agent-crossing/world/schema/cell";
@@ -12,10 +12,10 @@ const article = (noun: string) =>
   /^[aeiou]/u.test(noun) ? `an ${noun}` : `a ${noun}`;
 
 const namesWhere = (
-  keep: (components: (typeof prefabs)[number]["components"]) => boolean
+  keep: (components: (typeof Prefabs.all)[number]["components"]) => boolean
 ) =>
   Arr.map(
-    Arr.filter(prefabs, (one) => keep(one.components)),
+    Arr.filter(Prefabs.all, (one) => keep(one.components)),
     (one) => one.name
   );
 

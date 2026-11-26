@@ -1,11 +1,11 @@
+import type * as Components from "@agent-crossing/definitions/Components";
 import * as Arr from "effect/Array";
 import * as Str from "effect/String";
 
-import type { Label } from "../schema/components.ts";
 import { pluralOf } from "../state/entity.ts";
 import type { Span } from "../state/span.ts";
 
-export const counted = (count: number, label: typeof Label.Type) =>
+export const counted = (count: number, label: typeof Components.Label.Type) =>
   `${count} ${count === 1 ? label.noun : pluralOf(label)}`;
 
 export const article = (noun: string) =>

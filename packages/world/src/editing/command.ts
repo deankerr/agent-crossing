@@ -1,9 +1,9 @@
+import * as Components from "@agent-crossing/definitions/Components";
+import * as Level from "@agent-crossing/definitions/Level";
+import * as Prefabs from "@agent-crossing/definitions/Prefabs";
 import * as Schema from "effect/Schema";
 
-import { PrefabName } from "../definitions/prefabs/index.ts";
-import { Cell, COORDINATE_LIMIT, Level } from "../schema/cell.ts";
-import { Components } from "../schema/components.ts";
-import type { Layer } from "../schema/components.ts";
+import { Cell, COORDINATE_LIMIT } from "../schema/cell.ts";
 import { EntityId, prefabComponents } from "../state/entity.ts";
 import { Region, REGION_MAX_AREA } from "./region.ts";
 
@@ -11,8 +11,8 @@ export const GENERATE_MIN_SIZE = 8;
 export const GENERATE_MAX_SIZE = 256;
 export const SCATTER_MAX_PREFABS = 16;
 
-const prefabIn = (layer: typeof Layer.Type) =>
-  PrefabName.check(
+const prefabIn = (layer: typeof Components.Layer.Type) =>
+  Prefabs.Name.check(
     Schema.makeFilter(
       (name) =>
         prefabComponents(name).layer === layer || `must name a ${layer} prefab`
@@ -33,7 +33,7 @@ export const LiquidName = prefabIn("liquid");
 export const Paint = Schema.TaggedStruct("Paint", {
   region: Region,
   floor: Schema.optionalKey(FloorName),
-  level: Schema.optionalKey(Level),
+  level: Schema.optionalKey(Level.Level),
 }).check(
   Schema.makeFilter(
     ({ floor, level }) =>
@@ -58,9 +58,9 @@ export const Pour = Schema.TaggedStruct("Pour", {
 export const Erase = Schema.TaggedStruct("Erase", { region: Region });
 
 export const Spawn = Schema.TaggedStruct("Spawn", {
-  prefab: PrefabName,
+  prefab: Prefabs.Name,
   cell: Cell,
-  components: Schema.optionalKey(Components),
+  components: Schema.optionalKey(Components.Components),
 });
 
 /**
@@ -68,13 +68,13 @@ export const Spawn = Schema.TaggedStruct("Spawn", {
  * Cells where one may not go are skipped.
  */
 export const Scatter = Schema.TaggedStruct("Scatter", {
-  prefabs: Schema.NonEmptyArray(PrefabName).check(
+  prefabs: Schema.NonEmptyArray(Prefabs.Name).check(
     Schema.isMaxLength(SCATTER_MAX_PREFABS)
   ),
   region: Region,
   density: Schema.Finite.check(Schema.isBetween({ maximum: 1, minimum: 0 })),
   seed: Schema.Int,
-  components: Schema.optionalKey(Components),
+  components: Schema.optionalKey(Components.Components),
 });
 
 export const Move = Schema.TaggedStruct("Move", { entity: EntityId, to: Cell });
@@ -82,7 +82,7 @@ export const Move = Schema.TaggedStruct("Move", { entity: EntityId, to: Cell });
 /** Replaces an entity's own components; its prefab's still apply beneath. */
 export const Change = Schema.TaggedStruct("Change", {
   entity: EntityId,
-  components: Components,
+  components: Components.Components,
 });
 
 export const Remove = Schema.TaggedStruct("Remove", {
@@ -97,7 +97,7 @@ export const Remove = Schema.TaggedStruct("Remove", {
  */
 export const RemoveIn = Schema.TaggedStruct("RemoveIn", {
   region: Region,
-  prefab: Schema.optionalKey(PrefabName),
+  prefab: Schema.optionalKey(Prefabs.Name),
 });
 
 const size = Schema.Int.check(
