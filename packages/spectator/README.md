@@ -4,9 +4,9 @@ The read-only 3D spectator view of the Agent Crossing world: a Vite, React and R
 
 ## Run it
 
-From the repository root, `pnpm exec alchemy dev` serves the page on Vite's dev server on `http://localhost:1338`, connected to the Api on `http://localhost:1337`, and reloads it on every save. `pnpm exec alchemy deploy` builds it and deploys it as a Cloudflare Worker.
+From the repository root, `pnpm exec alchemy dev` serves the page on Vite's dev server on `http://localhost:1338`, connected to the Api on `http://localhost:1337`, and reloads it on every save. `pnpm exec alchemy deploy --stage persistent` builds it and deploys it as a Cloudflare Worker. The stack is the only way to run it.
 
-The page connects to `VITE_WORLD_URL`, which the stack in `alchemy.run.ts` sets to its Api.
+The page connects to the Api at `VITE_WORLD_URL`, which the stack in `alchemy.run.ts` sets. A page built without a valid address there says so and connects nowhere. Vite's dev server accepts requests for `.ts.net` hosts, so the page can be watched through Tailscale Serve.
 
 ## Feed contract
 
@@ -24,5 +24,5 @@ Frames that do not decode are logged and dropped. When the browser gives up on a
 - `src/feed/` is where the world comes from: `live-feed.ts` (the host's stream) and `feed-state.ts`, the pure reducer from frames to the connection, the shown world and the history.
 - `src/scene/` is what is drawn. `layout.ts`, `hash.ts`, `floor-columns.ts` and `entity-instances.ts` are pure: they derive the boxes and model instances from a world. Brightness variation, jitter and offsets come from cell coordinates and entity ids, so nothing is stored.
 - Every model comes from the entity's effective components and the palette in `@agent-crossing/world/schema/palette`. `model-geometry.ts` turns parts and forms into geometry: a part is painted its shade, or the entity's `colors` override for that part, times each form's `tone`. Entities without a model draw a magenta placeholder.
-- Floors and liquids are drawn from their `slab` and `fill` solids as instanced cell-filling boxes, one mesh per material; water is translucent over the floor beneath it. Everything else is drawn with one `InstancedMesh` per painted model and material, never one component per entity, and stands on its floor, or at the top of the liquid when there is one. Buffers are rebuilt only when the world changes.
+- Floors and liquids are drawn from their `slab` and `fill` solids as instanced cell-filling boxes: every floor shares one opaque material, and each liquid opacity has its own, so water is translucent over the floor beneath it. Everything else is drawn with one `InstancedMesh` per painted model and material, never one component per entity, and stands on its floor, or at the top of the liquid when there is one. Buffers are rebuilt only when the world changes.
 - `src/ui/` is the app shell, side panel, store and styles. The side panel shows the world package's own words: `summaryText` for the world, and `inspectText` and `agentViewText` for the selected cell.

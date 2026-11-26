@@ -19,7 +19,7 @@ export interface Column {
   readonly color: Rgb;
 }
 
-/** Columns drawn with one material: lit land, or a liquid of one opacity. */
+/** Columns drawn with one material: opaque floors, or a liquid of one opacity. */
 export interface ColumnGroup {
   readonly key: string;
   readonly liquid: boolean;
@@ -81,8 +81,8 @@ export const floorColumns = (entities: Iterable<typeof Entity.Type>) => {
         : WORLD_BOTTOM;
 
       for (const part of model.parts) {
-        const opacity = part.opacity ?? 1;
-        const key = `${liquid ? "liquid" : "land"}:${opacity}`;
+        const opacity = liquid ? (part.opacity ?? 1) : 1;
+        const key = liquid ? `liquid:${opacity}` : "floor";
         const group = groups.get(key) ?? { columns: [], key, liquid, opacity };
         const hex = partHex(part, colors);
         const variation = cellShade(entity.cell, part.variation ?? 0);

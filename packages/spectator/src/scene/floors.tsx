@@ -36,22 +36,14 @@ const materialOf = (group: ColumnGroup) => {
     return cached;
   }
 
-  const translucent = group.opacity < 1;
-  let material: Material = land;
-
-  if (group.liquid) {
-    material = new MeshStandardMaterial({
-      metalness: 0.05,
-      opacity: group.opacity,
-      roughness: 0.22,
-      transparent: translucent,
-    });
-  } else if (translucent) {
-    material = new MeshLambertMaterial({
-      opacity: group.opacity,
-      transparent: true,
-    });
-  }
+  const material = group.liquid
+    ? new MeshStandardMaterial({
+        metalness: 0.05,
+        opacity: group.opacity,
+        roughness: 0.22,
+        transparent: group.opacity < 1,
+      })
+    : land;
 
   materials.set(group.key, material);
 

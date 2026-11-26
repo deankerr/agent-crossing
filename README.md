@@ -31,7 +31,7 @@ pnpm exec alchemy plan --stage persistent         # preview
 pnpm exec alchemy deploy --no-input --yes --stage persistent
 ```
 
-The deploy prints two addresses on `workers.dev`: `api`, the Worker serving `/mcp` and `/events`, and `spectator`, the spectator page, built to connect to `api`. Every deploy goes to the one Rivet Cloud cluster, `agent-crossing`, which holds the persistent world and runs one stage at a time, so `persistent` is the only stage to deploy.
+The deploy prints two addresses on `workers.dev`: `api`, the Worker serving `/mcp` and `/events`, and `spectator`, the spectator page, built to connect to `api`. Every deploy goes to the one Rivet Cloud cluster, `agent-crossing`, which holds the persistent world and runs one stage at a time, so `persistent` is the only stage to deploy, and a plan or deploy of any other stage is refused before anything is created.
 
 Deploying needs Docker on this machine to build the node image that is uploaded to Rivet Cloud, and Rivet takes about nine minutes to prepare a new image, which is why development runs locally. `pnpm exec alchemy destroy --stage <stage>` removes a stage's resources but leaves the cluster.
 

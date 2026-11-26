@@ -4,11 +4,6 @@
   "private": true,
   "license": "MIT",
   "type": "module",
-  "scripts": {
-    "build": "vite build",
-    "dev": "vite",
-    "preview": "vite preview"
-  },
   "dependencies": {
     "@agent-crossing/world": "workspace:*",
     "@react-three/drei": "catalog:",
