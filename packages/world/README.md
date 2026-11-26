@@ -22,8 +22,6 @@ Each public module is one file named for its noun, imported as a namespace: `imp
 
 `src/internal` holds the placement rules and the body of `decide`; no other package imports it.
 
-Imports point one way: everything else reads the definitions, and definitions are written in the schema. Definitions hold no rules, no randomness and nothing that acts, so they read as a contract for the rest of the code.
-
 Events are kept apart from commands because they outlive them: a command is a way of asking, and an event is what the world remembers.
 
 This package holds no wording: the world in words is `@agent-crossing/views`.

@@ -4,23 +4,19 @@ import * as Cell from "@agent-crossing/world/Cell";
 import * as Entity from "@agent-crossing/world/Entity";
 import * as Event from "@agent-crossing/world/Event";
 import * as World from "@agent-crossing/world/World";
+import type * as Rivet from "@alchemy.run/rivet";
 import * as Arr from "effect/Array";
+import * as Duration from "effect/Duration";
 import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
 
-/**
- * The tables the World object keeps. `entities` holds the current world, one
- * row per entity, floors and liquids included; `events` is the history;
- * `meta` holds the one row with the count of entities ever spawned.
- */
-export const SCHEMA = [
+const SCHEMA = [
   "CREATE TABLE IF NOT EXISTS entities (id TEXT PRIMARY KEY NOT NULL, prefab TEXT NOT NULL, x INTEGER NOT NULL, y INTEGER NOT NULL, components TEXT NOT NULL) WITHOUT ROWID",
   "CREATE TABLE IF NOT EXISTS events (seq INTEGER PRIMARY KEY AUTOINCREMENT, event TEXT NOT NULL)",
   "CREATE TABLE IF NOT EXISTS meta (id INTEGER PRIMARY KEY CHECK (id = 1), spawned INTEGER NOT NULL)",
 ] as const;
 
-/** A stored event, as the history view reads it back. */
-export const EventRow = Schema.Struct({
+const EventRow = Schema.Struct({
   seq: Event.Seq,
   event: Schema.fromJsonString(Event.Event),
 });
@@ -187,12 +183,7 @@ const statementOfRun = (run: readonly Write[]) => {
   } satisfies Statement;
 };
 
-/**
- * The statements that persist an event's rows, in order. Consecutive writes to the
- * same table with the same operation share one multi-row statement, because
- * each statement is a round trip to the database.
- */
-export const statementsOf = (event: typeof Event.Event.Type) =>
+const statementsOf = (event: typeof Event.Event.Type) =>
   Effect.map(writesOf(event), (writes) =>
     Arr.map(runsOf(writes), statementOfRun)
   );
@@ -209,20 +200,119 @@ const entityOfRow = (row: typeof EntityRow.Type) =>
     prefab: row.prefab,
   }) satisfies typeof Entity.Entity.Type;
 
-/** What the stored rows hold, before parsing. */
-interface StoredRows {
-  readonly entities: readonly unknown[];
-  readonly meta: readonly unknown[];
-}
-
 const decodeEntityRows = Schema.decodeUnknownEffect(Schema.Array(EntityRow));
 const decodeMetaRows = Schema.decodeUnknownEffect(Schema.Array(MetaRow));
 
-/** Parses the stored rows into the world they amount to. */
-export const worldOfRows = (rows: StoredRows) =>
+const worldOfRows = (rows: {
+  readonly entities: readonly unknown[];
+  readonly meta: readonly unknown[];
+}) =>
   Effect.gen(function* () {
     const entities = yield* decodeEntityRows(rows.entities);
     const meta = yield* decodeMetaRows(rows.meta);
 
     return World.make(Arr.map(entities, entityOfRow), meta[0]?.spawned ?? 0);
   });
+
+const COMMIT_TIMEOUT = Duration.minutes(5);
+
+/** An event the World object has stored, with the sequence number it was given. */
+export interface Happened {
+  readonly seq: typeof Event.Seq.Type;
+  readonly event: typeof Event.Event.Type;
+}
+
+const decodeSeq = Schema.decodeUnknownEffect(Event.Seq);
+const decodeEventRows = Schema.decodeUnknownEffect(Schema.Array(EventRow));
+const encodeEventJson = Schema.encodeEffect(Schema.fromJsonString(Event.Event));
+
+const run = <Row extends Record<string, unknown>>(
+  storage: Rivet.DurableObjectStorage,
+  query: string,
+  ...bindings: readonly unknown[]
+) =>
+  Effect.flatMap(storage.sql.exec<Row>(query, ...bindings), (cursor) =>
+    cursor.toArray()
+  );
+
+/**
+ * Creates the tables if they are missing, then reads back the world they hold
+ * and the sequence number of the last stored event. `entities` holds the
+ * current world, one row per entity, floors and liquids included; `events` is
+ * the history; `meta` holds the one row with the count of entities ever
+ * spawned.
+ */
+export const load = (storage: Rivet.DurableObjectStorage) =>
+  Effect.gen(function* () {
+    yield* Effect.forEach(SCHEMA, (statement) => run(storage, statement), {
+      discard: true,
+    });
+
+    const world = yield* Effect.orDie(
+      worldOfRows({
+        entities: yield* run(
+          storage,
+          "SELECT id, prefab, x, y, components FROM entities"
+        ),
+        meta: yield* run(storage, "SELECT spawned FROM meta WHERE id = 1"),
+      })
+    );
+
+    const head = yield* Effect.flatMap(
+      run<{ head: number }>(
+        storage,
+        "SELECT COALESCE(MAX(seq), 0) AS head FROM events"
+      ),
+      (rows) => Effect.orDie(decodeSeq(rows[0]?.head ?? 0))
+    );
+
+    return { head, world };
+  });
+
+const storeOne = (
+  storage: Rivet.DurableObjectStorage,
+  event: typeof Event.Event.Type
+) =>
+  Effect.gen(function* () {
+    const rows = yield* run<{ seq: number }>(
+      storage,
+      "INSERT INTO events (event) VALUES (?) RETURNING seq",
+      yield* encodeEventJson(event)
+    );
+
+    const seq = yield* decodeSeq(rows[0]?.seq);
+
+    yield* Effect.forEach(
+      yield* statementsOf(event),
+      ({ bindings, sql }) => run(storage, sql, ...bindings),
+      { discard: true }
+    );
+
+    return { event, seq } satisfies Happened;
+  });
+
+/**
+ * Stores the events and the rows they change in one transaction, and returns
+ * each event with the sequence number it was given. Consecutive writes to the
+ * same table with the same operation share one multi-row statement, because
+ * each statement is a round trip to the database.
+ */
+export const store = (
+  storage: Rivet.DurableObjectStorage,
+  events: readonly (typeof Event.Event.Type)[]
+) =>
+  storage.transaction(
+    Effect.forEach(events, (event) => storeOne(storage, event)),
+    { timeout: COMMIT_TIMEOUT }
+  );
+
+/** The last `count` stored events, oldest first. */
+export const latest = (storage: Rivet.DurableObjectStorage, count: number) =>
+  Effect.flatMap(
+    run(
+      storage,
+      "SELECT seq, event FROM (SELECT seq, event FROM events ORDER BY seq DESC LIMIT ?) ORDER BY seq",
+      count
+    ),
+    decodeEventRows
+  );
