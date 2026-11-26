@@ -15,13 +15,13 @@ import * as Result from "effect/Result";
 import * as Schema from "effect/Schema";
 import * as Str from "effect/String";
 
-const USAGE = `Calls the Agent Crossing admin MCP server and prints the tool's text.
+const USAGE = `Calls the Agent Crossing MCP server and prints the tool's text.
 
 Usage:
-  bun scripts/admin.ts <tool> ['<json arguments>']   call a tool, for example
-      bun scripts/admin.ts view_map '{"x1":0,"y1":0,"x2":20,"y2":10}'
-  bun scripts/admin.ts tools                         list the tools
-  bun scripts/admin.ts schema <tool>                 print a tool's JSON input schema
+  bun scripts/mcp.ts <tool> ['<json arguments>']   call a tool, for example
+      bun scripts/mcp.ts view_map '{"x1":0,"y1":0,"x2":20,"y2":10}'
+  bun scripts/mcp.ts tools                         list the tools
+  bun scripts/mcp.ts schema <tool>                 print a tool's JSON input schema
 
 Settings, from the environment or the .env at the root of the repository:
   AGENT_CROSSING_URL  the Api, the api address alchemy deploy prints
@@ -75,7 +75,7 @@ const toolNamed = (name: string | undefined) =>
         {
           onNone: () =>
             failed(
-              `No tool called ${name ?? "(none given)"}; try: bun scripts/admin.ts tools`
+              `No tool called ${name ?? "(none given)"}; try: bun scripts/mcp.ts tools`
             ),
           onSome: Effect.succeed,
         }
@@ -148,7 +148,7 @@ const main = Effect.gen(function* () {
   return yield* run(command, json).pipe(
     Effect.provide(
       McpClient.layerHttp({
-        name: "agent-crossing-admin-cli",
+        name: "agent-crossing-cli",
         protocol: McpProtocol.v2026_07_28,
         url,
         version: "0.1.0",
@@ -156,13 +156,13 @@ const main = Effect.gen(function* () {
     ),
     Effect.catchTag("McpClientError", (issue) =>
       failed(
-        `The call to the admin MCP server at ${url} failed: ${issue.message}. Is the Api running?`
+        `The call to the MCP server at ${url} failed: ${issue.message}. Is the Api running?`
       )
     )
   );
 }).pipe(
   Effect.catchTag("Failed", ({ message }) =>
-    Effect.as(Console.error(`admin: ${message}`), 2)
+    Effect.as(Console.error(`mcp: ${message}`), 2)
   ),
   Effect.flatMap((status) =>
     Effect.sync(() => {

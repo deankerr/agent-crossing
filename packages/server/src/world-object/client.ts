@@ -39,10 +39,6 @@ export class WorldClient extends Context.Service<
     readonly map: (
       area: Option.Option<typeof Area.Type>
     ) => Effect.Effect<Option.Option<string>>;
-    readonly agentView: (
-      cell: typeof Cell.Type,
-      radius: number
-    ) => Effect.Effect<string>;
     readonly inspect: (cell: typeof Cell.Type) => Effect.Effect<string>;
     readonly find: (
       region: Option.Option<typeof Region.Type>,
@@ -72,10 +68,6 @@ export class WorldClient extends Context.Service<
             Effect.flatMap((encoded) => world.act(encoded)),
             Effect.flatMap(decodeVerdict)
           )
-        ),
-      agentView: (cell, radius) =>
-        text(
-          Effect.flatMap(encodeCell(cell), (at) => world.agentView(at, radius))
         ),
       feed: Stream.suspend(() =>
         world.feed().pipe(

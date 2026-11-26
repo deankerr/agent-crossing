@@ -122,7 +122,7 @@ export const Generate = Schema.TaggedStruct("Generate", {
   )
 );
 
-/** What an admin may ask of the world. */
+/** What may be asked of the world. */
 export const Command = Schema.Union([
   Paint,
   Pour,

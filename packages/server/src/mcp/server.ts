@@ -5,19 +5,19 @@ import * as HttpRouter from "effect/http/HttpRouter";
 import * as Layer from "effect/Layer";
 
 import { INSTRUCTIONS } from "./instructions.ts";
-import { AdminTools } from "./tools/index.ts";
+import { McpTools } from "./tools/index.ts";
 
 /**
- * The handler for `/mcp`: the admin tools over MCP revision 2026-07-28, open
+ * The handler for `/mcp`: the MCP tools over MCP revision 2026-07-28, open
  * to anyone who can reach it. Yield it from the Worker's construction effect.
  */
-export const adminHandler = Effect.orDie(
+export const mcpHandler = Effect.orDie(
   HttpRouter.toHttpEffect(
-    AdminTools.pipe(
+    McpTools.pipe(
       Layer.provide(
         McpServer.layerHttpRequestScoped({
           instructions: INSTRUCTIONS,
-          name: "agent-crossing-admin",
+          name: "agent-crossing",
           path: "/mcp",
           protocols: [McpProtocol.v2026_07_28],
           version: "0.2.0",

@@ -5,7 +5,7 @@ import * as Str from "effect/String";
 
 import { prefabs } from "../definitions/prefabs/index.ts";
 import type { Rect } from "../editing/region.ts";
-import { cellAt, sameCell } from "../schema/cell.ts";
+import { cellAt } from "../schema/cell.ts";
 import type { Cell } from "../schema/cell.ts";
 import type { Layer } from "../schema/components.ts";
 import type { Area } from "../state/area.ts";
@@ -149,31 +149,21 @@ const legendOf = (drawn: readonly Drawn[]) => {
 
 /**
  * The glyph map of the span, the level map of the same cells and a legend of
- * the glyphs that appear, with `@` drawn at `you` when given.
+ * the glyphs that appear.
  */
-export const renderMap = (
-  world: World,
-  span: Span,
-  you: Option.Option<typeof Cell.Type>
-) => {
+export const renderMap = (world: World, span: Span) => {
   const drawn: Drawn[] = [];
 
-  const glyphs = grid(span, (cell) => {
-    if (Option.exists(you, (at) => sameCell(at, cell))) {
-      drawn.push({ glyph: "@", noun: "you" });
-
-      return "@";
-    }
-
-    return Option.match(drawnAt(world, cell), {
+  const glyphs = grid(span, (cell) =>
+    Option.match(drawnAt(world, cell), {
       onNone: () => BLANK,
       onSome: (seen) => {
         drawn.push(seen);
 
         return seen.glyph;
       },
-    });
-  });
+    })
+  );
 
   const levels = grid(span, (cell) => levelAt(world, cell));
 
@@ -211,11 +201,7 @@ const mapText = (world: World, rect: Pick<typeof Rect.Type, "from" | "to">) => {
         ];
 
   return Arr.join(
-    [
-      `Map of ${spanText(span)}. ${AXES}`,
-      ...cut,
-      ...renderMap(world, span, Option.none()),
-    ],
+    [`Map of ${spanText(span)}. ${AXES}`, ...cut, ...renderMap(world, span)],
     "\n"
   );
 };

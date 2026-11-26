@@ -65,29 +65,29 @@ export default defineConfig({
   },
   overrides: [
     {
-      files: ["packages/spectator/**"],
+      files: ["packages/web/**"],
       plugins: react.plugins,
       rules: react.rules,
     },
     {
-      files: ["packages/host/src/world-object/**"],
+      files: ["packages/server/src/world-object/**"],
       rules: importsPointOneWay(
-        ["admin", "spectate"],
-        "world-object reads only the world package; admin, spectate and api.ts read world-object, never the other way."
+        ["mcp", "stream"],
+        "world-object reads only the world package; mcp, stream and api.ts read world-object, never the other way."
       ),
     },
     {
-      files: ["packages/host/src/admin/**"],
+      files: ["packages/server/src/mcp/**"],
       rules: importsPointOneWay(
-        ["spectate"],
-        "admin reads world-object only; spectate is a separate door, and api.ts reads admin, never the other way."
+        ["stream"],
+        "mcp reads world-object only; stream is a separate door, and api.ts reads mcp, never the other way."
       ),
     },
     {
-      files: ["packages/host/src/spectate/**"],
+      files: ["packages/server/src/stream/**"],
       rules: importsPointOneWay(
-        ["admin"],
-        "spectate reads world-object only; admin is a separate door, and api.ts reads spectate, never the other way."
+        ["mcp"],
+        "stream reads world-object only; mcp is a separate door, and api.ts reads stream, never the other way."
       ),
     },
     {
@@ -99,8 +99,8 @@ export default defineConfig({
             patterns: [
               {
                 message:
-                  "The world package reads no other package; host and spectator read world, never the other way.",
-                regex: "^@agent-crossing/(host|spectator)(/|$)",
+                  "The world package reads no other package; server and web read world, never the other way.",
+                regex: "^@agent-crossing/(server|web)(/|$)",
               },
             ],
           },

@@ -1,6 +1,6 @@
-# @agent-crossing/spectator
+# @agent-crossing/web
 
-The read-only 3D spectator view of the Agent Crossing world: a Vite, React and React Three Fiber page that draws every floor, liquid and everything standing on them, lets you inspect any cell, shows exactly what an agent standing there would be told, and keeps a plain-language history of the latest edits.
+The read-only 3D spectator view of the Agent Crossing world: a Vite, React and React Three Fiber page that draws every floor, liquid and everything standing on them, lets you inspect any cell and keeps a plain-language history of the latest edits.
 
 ## Run it
 
@@ -21,8 +21,8 @@ Frames that do not decode are logged and dropped. When the browser gives up on a
 
 ## Inside
 
-- `src/feed/` is where the world comes from: `live-feed.ts` (the host's stream) and `feed-state.ts`, the pure reducer from frames to the connection, the shown world and the history.
+- `src/feed/` is where the world comes from: `live-feed.ts` (the server's stream) and `feed-state.ts`, the pure reducer from frames to the connection, the shown world and the history.
 - `src/scene/` is what is drawn. `layout.ts`, `hash.ts`, `floor-columns.ts` and `entity-instances.ts` are pure: they derive the boxes and model instances from a world. Brightness variation, jitter and offsets come from cell coordinates and entity ids, so nothing is stored.
 - Every model comes from the entity's effective components and the palette in `@agent-crossing/world/schema/palette`. `model-geometry.ts` turns parts and forms into geometry: a part is painted its shade, or the entity's `colors` override for that part, times each form's `tone`.
 - Floors and liquids are drawn from their `slab` and `fill` solids as instanced cell-filling boxes: every floor shares one opaque material, and each liquid opacity has its own, so water is translucent over the floor beneath it. Everything else is drawn with one `InstancedMesh` per painted model and material, never one component per entity, and stands on its floor, or at the top of the liquid when there is one. Buffers are rebuilt only when the world changes.
-- `src/ui/` is the app shell, side panel, store and styles. The side panel shows the world package's own words: `summaryText` for the world, and `inspectText` and `agentViewText` for the selected cell.
+- `src/ui/` is the app shell, side panel, store and styles. The side panel shows the world package's own words: `summaryText` for the world, and `inspectText` for the selected cell.

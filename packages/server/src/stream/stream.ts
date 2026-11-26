@@ -29,7 +29,7 @@ export const preflight = () =>
  * comment asks the spectator to reconnect. Yield it from the Worker's
  * construction effect; each call of what it gives answers one request.
  */
-export const spectate = Effect.map(
+export const stream = Effect.map(
   WorldClient,
   (world) => () =>
     HttpServerResponse.stream(

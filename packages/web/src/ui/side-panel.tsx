@@ -1,7 +1,6 @@
 import { formatCell } from "@agent-crossing/world/schema/cell";
 import type { Cell } from "@agent-crossing/world/schema/cell";
 import type { World } from "@agent-crossing/world/state/world";
-import { agentViewText } from "@agent-crossing/world/text/agent-view";
 import { inspectText } from "@agent-crossing/world/text/inspect";
 import { summaryText } from "@agent-crossing/world/text/summary";
 import * as Arr from "effect/Array";
@@ -53,16 +52,14 @@ const CellDetails = ({
         ×
       </button>
     </header>
-    <pre className="agent-view">{inspectText(world, cell)}</pre>
-    <h3>What an agent here is told</h3>
-    <pre className="agent-view">{agentViewText(world, cell)}</pre>
+    <pre className="panel-text">{inspectText(world, cell)}</pre>
   </section>
 );
 
 const Summary = ({ world }: { readonly world: World }) => (
   <section className="panel-section">
     <h2>The world</h2>
-    <pre className="agent-view">{summaryText(world)}</pre>
+    <pre className="panel-text">{summaryText(world)}</pre>
   </section>
 );
 
@@ -128,8 +125,7 @@ export const SidePanel = ({
             />
           ) : (
             <p className="quiet waiting">
-              Click a cell to see what stands there and what an agent there
-              would be told.
+              Click a cell to see what stands there.
             </p>
           )}
           <Summary world={state.shown.value.world} />

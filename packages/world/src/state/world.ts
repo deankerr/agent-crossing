@@ -8,7 +8,7 @@ import { cellKey } from "../schema/cell.ts";
 import type { Cell, CellKey } from "../schema/cell.ts";
 import type { Layer, Place } from "../schema/components.ts";
 import { Change } from "./change.ts";
-import { componentsOf, entitySerial, storedLevel } from "./entity.ts";
+import { componentsOf, entitySerial } from "./entity.ts";
 import type { Entity, EntityId } from "./entity.ts";
 import type { Span } from "./span.ts";
 
@@ -143,13 +143,6 @@ export const placeAt = (world: World, cell: At) =>
 
     return place;
   });
-
-/** The level entities stand at in the cell: the liquid's when there is one, otherwise the floor's. */
-export const standingLevelAt = (world: World, cell: At) =>
-  Option.map(
-    Option.orElse(liquidAt(world, cell), () => floorAt(world, cell)),
-    storedLevel
-  );
 
 /** Every entity, oldest first. */
 export const allEntities = (world: World) =>

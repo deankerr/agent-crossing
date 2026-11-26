@@ -1,11 +1,11 @@
 {
-  "name": "@agent-crossing/host",
+  "name": "@agent-crossing/server",
   "version": "0.0.0",
   "private": true,
   "license": "MIT",
   "type": "module",
   "scripts": {
-    "admin": "bun scripts/admin.ts"
+    "mcp": "bun scripts/mcp.ts"
   },
   "dependencies": {
     "@agent-crossing/world": "workspace:*",

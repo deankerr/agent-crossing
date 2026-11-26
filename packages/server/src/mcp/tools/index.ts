@@ -18,14 +18,12 @@ import { PourLiquid, pourLiquid } from "./pour-liquid.ts";
 import { RemoveEntities, removeEntities } from "./remove-entities.ts";
 import { Scatter, scatter } from "./scatter.ts";
 import { Spawn, spawn } from "./spawn.ts";
-import { ViewAsAgent, viewAsAgent } from "./view-as-agent.ts";
 import { ViewMap, viewMap } from "./view-map.ts";
 import { WorldSummary, worldSummary } from "./world-summary.ts";
 
 const toolkit = Toolkit.make(
   WorldSummary,
   ViewMap,
-  ViewAsAgent,
   InspectCell,
   FindEntities,
   ListPrefabs,
@@ -44,7 +42,6 @@ const toolkit = Toolkit.make(
 const handlers = Effect.all({
   world_summary: worldSummary,
   view_map: viewMap,
-  view_as_agent: viewAsAgent,
   inspect_cell: inspectCell,
   find_entities: findEntities,
   list_prefabs: listPrefabs,
@@ -61,10 +58,10 @@ const handlers = Effect.all({
 });
 
 /**
- * Every admin tool as one toolkit, each answering in text, listed in this
+ * Every MCP tool as one toolkit, each answering in text, listed in this
  * order: the queries, then the edits.
  */
-export const AdminTools = Layer.effectDiscard(
+export const McpTools = Layer.effectDiscard(
   McpServer.registerToolkit(toolkit, {
     content: Record.map(toolkit.tools, () => textContent),
   }).pipe(Effect.provide(toolkit.toLayer(handlers)))

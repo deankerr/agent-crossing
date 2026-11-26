@@ -35,7 +35,7 @@ const logUndecodableFrame = (data: string, error: Schema.SchemaError) => {
       "Dropped a frame from the world feed that did not decode",
       error.message,
       { data }
-    ).pipe(Effect.annotateLogs({ source: "agent-crossing-spectator" }))
+    ).pipe(Effect.annotateLogs({ source: "agent-crossing-web" }))
   );
 };
 

@@ -23,7 +23,6 @@ import {
   touchedBy,
 } from "@agent-crossing/world/state/world";
 import type { World } from "@agent-crossing/world/state/world";
-import { agentViewText } from "@agent-crossing/world/text/agent-view";
 import { eventText } from "@agent-crossing/world/text/event";
 import { findText } from "@agent-crossing/world/text/find";
 import {
@@ -218,10 +217,6 @@ const instance = Effect.gen(function* () {
 
         return yield* encodeVerdict(verdict);
       }).pipe(Effect.orDie),
-    agentView: (cell: typeof Cell.Encoded, radius: number) =>
-      Effect.flatMap(Effect.orDie(decodeCell(cell)), (at) =>
-        reading((current) => agentViewText(current, at, radius))
-      ),
     feed: () =>
       Stream.unwrap(
         Effect.gen(function* () {

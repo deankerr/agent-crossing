@@ -24,7 +24,7 @@ Imports point one way: everything else reads the definitions, and definitions ar
 
 Events are kept apart from commands because they outlive them: a command is a way of asking, and an event is what the world remembers.
 
-The text here describes the world and never names a tool. Advice about which admin tool to use next belongs to the host's admin tools.
+The text here describes the world and never names a tool. Advice about which MCP tool to use next belongs to the server's MCP tools.
 
 The palette sits in the schema because shades are words that models are written in.
 
@@ -110,11 +110,11 @@ export const Meadow = biome({
 
 At most one entry of `grows` is placed per cell. Each entry of `extras` is rolled on its own and may share the cell. An entry is a prefab or a choice between prefabs, made with `weighted`.
 
-**To add a prefab:** write its file, add it to its category's `index.ts`, and add it to a biome if it should generate. The stored prefab names, the admin tools and the spectator view all follow from the index.
+**To add a prefab:** write its file, add it to its category's `index.ts`, and add it to a biome if it should generate. The stored prefab names, the MCP tools and the spectator view all follow from the index.
 
 ## How an edit happens
 
-An edit takes one path. `decide(world, command, now)` turns a command into events stamped with `now`, or a refusal; `changesOf` turns an event into the smallest writes to state, and `apply` is the only function that changes a world. The host stores the same changes as rows and keeps the events as the world's history.
+An edit takes one path. `decide(world, command, now)` turns a command into events stamped with `now`, or a refusal; `changesOf` turns an event into the smallest writes to state, and `apply` is the only function that changes a world. The server stores the same changes as rows and keeps the events as the world's history.
 
 After any edit, `decide` also removes the entities that no longer fit where they are, such as an oak whose floor was erased.
 

@@ -333,7 +333,7 @@ const settled = (world: World, edit: Edit, { dropped, events }: Outcome) => {
 };
 
 /**
- * Decides what an admin command does to the world: the events to record, or
+ * Decides what a command does to the world: the events to record, or
  * why nothing happens. Every event of one decision happens at `now`.
  */
 export const decide = (
