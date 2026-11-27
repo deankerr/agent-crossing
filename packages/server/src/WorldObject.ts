@@ -22,7 +22,7 @@ import { StreamItem, Verdict } from "./internal/world-object/wire.ts";
 import * as StreamFrame from "./StreamFrame.ts";
 
 /** The one world every caller shares. */
-export const WORLD_NAME = "world-5";
+export const WORLD_NAME = "world-6";
 
 const HEARTBEAT_INTERVAL = Duration.seconds(15);
 
