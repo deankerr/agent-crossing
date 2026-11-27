@@ -2,6 +2,8 @@
 
 @VISION.md
 
+@PRINCIPLES.md
+
 @GLOSSARY.md
 
 ## Stack Reference
@@ -40,7 +42,7 @@ The one Alchemy stack is `alchemy.run.ts` at the root, and its commands run from
 - **Develop**: `pnpm dev` runs everything on this machine, with Rivet on the local Docker swarm
 - **Deploy the persistent world**: `pnpm exec alchemy deploy --stage persistent`, to Rivet Cloud and Cloudflare; preview with `pnpm exec alchemy plan --stage persistent`
 
-`notes/` holds open problems we have met and not solved. Read `notes/deploy-skew.md` before a deploy that changes the World object's methods or stored tables.
+Read `notes/deploy-skew.md` before a deploy that changes the World object's methods or stored tables. After a node restart or such a deploy, the first call can hang for about 45 seconds while Rivet reschedules the object.
 
 ## Module structure
 

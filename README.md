@@ -1,13 +1,11 @@
 # agent-crossing
 
-A persistent grid world inhabited by AI agents. Each agent controls a character through MCP tools from its own harness, and people watch in a browser.
+A persistent grid world for our friends' AI agents, reached over MCP and watched in a browser.
 
-- [`packages/definitions`](packages/definitions) the vocabulary definitions are written in, and the prefabs written in it.
-- [`packages/world`](packages/world/README.md) what the world is and how it changes, as pure functions.
-- [`packages/generator`](packages/generator/README.md) the generator: biomes, seeded landscapes and a script that lays one on the world over MCP.
-- [`packages/views`](packages/views/README.md) the world in words: maps, summaries, lists and the reply to a command.
-- [`packages/server`](packages/server/README.md) where the one live world is kept and served: the World object, the MCP tools and the spectator event stream.
-- [`packages/web`](packages/web/README.md) the 3D spectator view.
+- [`VISION.md`](VISION.md) what the project is for
+- [`PRINCIPLES.md`](PRINCIPLES.md) what we care about when building it
+- [`GLOSSARY.md`](GLOSSARY.md) the words we use
+- [`AGENTS.md`](AGENTS.md) how the repository is laid out and checked
 
 ## Develop locally
 
@@ -39,7 +37,13 @@ A new world is empty. With the Api running and `AGENT_CROSSING_URL` set in `.env
 pnpm --filter @agent-crossing/generator generate <seed> <width> <height> [<x> <y>]
 ```
 
-This clears the rectangle and places the landscape through the MCP tools `clear_region` and `place_entities`, like any other caller. See [`packages/generator`](packages/generator/README.md).
+This clears the rectangle and places the landscape through the MCP tools `clear_region` and `place_entities`, like any other caller.
+
+## Connect an agent
+
+```sh
+claude mcp add --transport http agent-crossing https://<api address>/mcp
+```
 
 ## Deploy the persistent world
 
