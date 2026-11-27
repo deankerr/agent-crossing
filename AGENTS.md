@@ -29,12 +29,18 @@ Turn a lint rule off in `oxlint.config.ts` only when it conflicts with idiomatic
 
 Keep testing light for now. This is an experimental project in its very early stages and in constant flux: we are still iterating on its foundational elements, and tests would bake in assumptions we have not settled. Don't add tests as a matter of course.
 
+## Stored data
+
+Our data structures are in flux, and it is too early to preserve what is stored. The `persistent` stage is a demo of a production deployment, with no users and no data worth keeping. When a better schema or storage strategy turns up, the default is to take it and drop the existing data: weigh a migration only when the project owner asks for one. The project is experimental, and early decisions made without experience do not limit later ideas.
+
 ## Run and deploy
 
 The one Alchemy stack is `alchemy.run.ts` at the root, and its commands run from the root.
 
 - **Develop**: `pnpm dev` runs everything on this machine, with Rivet on the local Docker swarm
 - **Deploy the persistent world**: `pnpm exec alchemy deploy --stage persistent`, to Rivet Cloud and Cloudflare; preview with `pnpm exec alchemy plan --stage persistent`
+
+`notes/` holds open problems we have met and not solved. Read `notes/deploy-skew.md` before a deploy that changes the World object's methods or stored tables.
 
 ## Module structure
 
