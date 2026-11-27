@@ -6,7 +6,7 @@ The read-only 3D spectator view of the Agent Crossing world: a Vite, React and R
 
 From the repository root, `pnpm dev` serves the page on Vite's dev server on `http://localhost:1338`, connected to the Api on `http://localhost:1337`, and reloads it on every save. `pnpm exec alchemy deploy --stage persistent` builds it and deploys it as a Cloudflare Worker. The stack is the only way to run it.
 
-A deployed page connects to the Api at `VITE_WORLD_URL`, which the stack in `alchemy.run.ts` sets. Under `pnpm dev` it connects to its own address, and Vite's dev server passes `/events` and `/mcp` on to the Api, so sharing the page's one address shares the whole stack. Vite's dev server accepts requests for `.ts.net` hosts.
+The page connects to the Api at `VITE_WORLD_URL`, which the stack in `alchemy.run.ts` sets. A page built without a valid address there says so and connects nowhere. Vite's dev server accepts requests for `.ts.net` hosts, so the page can be watched through Tailscale Serve.
 
 ## Stream contract
 

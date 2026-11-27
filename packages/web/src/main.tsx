@@ -9,20 +9,25 @@ import { startSpectator, SpectatorContext } from "./ui/store.ts";
 
 import "./ui/styles.css";
 
-const worldUrl = Option.getOrElse(
-  Schema.decodeUnknownOption(Schema.URLFromString)(
-    import.meta.env.VITE_WORLD_URL
-  ),
-  () => new URL(globalThis.location.origin)
+const worldUrl = Schema.decodeUnknownOption(Schema.URLFromString)(
+  import.meta.env.VITE_WORLD_URL
 );
 
-const page = (
-  <SpectatorContext
-    value={Option.some(startSpectator(liveStream(eventsUrl(worldUrl))))}
-  >
-    <App />
-  </SpectatorContext>
-);
+const page = Option.match(worldUrl, {
+  onNone: () => (
+    <p className="stage-notice">
+      This page was built without a world address in VITE_WORLD_URL, so it has
+      nothing to show.
+    </p>
+  ),
+  onSome: (url) => (
+    <SpectatorContext
+      value={Option.some(startSpectator(liveStream(eventsUrl(url))))}
+    >
+      <App />
+    </SpectatorContext>
+  ),
+});
 
 Option.map(Option.fromNullishOr(document.querySelector("#root")), (root) => {
   createRoot(root).render(<StrictMode>{page}</StrictMode>);

@@ -4,13 +4,16 @@ import * as Rivet from "@alchemy.run/rivet";
 import * as Alchemy from "alchemy";
 import { Stack } from "alchemy/Stack";
 import { UserFacingError } from "alchemy/UserFacingError";
+import * as Config from "effect/Config";
 import * as Data from "effect/Data";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
+import * as Option from "effect/Option";
 
 import Api, { DEV_PORT } from "./packages/server/src/Api.ts";
 import * as Cluster from "./packages/server/src/Cluster.ts";
 
+const DEV_API_AS_BROWSERS_REACH_IT = "AGENT_CROSSING_DEV_API_URL";
 const PERSISTENT_STAGE = "persistent";
 
 class CloudStageRefused extends Data.TaggedError("CloudStageRefused")<{
@@ -43,9 +46,17 @@ export default Alchemy.Stack(
 
     const api = yield* Api;
 
+    const reached = yield* Config.option(
+      Config.String(DEV_API_AS_BROWSERS_REACH_IT)
+    );
+
     const web = yield* Cloudflare.Website.Vite("Web", {
       dev: { port: DEV_PORT + 1, strictPort: true },
-      env: here ? {} : { VITE_WORLD_URL: api.url.as<string>() },
+      env: {
+        VITE_WORLD_URL: here
+          ? Option.getOrElse(reached, () => api.url.as<string>())
+          : api.url.as<string>(),
+      },
       rootDir: `${import.meta.dirname}/packages/web`,
     });
 

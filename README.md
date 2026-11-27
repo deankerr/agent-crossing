@@ -22,7 +22,14 @@ pnpm dev
 
 The world's data is on a Docker volume, so it survives restarts. Stopping `alchemy dev` stops the Api and the spectator view and leaves the engine and the node running. `pnpm exec alchemy destroy --stage dev_$USER` removes all of it, the world included.
 
-`pnpm dev` runs `alchemy dev` under [portless](https://portless.sh), which shares the spectator view on your tailnet and prints its address there. The page's dev server passes `/events` and `/mcp` on to the Api, so that one address serves the whole stack. Without portless or Tailscale, run `pnpm exec alchemy dev`.
+To watch from another machine, serve both ports to it and set `AGENT_CROSSING_DEV_API_URL` in `.env` to the Api's address as that browser reaches it. The spectator view connects to that address in place of `localhost`. With Tailscale Serve, run these once; the entries outlast restarts:
+
+```sh
+tailscale serve --bg --https 8446 1337
+tailscale serve --bg --https 8447 1338
+```
+
+The spectator view is then at `https://<this machine>:8447` and the Api at `https://<this machine>:8446`. The engine needs no entry: only the Api and the node call it.
 
 ## Generate a world
 
